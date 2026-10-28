@@ -1,0 +1,3503 @@
+:root {
+  color-scheme: dark;
+  --bg-app: #000000;
+  --bg-panel: #0d1117;
+  --bg-card: #161b22;
+  --bg-input: #1c2128;
+  --border-subtle: #262c36;
+  --text-main: #f0f6fc;
+  --text-muted: #8b949e;
+  --imessage-blue: #0a84ff;
+  --imessage-blue-dark: #0066cc;
+  --incoming-bubble: #1f242d;
+  --accent-primary: #0a84ff;
+  --emerald: #30d158;
+  --emerald-bg: rgba(48, 209, 88, 0.14);
+  --rose: #ff453a;
+  --rose-bg: rgba(255, 69, 58, 0.14);
+  --amber: #ff9f0a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Roboto',
+    'Inter', sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  line-height: 1.45;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+code,
+pre,
+.dc-mono {
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+}
+
+.dc-root-viewport {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.dc-root-viewport.iphone-frame {
+  max-width: 393px;
+  width: 393px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* Global Top Navigation */
+.dc-global-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dc-menu-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-menu-trigger-btn:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-brand-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.dc-brand-icon .dc-brand-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9px;
+  display: block;
+}
+
+.dc-brand-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dc-brand-title-row h1 {
+  margin: 0;
+  font-size: clamp(0.98rem, 0.9rem + 0.35vw, 1.12rem);
+  font-weight: 700;
+}
+
+.dc-badge-e2ee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--emerald-bg);
+  color: var(--emerald);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.dc-badge-filtered-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--rose-bg);
+  color: #ff6961;
+  border: 1px solid rgba(255, 69, 58, 0.3);
+}
+
+/* Mode Switcher */
+.dc-mode-switcher {
+  display: inline-flex;
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+}
+
+.dc-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-mode-btn.active {
+  background: var(--imessage-blue);
+  color: #ffffff;
+}
+
+.dc-topbar-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dc-identity-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.dc-identity-switcher select {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.78rem;
+}
+
+.dc-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.dc-btn-ghost:hover {
+  border-color: var(--imessage-blue);
+}
+
+/* =====================================================================
+   DEFAULT ANDROID / iMESSAGE TEXTING LAYOUT (Free-Flowing Threads)
+   ===================================================================== */
+.dc-texting-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  height: calc(100dvh - 57px);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .dc-texting-layout {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - 88px);
+    width: 100%;
+    max-width: 100%;
+  }
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .dc-global-nav {
+    padding: 6px 10px;
+    gap: 5px;
+  }
+  .dc-brand {
+    gap: 6px;
+  }
+  .dc-brand-title-row h1 {
+    font-size: 0.96rem;
+  }
+  .dc-menu-trigger-btn span,
+  .dc-badge-e2ee,
+  .dc-badge-filtered-count {
+    display: none;
+  }
+  .dc-menu-trigger-btn {
+    padding: 5px 7px;
+  }
+  .dc-brand-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  .dc-mode-btn {
+    padding: 4px 7px;
+    font-size: 0.66rem;
+    gap: 4px;
+  }
+  .dc-topbar-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  .dc-profile-pill-btn {
+    padding: 3px 6px 3px 3px;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .dc-nav-avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 0.65rem;
+  }
+  .dc-profile-pill-text span {
+    display: none;
+  }
+  .dc-profile-pill-text strong {
+    font-size: 0.68rem;
+    max-width: 68px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dc-identity-switcher {
+    flex: 1;
+    min-width: 0;
+  }
+  .dc-identity-switcher select {
+    width: 100%;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    padding: 4px 6px;
+    font-size: 0.66rem;
+  }
+  .dc-btn-ghost {
+    padding: 4px 7px;
+    font-size: 0.66rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .dc-freeflow-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .dc-freeflow-header-identity h2 {
+    font-size: 0.88rem;
+    max-width: 165px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dc-freeflow-feed {
+    padding: 10px;
+  }
+  .dc-e2ee-EncryptionNotice {
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 0.68rem;
+    max-width: 100%;
+  }
+  .dc-imessage-row {
+    max-width: 92%;
+  }
+  .dc-imessage-sender-line {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .dc-imessage-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .dc-imessage-composer {
+    padding: 8px 10px 12px;
+  }
+  .dc-imessage-input-row {
+    gap: 6px;
+  }
+  .dc-imessage-input-row input {
+    min-width: 0;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+}
+
+/* Also apply iPhone mobile rules when .iphone-frame is active */
+.dc-root-viewport.iphone-frame .dc-texting-layout {
+  grid-template-columns: minmax(0, 1fr);
+  height: calc(100dvh - 88px);
+}
+.dc-root-viewport.iphone-frame .mobile-hidden {
+  display: none !important;
+}
+.dc-root-viewport.iphone-frame .dc-mobile-back-btn {
+  display: inline-flex;
+}
+.dc-root-viewport.iphone-frame .dc-global-nav {
+  padding: 6px 10px;
+  gap: 5px;
+}
+.dc-root-viewport.iphone-frame .dc-brand {
+  gap: 6px;
+}
+.dc-root-viewport.iphone-frame .dc-brand-title-row h1 {
+  font-size: 0.96rem;
+}
+.dc-root-viewport.iphone-frame .dc-menu-trigger-btn span,
+.dc-root-viewport.iphone-frame .dc-badge-e2ee,
+.dc-root-viewport.iphone-frame .dc-badge-filtered-count {
+  display: none;
+}
+.dc-root-viewport.iphone-frame .dc-menu-trigger-btn {
+  padding: 5px 7px;
+}
+.dc-root-viewport.iphone-frame .dc-brand-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.dc-root-viewport.iphone-frame .dc-mode-btn {
+  padding: 4px 7px;
+  font-size: 0.66rem;
+  gap: 4px;
+}
+.dc-root-viewport.iphone-frame .dc-topbar-controls {
+  width: 100%;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.dc-root-viewport.iphone-frame .dc-profile-pill-btn {
+  padding: 3px 6px 3px 3px;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.dc-root-viewport.iphone-frame .dc-nav-avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 0.65rem;
+}
+.dc-root-viewport.iphone-frame .dc-profile-pill-text span {
+  display: none;
+}
+.dc-root-viewport.iphone-frame .dc-profile-pill-text strong {
+  font-size: 0.68rem;
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dc-root-viewport.iphone-frame .dc-identity-switcher {
+  flex: 1;
+  min-width: 0;
+}
+.dc-root-viewport.iphone-frame .dc-identity-switcher select {
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  padding: 4px 6px;
+  font-size: 0.66rem;
+}
+.dc-root-viewport.iphone-frame .dc-btn-ghost {
+  padding: 4px 7px;
+  font-size: 0.66rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.dc-root-viewport.iphone-frame .dc-freeflow-header {
+  padding: 8px 10px;
+  gap: 6px;
+}
+.dc-root-viewport.iphone-frame .dc-freeflow-header-identity h2 {
+  font-size: 0.88rem;
+  max-width: 165px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dc-root-viewport.iphone-frame .dc-freeflow-feed {
+  padding: 10px;
+}
+.dc-root-viewport.iphone-frame .dc-e2ee-EncryptionNotice {
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-size: 0.68rem;
+  max-width: 100%;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-row {
+  max-width: 92%;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-sender-line {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-controls {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-composer {
+  padding: 8px 10px 12px;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-input-row {
+  gap: 6px;
+}
+.dc-root-viewport.iphone-frame .dc-imessage-input-row input {
+  min-width: 0;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+.dc-root-viewport.iphone-frame dialog.dc-modal-dialog {
+  width: 365px;
+  max-width: 365px;
+  margin: auto 0 auto 14px;
+}
+.dc-root-viewport.iphone-frame .dc-modal-inner {
+  padding: 14px;
+  gap: 10px;
+}
+.dc-root-viewport.iphone-frame .dc-shred-modal-title {
+  font-size: 0.92rem;
+}
+.dc-root-viewport.iphone-frame .dc-shred-warning-banner {
+  padding: 10px 12px;
+  font-size: 0.78rem;
+}
+.dc-root-viewport.iphone-frame .dc-shred-checklist {
+  font-size: 0.74rem;
+  gap: 6px;
+}
+.dc-root-viewport.iphone-frame .dc-modal-actions {
+  gap: 8px;
+}
+.dc-root-viewport.iphone-frame .dc-btn-danger-confirm {
+  padding: 8px 11px;
+  font-size: 0.76rem;
+}
+
+/* Left Threads List & Contact Search Pane */
+.dc-threads-pane {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dc-threads-pane-top {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-threads-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dc-threads-title-row h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dc-threads-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dc-pill-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-pill-action-btn:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-compose-circle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--imessage-blue);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Contact Search Bar */
+.dc-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dc-search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.dc-search-box input {
+  width: 100%;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 8px 30px 8px 34px;
+  font-size: 0.82rem;
+}
+
+.dc-search-box input:focus {
+  outline: none;
+  border-color: var(--imessage-blue);
+}
+
+.dc-clear-search-btn {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  display: flex;
+}
+
+.dc-instant-email-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: rgba(10, 132, 255, 0.14);
+  border: 1px solid rgba(10, 132, 255, 0.4);
+  border-radius: 12px;
+  padding: 9px 11px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.dc-instant-email-start div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-instant-email-start strong {
+  font-size: 0.82rem;
+}
+
+.dc-instant-email-start span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.dc-search-contacts-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.dc-search-section-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.dc-contact-hit-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  padding: 6px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dc-contact-hit-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dc-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.dc-contact-hit-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-contact-hit-info strong {
+  font-size: 0.82rem;
+}
+
+.dc-contact-hit-info span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Unified Conversation List */
+.dc-thread-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dc-thread-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.dc-thread-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dc-thread-card.active {
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(10, 132, 255, 0.4);
+}
+
+.dc-thread-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.dc-thread-avatar.group-avatar {
+  background: linear-gradient(135deg, #5e5ce6, #0a84ff);
+  color: #fff;
+}
+
+.dc-thread-avatar.dm-avatar {
+  background: linear-gradient(135deg, #30d158, #0a84ff);
+  color: #fff;
+}
+
+.dc-thread-avatar.invite-avatar {
+  background: rgba(255, 159, 10, 0.16);
+  color: #ffd60a;
+  border: 1px dashed rgba(255, 159, 10, 0.5);
+}
+
+.dc-thread-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dc-thread-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dc-thread-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-thread-timestamp {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dc-thread-snippet {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-thread-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.dc-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.dc-mini-badge.verified {
+  color: var(--emerald);
+}
+
+.dc-mini-badge.invite {
+  color: #ffd60a;
+}
+
+.dc-sidebar-footer-card {
+  margin: 8px 10px 10px;
+  background: rgba(48, 209, 88, 0.08);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 0.73rem;
+}
+
+.dc-sidebar-footer-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--emerald);
+  margin-bottom: 2px;
+}
+
+.dc-sidebar-footer-card p {
+  margin: 0;
+  color: #c9d1d9;
+}
+
+/* =====================================================================
+   RIGHT PANE: FREE-FLOWING iMESSAGE / ANDROID STREAM
+   ===================================================================== */
+.dc-freeflow-chat-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dc-freeflow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(13, 17, 23, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dc-freeflow-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dc-mobile-back-btn {
+  display: none;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+@media (max-width: 860px) {
+  .dc-mobile-back-btn {
+    display: inline-flex;
+  }
+}
+
+.dc-freeflow-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.dc-header-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dc-freeflow-header-identity h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.dc-freeflow-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dc-header-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dc-btn-manage-members {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-btn-manage-members:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-non-app-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  background: rgba(255, 159, 10, 0.12);
+  border-bottom: 1px solid rgba(255, 159, 10, 0.3);
+  font-size: 0.78rem;
+}
+
+.dc-btn-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--amber);
+  color: #000;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Free-Flowing Message Stream */
+.dc-freeflow-feed {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-e2ee-EncryptionNotice {
+  align-self: center;
+  max-width: 540px;
+  text-align: center;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.dc-system-event-pill {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(10, 132, 255, 0.35);
+  color: #a5d6ff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.dc-system-event-pill code {
+  font-size: 0.68rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+/* iMessage / Android Message Bubbles */
+.dc-imessage-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  min-width: 0;
+  max-width: min(640px, 84%);
+}
+
+.dc-imessage-row.outgoing {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.dc-imessage-row.incoming {
+  align-self: flex-start;
+}
+
+.dc-imessage-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5e5ce6, #0a84ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #fff;
+  flex-shrink: 0;
+  margin-bottom: 22px;
+}
+
+.dc-imessage-column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dc-imessage-row.outgoing .dc-imessage-column {
+  align-items: flex-end;
+}
+
+.dc-imessage-row.incoming .dc-imessage-column {
+  align-items: flex-start;
+}
+
+.dc-imessage-sender-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0 6px;
+  max-width: 100%;
+}
+
+.dc-imessage-author {
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.dc-imessage-provider {
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* Free-Flowing Inline Reply Quote */
+.dc-inline-reply-quote {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #c9d1d9;
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 3px solid var(--imessage-blue);
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-bottom: 2px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Bubble */
+.dc-imessage-bubble {
+  position: relative;
+  padding: 10px 15px;
+  border-radius: 20px;
+  font-size: 0.93rem;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.dc-imessage-row.incoming .dc-imessage-bubble {
+  background: var(--incoming-bubble);
+  color: var(--text-main);
+  border-bottom-left-radius: 5px;
+}
+
+.dc-imessage-row.outgoing .dc-imessage-bubble {
+  background: linear-gradient(
+    180deg,
+    var(--imessage-blue),
+    var(--imessage-blue-dark)
+  );
+  color: #ffffff;
+  border-bottom-right-radius: 5px;
+}
+
+.dc-imessage-bubble p {
+  margin: 0;
+}
+
+.dc-tapback-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.dc-tapback-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.74rem;
+}
+
+.dc-imessage-controls {
+  display: flex;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.dc-imessage-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  font-size: 0.69rem;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.dc-imessage-controls button:hover {
+  color: var(--text-main);
+}
+
+.dc-quick-reaction-bar {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.dc-quick-reaction-bar button {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.dc-msg-attachments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc-attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 7px 10px;
+}
+
+.dc-att-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dc-att-meta {
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+/* iMessage / Android Pill Composer */
+.dc-imessage-composer {
+  padding: 10px 18px 14px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dc-composer-reply-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border-left: 3px solid var(--imessage-blue);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+}
+
+.dc-composer-reply-banner button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dc-pending-attachment-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--emerald-bg);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  font-size: 0.76rem;
+  color: var(--emerald);
+}
+
+.dc-pending-attachment-bar button {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.dc-imessage-input-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.dc-circle-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dc-circle-icon-btn:hover {
+  color: var(--text-main);
+  border-color: var(--imessage-blue);
+}
+
+.dc-imessage-input-row input {
+  flex: 1;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+}
+
+.dc-imessage-input-row input:focus {
+  outline: none;
+  border-color: var(--imessage-blue);
+}
+
+.dc-imessage-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--imessage-blue);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dc-imessage-send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* =====================================================================
+   MENU DIRECTORY & GROUP PEOPLE MANAGER MODALS
+   ===================================================================== */
+dialog.dc-modal-dialog {
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 0;
+  width: min(840px, 94%);
+  max-width: 94%;
+  max-height: 86dvh;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+}
+
+dialog.dc-modal-md {
+  width: min(620px, 94%);
+  max-width: 94%;
+}
+
+dialog.dc-modal-sm {
+  width: min(440px, 92%);
+  max-width: 92%;
+}
+
+dialog.dc-modal-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.dc-modal-inner {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 10px;
+}
+
+.dc-modal-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-icon-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.dc-menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .dc-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dc-menu-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-menu-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dc-menu-section-head h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #c9d1d9;
+}
+
+.dc-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55dvh;
+  overflow-y: auto;
+}
+
+.dc-menu-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dc-menu-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.dc-menu-item-main div {
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-menu-item-main strong {
+  font-size: 0.86rem;
+}
+
+.dc-menu-item-main span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Group Member Manager */
+.dc-callout-banner {
+  background: rgba(10, 132, 255, 0.1);
+  border: 1px solid rgba(10, 132, 255, 0.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+}
+
+.dc-how-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.dc-how-list li {
+  margin-bottom: 4px;
+}
+
+.dc-add-member-form {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr auto;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .dc-add-member-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dc-add-member-form input {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.dc-participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40dvh;
+  overflow-y: auto;
+}
+
+.dc-participant-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+
+.dc-participant-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dc-participant-info div {
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-participant-info strong {
+  font-size: 0.85rem;
+}
+
+.dc-participant-info span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dc-btn-remove-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--rose-bg);
+  color: #ff6961;
+  border: 1px solid rgba(255, 69, 58, 0.35);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* =====================================================================
+   STAGE 1: PROTOCOL WORKBENCH STYLES
+   ===================================================================== */
+.dc-app-shell {
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 16px 20px 36px;
+  width: 100%;
+}
+
+.dc-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.dc-metric-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.dc-metric-success {
+  border-color: rgba(48, 209, 88, 0.35);
+}
+
+.dc-metric-filtered {
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.dc-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.dc-metric-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dc-workbench-grid {
+  display: grid;
+  grid-template-columns: 470px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1120px) {
+  .dc-workbench-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dc-left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dc-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.dc-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dc-panel-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-tag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.dc-composer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dc-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .dc-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dc-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dc-form-group label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dc-form-group input,
+.dc-form-group select,
+.dc-form-group textarea {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  font-family: inherit;
+}
+
+.dc-encryption-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--emerald-bg);
+  color: var(--emerald);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.dc-emoji-picker {
+  display: flex;
+  gap: 8px;
+}
+
+.dc-emoji-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.dc-emoji-btn.active {
+  border-color: var(--imessage-blue);
+  background: rgba(10, 132, 255, 0.2);
+}
+
+.dc-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dc-btn-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--imessage-blue);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-btn-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.dc-email-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.dc-email-row {
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.dc-email-row.selected {
+  border-color: var(--imessage-blue);
+}
+
+.dc-email-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.dc-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.pill-accepted {
+  background: var(--emerald-bg);
+  color: var(--emerald);
+}
+
+.pill-ignored {
+  background: var(--rose-bg);
+  color: #ff6961;
+}
+
+.dc-email-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dc-email-subject {
+  font-size: 0.83rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.dc-email-from {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.dc-email-reason {
+  font-size: 0.72rem;
+  margin-top: 4px;
+  color: #c9d1d9;
+}
+
+.dc-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.dc-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc-tab-btn.active {
+  background: rgba(10, 132, 255, 0.18);
+  color: #fff;
+  border-color: var(--imessage-blue);
+}
+
+.dc-decrypted-messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-chat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.dc-chat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dc-chat-sender {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dc-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--imessage-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.dc-provider-badge {
+  font-size: 0.68rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.dc-chat-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dc-sig-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--emerald);
+  background: var(--emerald-bg);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.dc-mock-email-client {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d1322;
+}
+
+.dc-mock-email-header {
+  background: #161f33;
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dc-mock-email-body {
+  padding: 16px;
+}
+
+.dc-fallback-card {
+  max-width: 560px;
+  margin: 0 auto;
+  background: #131c31;
+  border: 1px solid #2e3b59;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.dc-fallback-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--emerald);
+  background: rgba(48, 209, 88, 0.14);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+.dc-fallback-title {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+.dc-fallback-sub {
+  margin: 0 0 14px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.dc-fallback-cipherbox {
+  background: #0b1120;
+  border: 1px dashed #334155;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 0.83rem;
+}
+
+.dc-fallback-fp {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.dc-fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dc-btn-primary,
+.dc-btn-secondary,
+.dc-btn-tertiary {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 8px;
+}
+
+.dc-btn-primary {
+  background: var(--imessage-blue);
+  color: #ffffff;
+}
+
+.dc-btn-secondary {
+  background: var(--emerald);
+  color: #052e16;
+}
+
+.dc-btn-tertiary {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+.dc-fallback-footer {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dc-code-section {
+  margin-bottom: 16px;
+}
+
+.dc-code-section h3 {
+  font-size: 0.85rem;
+  margin: 0 0 8px;
+  color: #cbd5e1;
+}
+
+.dc-code-block {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.76rem;
+  overflow-x: auto;
+  max-height: 320px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dc-code-json {
+  border-color: rgba(48, 209, 88, 0.35);
+  color: #a7f3d0;
+}
+
+.dc-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.dc-audit-table th,
+.dc-audit-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dc-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dc-provider-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.dc-provider-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #a5b4fc;
+}
+
+.dc-provider-detail {
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+  color: #cbd5e1;
+}
+
+.dc-live-oauth-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.dc-oauth-input-row input {
+  width: 100%;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+}
+
+.dc-modal-body {
+  overflow-y: auto;
+  max-height: 70dvh;
+}
+
+.dc-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-form-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dc-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* =====================================================================
+   USER PROFILE PILL, AVATAR IMAGES, VOICE RECORDER, & READ RECEIPTS
+   ===================================================================== */
+.dc-profile-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 4px 12px 4px 5px;
+  cursor: pointer;
+}
+
+.dc-profile-pill-btn:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-nav-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dc-avatar-img {
+  object-fit: cover;
+}
+
+.dc-profile-pill-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.15;
+}
+
+.dc-profile-pill-text strong {
+  font-size: 0.76rem;
+}
+
+.dc-profile-pill-text span {
+  font-size: 0.66rem;
+  color: var(--imessage-blue);
+}
+
+.dc-handle-tag {
+  font-size: 0.7rem;
+  color: #58a6ff;
+  font-weight: 500;
+}
+
+.dc-imessage-handle {
+  font-size: 0.68rem;
+  color: #58a6ff;
+}
+
+.dc-profile-synced-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--emerald);
+  background: var(--emerald-bg);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+/* Read Receipt Indicators */
+.dc-receipt-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.69rem;
+  font-weight: 600;
+}
+
+.dc-receipt-status.delivered {
+  color: var(--text-muted);
+}
+
+.dc-receipt-status.read {
+  color: var(--emerald);
+}
+
+.dc-read-sent {
+  color: var(--emerald) !important;
+}
+
+/* Real Inline Image & Voice Note Attachments */
+.dc-attachment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc-inline-image-attachment {
+  max-width: 280px;
+  max-height: 220px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  object-fit: cover;
+}
+
+.dc-voice-note-player {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.dc-voice-note-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.dc-audio-el {
+  height: 32px;
+  max-width: 240px;
+}
+
+.dc-pending-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.dc-circle-icon-btn.recording-active {
+  background: var(--rose);
+  color: #fff;
+  border-color: var(--rose);
+}
+
+.dc-recording-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--rose-bg);
+  color: #ff6961;
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.dc-rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--rose);
+}
+
+/* Profile Modal Editor */
+.dc-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-profile-avatar-editor {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.dc-profile-avatar-large {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--imessage-blue);
+  flex-shrink: 0;
+}
+
+.dc-avatar-placeholder {
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dc-profile-avatar-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc-profile-saved-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--emerald-bg);
+  color: var(--emerald);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.8rem;
+}
+
+.dc-provider-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.dc-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #c9d1d9;
+  cursor: pointer;
+}
+
+/* =====================================================================
+   UNIVERSAL SIGN-IN PORTAL, OAUTH POPUP BUTTONS, & CUSTOM DOMAIN MX DISCOVERY
+   ===================================================================== */
+.dc-oauth-portal-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .dc-oauth-portal-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dc-oauth-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.dc-oauth-btn:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-oauth-btn div {
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-oauth-btn strong {
+  font-size: 0.85rem;
+}
+
+.dc-oauth-btn span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.dc-oauth-consent-card {
+  background: rgba(10, 132, 255, 0.1);
+  border: 1px solid rgba(10, 132, 255, 0.45);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-oauth-consent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+}
+
+.dc-custom-domain-portal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dc-inline-input-btn {
+  display: flex;
+  gap: 6px;
+}
+
+.dc-inline-input-btn input {
+  flex: 1;
+}
+
+.dc-discovery-result-card {
+  background: rgba(48, 209, 88, 0.1);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 0.8rem;
+}
+
+.dc-discovery-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--emerald);
+  margin-bottom: 4px;
+}
+
+.dc-discovery-result-card p {
+  margin: 0 0 8px;
+  color: #c9d1d9;
+}
+
+.dc-discovery-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   ACCOUNT-SCOPED EMPTY STATES & EASY 1-FIELD CONNECT EMAIL PORTAL
+   ===================================================================== */
+.dc-empty-threads-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 28px 18px;
+  margin: 12px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 14px;
+  color: var(--text-muted);
+}
+
+.dc-empty-threads-state strong {
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.dc-empty-threads-state p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dc-empty-threads-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(10, 132, 255, 0.14);
+  color: var(--imessage-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-empty-chat-pane {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dc-empty-chat-card {
+  max-width: 440px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.dc-empty-chat-card h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.dc-empty-chat-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.dc-empty-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.dc-easy-connect-portal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dc-easy-email-form {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.dc-easy-next-step-card {
+  background: rgba(48, 209, 88, 0.08);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dc-easy-custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dc-connect-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   COMPLIANT BUILD VERIFICATION & REMOTE CRYPTOGRAPHIC KEY SHREDDING
+   ===================================================================== */
+.dc-compliant-build-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--emerald);
+  background: var(--emerald-bg);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+@media (max-width: 720px) {
+  .dc-compliant-build-badge span {
+    display: none;
+  }
+}
+
+.dc-btn-shred-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #ff6961;
+  background: rgba(255, 69, 58, 0.14);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dc-btn-shred-key:hover {
+  background: rgba(255, 69, 58, 0.25);
+  border-color: #ff453a;
+}
+
+.dc-compliant-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--emerald);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.dc-shred-event-card {
+  align-self: center;
+  max-width: 640px;
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 6px 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.dc-shred-event-card.shred-req {
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  color: #ffb3ae;
+}
+
+.dc-shred-event-card.shred-ack {
+  background: rgba(48, 209, 88, 0.1);
+  border: 1px solid rgba(48, 209, 88, 0.4);
+  color: #d1fae5;
+}
+
+.dc-shred-event-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dc-shred-event-top code {
+  margin-left: auto;
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.dc-shred-event-card p {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.dc-shred-ack-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dc-participant-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dc-compliance-modal-footer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dc-compliance-modal-footer strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--emerald);
+}
+
+.dc-compliance-modal-footer p {
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.dc-icon-only-pill {
+  padding: 7px 9px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-shred-modal-title {
+  color: #ff6961;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-shred-warning-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-shred-warning-banner {
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.84rem;
+  color: #ffd7d5;
+}
+
+.dc-shred-warning-banner strong {
+  color: #ff6961;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.dc-shred-warning-banner p strong {
+  color: #fff;
+  display: inline;
+  margin-bottom: 0;
+}
+
+.dc-shred-warning-banner p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dc-shred-checklist {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.dc-shred-checklist strong {
+  color: var(--text-main);
+}
+
+.dc-btn-danger-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ff453a;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82rem;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dc-btn-danger-confirm:hover {
+  background: #d70015;
+}
+
+/* =====================================================================
+   6 NEXT-GEN PRIVACY & MESSAGING WORKFLOW FEATURES
+   ===================================================================== */
+
+/* 1. Burn-After-Reading Selector Pill & Countdown Badge */
+.dc-burn-selector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.dc-burn-selector-pill.burn-active {
+  background: rgba(255, 159, 10, 0.16);
+  border-color: rgba(255, 159, 10, 0.5);
+  color: #ffb340;
+}
+
+.dc-burn-selector-pill select {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.dc-burn-countdown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #ffb340;
+  background: rgba(255, 159, 10, 0.14);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* 2. Personal Encrypted Vault (@me) */
+.dc-vault-quick-btn {
+  border-color: rgba(94, 92, 230, 0.45);
+  background: rgba(94, 92, 230, 0.14);
+  color: #c4b5fd;
+}
+
+.dc-thread-avatar.vault-avatar,
+.dc-header-avatar.vault-avatar {
+  background: linear-gradient(135deg, #5e5ce6, #0a84ff);
+  color: #fff;
+}
+
+.dc-mini-badge.vault-badge,
+.dc-vault-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  background: rgba(94, 92, 230, 0.18);
+  border: 1px solid rgba(94, 92, 230, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.dc-vault-composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(94, 92, 230, 0.1);
+  border: 1px solid rgba(94, 92, 230, 0.28);
+}
+
+.dc-vault-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #c4b5fd;
+  margin-right: 4px;
+}
+
+.dc-vault-cat-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dc-vault-cat-pill.active {
+  background: #5e5ce6;
+  border-color: #7d7aff;
+  color: #fff;
+}
+
+/* 3. Anonymous Shielded Burner Email Aliases */
+.dc-mini-badge.shielded-alias-badge,
+.dc-shielded-msg-badge,
+.dc-header-alias-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: #64d2ff;
+  background: rgba(100, 210, 255, 0.13);
+  border: 1px solid rgba(100, 210, 255, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.dc-burner-alias-box {
+  background: rgba(100, 210, 255, 0.07);
+  border: 1px solid rgba(100, 210, 255, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-burner-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.dc-burner-toggle-row input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+.dc-burner-toggle-row strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #64d2ff;
+}
+
+.dc-burner-toggle-row span {
+  display: block;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.38;
+}
+
+.dc-burner-config-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(100, 210, 255, 0.18);
+}
+
+/* 4. Safety Number & 21x21 QR Code Verification Modal + Key-Rotation Banner */
+.dc-compliant-build-badge.peer-key-verified {
+  background: rgba(48, 209, 88, 0.22);
+  border-color: rgba(48, 209, 88, 0.65);
+  color: #30d158;
+}
+
+.dc-key-rotation-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(255, 159, 10, 0.13);
+  border-bottom: 1px solid rgba(255, 159, 10, 0.35);
+  font-size: 0.76rem;
+  color: #ffd60a;
+}
+
+.dc-key-rotation-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-safety-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.dc-safety-intro {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.dc-safety-qr-frame {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(48, 209, 88, 0.45);
+}
+
+.dc-safety-qr-svg {
+  width: 148px;
+  height: 148px;
+  display: block;
+  shape-rendering: crispEdges;
+}
+
+.dc-safety-number-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 10px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dc-safety-digit-group {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #30d158;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.dc-safety-fingerprints {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.dc-safety-fingerprints div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 5. Encrypted Polls, Pinned Message Banner & Client-Side Link Preview Cards */
+.dc-pinned-message-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 14px;
+  background: rgba(10, 132, 255, 0.12);
+  border-bottom: 1px solid rgba(10, 132, 255, 0.3);
+  font-size: 0.76rem;
+}
+
+.dc-pinned-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-pin-icon {
+  color: #58a6ff;
+  flex-shrink: 0;
+}
+
+.dc-pinned-unpin-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.dc-encrypted-poll-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 235px;
+}
+
+.dc-poll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.68rem;
+  opacity: 0.9;
+}
+
+.dc-poll-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.dc-poll-question {
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.dc-poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc-poll-option-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  padding: 7px 10px;
+  color: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.dc-poll-option-btn.voted {
+  border-color: #30d158;
+}
+
+.dc-poll-option-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(48, 209, 88, 0.26);
+  pointer-events: none;
+  transition: width 0.25s ease;
+}
+
+.dc-poll-option-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.dc-poll-opt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.dc-poll-opt-stats {
+  font-size: 0.71rem;
+  opacity: 0.9;
+  font-family: var(--font-mono);
+}
+
+.dc-poll-creator-options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.dc-btn-add-poll-opt {
+  margin-top: 6px;
+  align-self: flex-start;
+}
+
+.dc-link-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.dc-link-preview-card:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.dc-link-preview-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+.dc-link-preview-top small {
+  margin-left: auto;
+  font-size: 0.62rem;
+  color: #30d158;
+}
+
+.dc-link-preview-card strong {
+  font-size: 0.8rem;
+}
+
+.dc-link-preview-card p {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.86;
+  line-height: 1.35;
+}
+
+/* 6. Biometric Passkey (WebAuthn) & Duress PIN App Lock Overlay */
+.dc-applock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(6, 9, 15, 0.92);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.dc-applock-card {
+  max-width: 410px;
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+
+.dc-applock-icon-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(10, 132, 255, 0.16);
+  border: 1px solid rgba(10, 132, 255, 0.45);
+  color: #58a6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-applock-card h2 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+.dc-applock-card p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.dc-btn-passkey-unlock {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(48, 209, 88, 0.5);
+  background: rgba(48, 209, 88, 0.16);
+  color: #30d158;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.dc-applock-divider {
+  width: 100%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dc-applock-pin-form {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.dc-applock-pin-form input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.dc-applock-error {
+  font-size: 0.76rem;
+  color: #ff6961;
+}
+
+.dc-applock-hints {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.dc-duress-wiped-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 16px;
+  background: rgba(255, 69, 58, 0.16);
+  border-bottom: 1px solid rgba(255, 69, 58, 0.45);
+  color: #ffd7d5;
+  font-size: 0.78rem;
+}
+
+.dc-duress-wiped-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Read Receipt Auto vs Manual Mode Toggle + Burn-After-Reading Privacy Shroud */
+.dc-read-mode-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.dc-read-mode-pill.auto-mode {
+  background: rgba(48, 209, 88, 0.14);
+  border: 1px solid rgba(48, 209, 88, 0.45);
+  color: #30d158;
+}
+
+.dc-read-mode-pill.manual-mode {
+  background: rgba(255, 159, 10, 0.16);
+  border: 1px solid rgba(255, 159, 10, 0.5);
+  color: #ffb340;
+}
+
+.dc-imessage-bubble.burn-shrouded-bubble {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 27, 46, 0.95),
+    rgba(45, 28, 18, 0.92)
+  );
+  border: 1px dashed rgba(255, 159, 10, 0.55);
+}
+
+.dc-burn-shroud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.dc-burn-shroud-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffb340;
+  font-size: 0.78rem;
+}
+
+.dc-burn-shroud-card p {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.4;
+}
+
+.dc-btn-reveal-burn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 159, 10, 0.55);
+  background: rgba(255, 159, 10, 0.2);
+  color: #ffd60a;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dc-btn-reveal-burn:hover {
+  background: rgba(255, 159, 10, 0.32);
+}
+
+
+
+
+
+
+

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>@me — Private messaging on the email you already have</title>
+  <meta name="description" content="@me is end-to-end encrypted messaging that runs on your existing email address. No phone number, no new account, no servers holding your messages." />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#07090d" />
+  <link rel="icon" href="assets/favicon.png" type="image/png" />
+  <link rel="icon" href="assets/atme-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/atme-app-icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ NAV ============ -->
+  <header class="site-header">
+    <nav class="nav container" aria-label="Primary">
+      <a href="#top" class="brand" aria-label="@me home">
+        <img src="assets/atme-app-icon.png" alt="" width="28" height="28" />
+        <span>@me</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#journey">Customer Journey</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <a href="#install" class="btn btn-small btn-primary">Open Web App</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- ============ HERO ============ -->
+    <section class="hero container">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span> End-to-end encrypted · Zero servers</p>
+        <h1>Private messaging on the email you already have.</h1>
+        <p class="lede">
+          No App Store gatekeepers. No phone number. No company servers sitting between you and your conversations.
+          Just your email, your on-device keys, and instant web install on any phone or computer.
+        </p>
+        <div class="cta-row" id="hero-cta">
+          <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-primary">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+            Open Web App
+          </a>
+          <a href="#journey" class="btn btn-ghost">See First-Contact Journey</a>
+        </div>
+        <ul class="trust-row" aria-label="Works with">
+          <li>Gmail</li><li>Outlook</li><li>Yahoo</li><li>Proton</li><li>iCloud</li><li>Custom domains</li>
+        </ul>
+      </div>
+
+      <!-- Phone mockup (pure HTML/CSS) -->
+      <div class="hero-visual" aria-hidden="true">
+        <div class="glow"></div>
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="chat-head">
+              <span class="avatar a-elena">E</span>
+              <div>
+                <strong>Elena Vogt</strong>
+                <small><span class="lock-dot"></span> Verified · Proton</small>
+              </div>
+            </div>
+            <div class="chat-body">
+              <div class="sys-pill">🔒 Messages are end-to-end encrypted</div>
+              <div class="bubble in">Did the contract draft come through?</div>
+              <div class="bubble out">Sending now — it'll burn 1h after you open it.</div>
+              <div class="bubble out file">
+                <span class="file-ico">PDF</span>
+                <span><b>NDA_v3.pdf</b><br /><small>412 KB · encrypted</small></span>
+              </div>
+              <div class="burn-tag">⏱ Burns in 59:48</div>
+              <div class="bubble in">Got it. Signing tonight 👍</div>
+              <div class="receipt">Read ✓✓</div>
+            </div>
+            <div class="chat-input">
+              <span>Message Elena…</span>
+              <span class="send">↑</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PROOF STRIP ============ -->
+    <section class="proof container reveal" aria-label="Key facts">
+      <div><strong>0</strong><span>message servers we run</span></div>
+      <div><strong>OpenPGP</strong><span>Curve25519 encryption on-device</span></div>
+      <div><strong>1 field</strong><span>to sign in — just your email</span></div>
+      <div><strong>Any email</strong><span>can receive your first message</span></div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how" class="section container">
+      <div class="section-head reveal">
+        <p class="eyebrow">How it works</p>
+        <h2>Email is the network. Encryption is the default.</h2>
+        <p class="sub">@me turns your inbox into a private delivery channel — then hides every trace of it from your regular mail.</p>
+      </div>
+      <ol class="steps">
+        <li class="step reveal">
+          <span class="step-num">01</span>
+          <h3>Sign in with your email</h3>
+          <p>Type your address and approve with your provider. Your encryption keys are created on your device and never leave it.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-num">02</span>
+          <h3>Message anyone by address</h3>
+          <p>Each message is encrypted for the recipient, signed by you, and sent through your provider like any email — only it's unreadable to everyone else.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-num">03</span>
+          <h3>It feels like texting</h3>
+          <p>@me filters out normal email and shows only your conversations — threads, reactions, voice notes, and read receipts.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ FIRST-CONTACT CUSTOMER JOURNEY ============ -->
+    <section id="journey" class="section container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Interactive Demonstration</p>
+        <h2>The First-Contact Journey: From Email Invite to Encrypted Chat</h2>
+        <p class="sub">What happens when you send an encrypted message to someone who doesn't have @me yet? Experience the entire 4-step flow below.</p>
+      </div>
+
+      <div class="journey-card reveal">
+        <!-- Step Navigation Tabs -->
+        <nav class="journey-stepper" aria-label="Customer Journey Steps" role="tablist">
+          <button type="button" class="journey-step-btn is-active" role="tab" aria-selected="true" data-step="1" id="tab-1" aria-controls="pane-1">
+            <span class="j-num">01</span>
+            <span class="j-text">
+              <strong>Inbox Invite</strong>
+              <small>Email arrives in Gmail</small>
+            </span>
+          </button>
+          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="2" id="tab-2" aria-controls="pane-2">
+            <span class="j-num">02</span>
+            <span class="j-text">
+              <strong>1-Click Sign-In</strong>
+              <small>Google OAuth PKCE</small>
+            </span>
+          </button>
+          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="3" id="tab-3" aria-controls="pane-3">
+            <span class="j-num">03</span>
+            <span class="j-text">
+              <strong>Message Decrypted</strong>
+              <small>OpenPGP verified</small>
+            </span>
+          </button>
+          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="4" id="tab-4" aria-controls="pane-4">
+            <span class="j-num">04</span>
+            <span class="j-text">
+              <strong>Instant Reply</strong>
+              <small>DCP/1.0 packet sent</small>
+            </span>
+          </button>
+        </nav>
+
+        <!-- Journey Display Stage -->
+        <div class="journey-display">
+          <!-- STAGE 1: Gmail Inbox View -->
+          <div class="journey-stage-pane is-active" id="pane-1" role="tabpanel" aria-labelledby="tab-1">
+            <div class="mockup-window">
+              <div class="mockup-header">
+                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+                <span class="mockup-title">Gmail — Inbox (1 new encrypted message)</span>
+              </div>
+              <div class="mockup-body gmail-layout">
+                <div class="gmail-meta-bar">
+                  <div class="gmail-sender">
+                    <span class="avatar-mini a-alex">A</span>
+                    <div>
+                      <strong>Alex Rivera</strong> <small>&lt;alex@atme.chat&gt; via @me</small>
+                      <div class="gmail-to">to <span>me &lt;maya.chen@gmail.com&gt;</span></div>
+                    </div>
+                  </div>
+                  <div class="gmail-time">10:42 AM (Just now)</div>
+                </div>
+
+                <div class="gmail-subject-row">
+                  <span class="security-badge-lock">🔒 Encrypted OpenPGP Packet</span>
+                  <h3>Alex sent you a confidential message on @me</h3>
+                </div>
+
+                <div class="invite-email-card">
+                  <div class="invite-card-top">
+                    <img src="assets/atme-app-icon.png" alt="@me" width="36" height="36" class="invite-icon" />
+                    <div>
+                      <h4>You have a sealed @me message waiting</h4>
+                      <p>Sent by Alex Rivera · Encrypted with Curve25519</p>
+                    </div>
+                  </div>
+                  <div class="invite-sealed-box">
+                    <div class="sealed-lock-icon">🔐</div>
+                    <div class="sealed-text">
+                      <strong>Encrypted Message Envelope (DCP/1.0)</strong>
+                      <p>"Hey Maya! Sending the confidential term sheet we talked about. This message self-destructs 1h after opening."</p>
+                      <div class="burn-preview-pill">⏱ 1-Hour Burn Timer Active</div>
+                    </div>
+                  </div>
+                  <div class="invite-action-row">
+                    <button type="button" class="btn btn-primary j-next-btn" data-target-step="2">
+                      Open &amp; Decrypt in @me →
+                    </button>
+                    <span class="invite-hint">No app download or account creation required · Decrypts in browser</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="journey-explainer">
+              <h4>Step 1: Zero-Install First Contact</h4>
+              <p>Alex doesn't need to ask Maya: <em>"Are you on Signal or Telegram?"</em> He simply sends to her regular Gmail. Maya's inbox receives a clean, readable invite card that lets her decrypt in 1 click using her browser.</p>
+            </div>
+          </div>
+
+          <!-- STAGE 2: 1-Click Sign-In & Keygen -->
+          <div class="journey-stage-pane" id="pane-2" role="tabpanel" aria-labelledby="tab-2">
+            <div class="mockup-window">
+              <div class="mockup-header">
+                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+                <span class="mockup-title">app.atme.chat — Google Identity Sign-In</span>
+              </div>
+              <div class="mockup-body oauth-layout">
+                <div class="oauth-box">
+                  <div class="oauth-brand-row">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+                    <span>Google OAuth 2.0 PKCE</span>
+                  </div>
+                  <h3>Continue to @me</h3>
+                  <div class="oauth-account-pill">
+                    <span class="avatar-mini a-maya">M</span>
+                    <div>
+                      <strong>Maya Chen</strong>
+                      <small>maya.chen@gmail.com</small>
+                    </div>
+                    <span class="check-green">✓</span>
+                  </div>
+
+                  <div class="keygen-terminal">
+                    <div class="terminal-line"><span class="t-green">✔</span> OAuth token authenticated locally via PKCE</div>
+                    <div class="terminal-line"><span class="t-green">✔</span> Web Crypto: Generating Ed25519 &amp; X25519 keypairs...</div>
+                    <div class="terminal-line"><span class="t-green">✔</span> Private key sealed in IndexedDB (non-extractable) [240ms]</div>
+                    <div class="terminal-line"><span class="t-blue">ℹ</span> Zero servers contacted: Keys never leave this browser</div>
+                  </div>
+
+                  <button type="button" class="btn btn-primary j-next-btn" data-target-step="3">
+                    Load Decrypted Conversation →
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="journey-explainer">
+              <h4>Step 2: Instant Identity &amp; Local Key Generation</h4>
+              <p>Maya signs in with her existing Google account with 1 tap. Her device generates modern OpenPGP keys in Web Crypto in 240 milliseconds. No passwords to remember, no SMS verification codes, and zero keys ever leave her device.</p>
+            </div>
+          </div>
+
+          <!-- STAGE 3: Decrypted Thread -->
+          <div class="journey-stage-pane" id="pane-3" role="tabpanel" aria-labelledby="tab-3">
+            <div class="mockup-window">
+              <div class="mockup-header">
+                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+                <span class="mockup-title">@me — Alex Rivera (Verified OpenPGP)</span>
+              </div>
+              <div class="mockup-body chat-layout">
+                <div class="chat-header-bar">
+                  <div class="chat-peer-info">
+                    <span class="avatar-mini a-alex">A</span>
+                    <div>
+                      <strong>Alex Rivera</strong> <span class="pgp-badge">✓ PGP Verified</span>
+                      <small>alex@atme.chat · Compliant Build</small>
+                    </div>
+                  </div>
+                  <div class="chat-actions-mini">
+                    <span class="burn-status-badge">⏱ Burns in 59:52</span>
+                  </div>
+                </div>
+
+                <div class="chat-messages-scroll">
+                  <div class="sys-notice">🔒 Conversation encrypted end-to-end with Alex Rivera</div>
+                  
+                  <div class="msg-row incoming">
+                    <div class="msg-bubble incoming">
+                      <p>Hey Maya! Sending the confidential term sheet we talked about. This message self-destructs 1h after opening.</p>
+                      <div class="attachment-bubble">
+                        <span class="pdf-tag">PDF</span>
+                        <div>
+                          <strong>TermSheet_SeriesA_Final.pdf</strong>
+                          <small>320 KB · Decrypted on-device</small>
+                        </div>
+                      </div>
+                      <div class="msg-footer-info">
+                        <span>10:42 AM</span>
+                        <span class="lock-indicator">🔒 Decrypted</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="read-receipt-note">
+                    ✓✓ Read receipt automatically returned to Alex
+                  </div>
+                </div>
+
+                <div class="chat-reply-bar-demo">
+                  <button type="button" class="btn btn-primary j-next-btn" data-target-step="4">
+                    Type Maya's Reply →
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="journey-explainer">
+              <h4>Step 3: Instant Local Decryption &amp; Profile Sync</h4>
+              <p>@me pulls only the encrypted packet from Maya's inbox, verifies Alex's OpenPGP signature, imports his profile card into local IndexedDB, and decrypts the term sheet right on her phone. The 1-hour burn countdown begins.</p>
+            </div>
+          </div>
+
+          <!-- STAGE 4: Encrypted Reply -->
+          <div class="journey-stage-pane" id="pane-4" role="tabpanel" aria-labelledby="tab-4">
+            <div class="mockup-window">
+              <div class="mockup-header">
+                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+                <span class="mockup-title">@me — Encrypted Reply Dispatched</span>
+              </div>
+              <div class="mockup-body chat-layout">
+                <div class="chat-header-bar">
+                  <div class="chat-peer-info">
+                    <span class="avatar-mini a-alex">A</span>
+                    <div>
+                      <strong>Alex Rivera</strong> <span class="pgp-badge">✓ PGP Verified</span>
+                      <small>alex@atme.chat · Compliant Build</small>
+                    </div>
+                  </div>
+                  <div class="chat-actions-mini">
+                    <span class="burn-status-badge">⏱ Burns in 59:30</span>
+                  </div>
+                </div>
+
+                <div class="chat-messages-scroll">
+                  <div class="msg-row incoming">
+                    <div class="msg-bubble incoming">
+                      <p>Hey Maya! Sending the confidential term sheet we talked about. This message self-destructs 1h after opening.</p>
+                      <div class="attachment-bubble">
+                        <span class="pdf-tag">PDF</span>
+                        <div>
+                          <strong>TermSheet_SeriesA_Final.pdf</strong>
+                          <small>320 KB · Decrypted on-device</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="msg-row outgoing animate-send">
+                    <div class="msg-bubble outgoing">
+                      <p>Got it! Just reviewed the valuation terms — looks clean to proceed. Love that this never touches a central chat database.</p>
+                      <div class="msg-footer-info">
+                        <span>10:44 AM</span>
+                        <span class="sent-receipt">Delivered ✓✓</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="packet-dispatch-card">
+                    <div class="dispatch-header">
+                      <span class="t-green">●</span> <strong>DCP/1.0 MIME Packet Dispatched</strong>
+                    </div>
+                    <p>Encrypted on Maya's device with Alex's Public Key → Sent via Gmail SMTP (Zero plaintext on wire).</p>
+                  </div>
+                </div>
+
+                <div class="journey-complete-row">
+                  <a href="#install" class="btn btn-primary">
+                    Launch @me &amp; Start Messaging →
+                  </a>
+                  <button type="button" class="btn btn-ghost j-next-btn" data-target-step="1">
+                    ↺ Replay Demo
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="journey-explainer">
+              <h4>Step 4: The Closed Loop — Full E2EE Established</h4>
+              <p>Maya hits send. Her browser encrypts the reply with Alex's public key and dispatches it straight through Gmail. Both sides now share verified cryptographic identities without ever installing an app store app or sharing a phone number.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section id="features" class="section container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Features</p>
+        <h2>Everything you expect. Plus the control you don't get anywhere else.</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">⏱</div>
+          <h3>Burn after reading</h3>
+          <p>Set a timer from 15 seconds to 24 hours. The countdown starts when it's read — then it's gone from both devices.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">🔥</div>
+          <h3>Remote key shredding</h3>
+          <p>End a conversation for good. Their app destroys the key, wipes local copies, and sends back a signed receipt.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">🕶</div>
+          <h3>Burner aliases</h3>
+          <p>Talk to a marketplace buyer or a new contact through a shielded alias with its own keys. Kill it when you're done.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">🔐</div>
+          <h3>Vault (@me)</h3>
+          <p>An encrypted note-to-self for passwords, keys, snippets, and files — synced through your own mailbox.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">✅</div>
+          <h3>Safety numbers</h3>
+          <p>Verify a contact in person with a QR code or 60-digit number. You'll be alerted if their key ever changes.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">👆</div>
+          <h3>Passkey lock + duress PIN</h3>
+          <p>Unlock with Face ID or fingerprint. A separate duress PIN silently wipes sensitive threads before it opens.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">👁</div>
+          <h3>Read on your terms</h3>
+          <p>Automatic read receipts, or manual mode — read quietly while timed messages stay sealed until you tap.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="f-ico" aria-hidden="true">📊</div>
+          <h3>Polls, pins & previews</h3>
+          <p>Encrypted group polls, pinned messages, and link previews built on your device — no server ever sees the URL.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ USE CASES ============ -->
+    <section class="section container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Built for</p>
+        <h2>People who'd rather not hand over their phone number.</h2>
+      </div>
+      <div class="usecases">
+        <div class="usecase reveal"><h3>Friends &amp; group chats</h3><p>Plan, share, and joke without a phone number attached — and let the embarrassing stuff burn.</p></div>
+        <div class="usecase reveal"><h3>Journalists &amp; sources</h3><p>Start from a public email address, then verify and move to a burner alias.</p></div>
+        <div class="usecase reveal"><h3>Lawyers, therapists &amp; advisors</h3><p>Confidential client threads you can shred when the engagement ends.</p></div>
+        <div class="usecase reveal"><h3>Teams on a custom domain</h3><p>Secure channels on <code>you@company.com</code> without running chat servers.</p></div>
+        <div class="usecase reveal"><h3>Activists &amp; at-risk users</h3><p>Duress PIN, app lock, and no central server to pressure.</p></div>
+        <div class="usecase reveal"><h3>One-off contacts</h3><p>Dating, marketplaces, freelancing — a fresh alias for every context.</p></div>
+      </div>
+    </section>
+
+    <!-- ============ SECURITY / COMPARE ============ -->
+    <section id="security" class="section container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Security</p>
+        <h2>Nothing in the middle. Nothing to hand over.</h2>
+        <p class="sub">Most messengers ask you to trust their servers. @me doesn't have any to trust.</p>
+      </div>
+
+      <div class="table-wrap reveal">
+        <table class="compare">
+          <caption class="sr-only">Comparison of @me with Signal, Telegram, and iMessage</caption>
+          <thead>
+            <tr><th scope="col"></th><th scope="col" class="us">@me</th><th scope="col">Signal</th><th scope="col">Telegram</th><th scope="col">iMessage</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Sign up with</th><td class="us">Any email</td><td>Phone number</td><td>Phone number</td><td>Apple ID</td></tr>
+            <tr><th scope="row">Encrypted by default</th><td class="us yes">Yes</td><td class="yes">Yes</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><th scope="row">Company message servers</th><td class="us yes">None</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+            <tr><th scope="row">Works on every platform</th><td class="us yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">Apple only</td></tr>
+            <tr><th scope="row">App store account required</th><td class="us yes">No (Web PWA)</td><td class="no">Yes (Apple/Google ID)</td><td class="no">Yes (Apple/Google ID)</td><td class="no">Yes (Apple ID)</td></tr>
+            <tr><th scope="row">Remote shred with receipt</th><td class="us yes">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+            <tr><th scope="row">Your own domain as identity</th><td class="us yes">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="honest reveal">
+        <h3>What we can't promise — and won't pretend to</h3>
+        <ul>
+          <li><b>Metadata:</b> your email provider can see <em>that</em> you emailed someone and when — never what you said. Burner aliases reduce this.</li>
+          <li><b>Screenshots:</b> no app can stop someone photographing their screen. Shredding is enforced by verified apps, and we show you which ones are.</li>
+          <li><b>Delivery speed</b> follows your provider — usually a few seconds.</li>
+          <li><b>Web Updates:</b> Because @me installs via the web, security patches arrive instantaneously through service workers with zero App Store review lag.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section id="faq" class="section container narrow">
+      <div class="section-head reveal">
+        <p class="eyebrow">FAQ</p>
+        <h2>Questions, answered plainly.</h2>
+      </div>
+      <div class="faq">
+        <details name="faq" class="reveal">
+          <summary>Can Google, Microsoft, or my provider read my messages?</summary>
+          <p>No. Messages are encrypted on your device before they're sent. Your provider only stores and delivers scrambled ciphertext it has no cryptographic key for.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>Why isn't @me in the Apple App Store or Google Play Store?</summary>
+          <p>By operating as an installable Progressive Web App (PWA), @me completely eliminates app store tracking, gatekeeper censorship, and 30% taxes. You install it in two taps directly from Safari, Chrome, or Edge to your home screen or dock. It runs in its own window with biometric FaceID/TouchID lock, offline caching, and push alerts without any Apple or Google store telemetry.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>Will this clutter my inbox?</summary>
+          <p>No. @me messages are tagged and filed away from your normal mail, and the app strictly ignores every regular email. Your inbox stays your inbox.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>What if the person I message doesn't have @me yet?</summary>
+          <p>They receive a sealed invite email with an "Open & Decrypt" button. They don't need to visit an app store or download a binary — they approve with their Google or Microsoft account in 1 tap, their browser generates keys on their device, and your conversation begins encrypted immediately.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>Where are my messages stored?</summary>
+          <p>Encrypted on your devices and, as ciphertext, in your own mailbox. There's no @me central database — we couldn't hand your messages over if we were subpoenaed.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>What happens if I lose my phone?</summary>
+          <p>Lock your account remotely and trigger remote key shredding from another browser to wipe your threads and keys from the lost device.</p>
+        </details>
+        <details name="faq" class="reveal">
+          <summary>Is it free?</summary>
+          <p>Yes. @me runs on the email infrastructure you already have, so there are zero relay servers for us to bill you for.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ WEB INSTALL & LAUNCH SECTION ============ -->
+    <section id="install" class="download container reveal">
+      <img src="assets/atme-app-icon.png" alt="@me App Icon" width="80" height="80" class="dl-icon" />
+      <h2>No App Store required. Install straight from your browser.</h2>
+      <p class="sub">Zero Apple or Google store telemetry. No 30% tax. Add to your home screen or desktop dock in seconds.</p>
+
+      <div class="launch-cta-box">
+        <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-large btn-primary">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6zm11-3v8h-2V5.414l-7.293 7.293-1.414-1.414L17.586 4H13V2h8a1 1 0 0 1 1 1z"/></svg>
+          Launch @me Web App
+        </a>
+        <span class="launch-hint">Runs directly in Safari, Chrome, Edge, Brave, and Firefox</span>
+      </div>
+
+      <div class="install-guides-grid">
+        <div class="install-card">
+          <div class="install-platform-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.54c.64-.78 1.08-1.87.96-2.96-.93.04-2.05.62-2.71 1.39-.58.67-1.1 1.77-.96 2.84 1.04.08 2.07-.49 2.71-1.27z"/></svg>
+            <span>iPhone &amp; iPad</span>
+          </div>
+          <h4>iOS Web App</h4>
+          <ol>
+            <li>Open in <strong>Safari</strong> on iOS</li>
+            <li>Tap the <strong>Share</strong> button (□↑)</li>
+            <li>Select <strong>Add to Home Screen</strong></li>
+          </ol>
+          <span class="pwa-tag">✓ Fullscreen · WebAuthn FaceID · Push</span>
+        </div>
+
+        <div class="install-card">
+          <div class="install-platform-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16.6 5.8 18 3.4a.5.5 0 0 0-.87-.5l-1.5 2.5A9.6 9.6 0 0 0 12 5a9.6 9.6 0 0 0-3.6.4L6.9 2.9a.5.5 0 0 0-.87.5l1.4 2.4C4.4 7.4 2 11.2 2 15.6h20c0-4.4-2.4-8.2-5.4-9.8zM7.5 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>
+            <span>Android</span>
+          </div>
+          <h4>Chrome WebAPK</h4>
+          <ol>
+            <li>Open in <strong>Chrome or Brave</strong></li>
+            <li>Tap the <strong>Install App</strong> banner</li>
+            <li>Or tap Menu (⋮) → <strong>Add to Home Screen</strong></li>
+          </ol>
+          <span class="pwa-tag">✓ System Icon · Unmetered Push</span>
+        </div>
+
+        <div class="install-card">
+          <div class="install-platform-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-6v2h3a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h3v-2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v10h16V6H4z"/></svg>
+            <span>Mac, Windows &amp; Linux</span>
+          </div>
+          <h4>Desktop Window</h4>
+          <ol>
+            <li>In <strong>Chrome or Edge</strong>, click <strong>Install</strong> in the address bar</li>
+            <li>In <strong>Safari (macOS Sonoma+)</strong>, File → <strong>Add to Dock</strong></li>
+          </ol>
+          <span class="pwa-tag">✓ Standalone Window · Keyboard Shortcuts</span>
+        </div>
+      </div>
+
+      <p class="fine">No phone number required · Works with any email account · 100% on-device cryptography</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <a href="#top" class="brand">
+        <img src="assets/atme-app-icon.png" alt="" width="24" height="24" />
+        <span>@me</span>
+      </a>
+      <nav aria-label="Footer">
+        <a href="#how">How it works</a>
+        <a href="#journey">Journey</a>
+        <a href="#security">Security</a>
+        <a href="#faq">FAQ</a>
+        <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener">Open App</a>
+      </nav>
+      <p>© 2026 @me. Built on open standards.</p>
+    </div>
+  </footer>
+
+  <!-- ============ Interactive Journey Stepper Script ============ -->
+  <script>
+    (function() {
+      const stepButtons = document.querySelectorAll('.journey-step-btn');
+      const stagePanes = document.querySelectorAll('.journey-stage-pane');
+      const nextButtons = document.querySelectorAll('.j-next-btn');
+
+      function goToStep(stepNum) {
+        stepButtons.forEach(btn => {
+          const isActive = btn.getAttribute('data-step') === String(stepNum);
+          btn.classList.toggle('is-active', isActive);
+          btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        stagePanes.forEach(pane => {
+          const isTarget = pane.id === 'pane-' + stepNum;
+          pane.classList.toggle('is-active', isTarget);
+        });
+      }
+
+      stepButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const step = btn.getAttribute('data-step');
+          goToStep(step);
+        });
+      });
+
+      nextButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = btn.getAttribute('data-target-step');
+          goToStep(target);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

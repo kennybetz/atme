@@ -1,0 +1,27 @@
+{
+  "name": "@me — Encrypted Email Messaging",
+  "short_name": "@me",
+  "description": "Zero-Server, Device-to-Email End-to-End Encrypted Messaging built on Gmail, Outlook, Yahoo, and Proton Mail.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#07090d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/atme-app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
