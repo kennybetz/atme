@@ -29,6 +29,7 @@ import {
   Menu,
   MessageSquare,
   Mic,
+  Moon,
   Paperclip,
   Pin,
   Plus,
@@ -37,12 +38,14 @@ import {
   RefreshCw,
   Search,
   Send,
+  Settings,
   ShieldAlert,
   ShieldCheck,
   Smile,
   Smartphone,
   Sparkles,
   Square,
+  Sun,
   Terminal,
   Timer,
   Trash2,
@@ -423,6 +426,39 @@ export function App() {
   // Feature 1: Self-Destructing / Burn-After-Reading Timers & Read Receipt Policy State
   const [composerBurnSeconds, setComposerBurnSeconds] =
     useState<EphemeralTimerSeconds>(0);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState<boolean>(false);
+  const [isComposerEmojiOpen, setIsComposerEmojiOpen] =
+    useState<boolean>(false);
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState<boolean>(false);
+  const [isSettingsExpandedInMenu, setIsSettingsExpandedInMenu] =
+    useState<boolean>(false);
+  const [showMessageTimestamps, setShowMessageTimestamps] =
+    useState<boolean>(false);
+  const [colorSchemePref, setColorSchemePref] = useState<
+    'dark' | 'light' | 'light dark'
+  >(() => {
+    try {
+      const stored = localStorage.getItem('color-scheme');
+      if (stored === 'light' || stored === 'dark' || stored === 'light dark') {
+        return stored;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+    return 'dark';
+  });
+  const [selectedActionMsgId, setSelectedActionMsgId] = useState<string | null>(
+    null
+  );
+  // Preserves Pin & Email Packet inspection features in codebase while hiding them in UI by default
+  const showPinAndPacketControls = false;
+  const [isComposerMultiline, setIsComposerMultiline] = useState<boolean>(false);
+  const actionMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const composerEmojiContainerRef = useRef<HTMLDivElement | null>(null);
+  const headerMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const freeflowFeedRef = useRef<HTMLDivElement | null>(null);
+  const prevChannelIdRef = useRef<string | null>(null);
   const [burnReadStartedAtMs, setBurnReadStartedAtMs] = useState<
     Record<string, number>
   >({});
@@ -610,6 +646,117 @@ export function App() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // Dismiss composer '+' menu, quick emoji picker, or top-right header menu on outside click/touch or Escape key
+  useEffect(() => {
+    if (!isPlusMenuOpen && !isComposerEmojiOpen && !isHeaderMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        isPlusMenuOpen &&
+        actionMenuContainerRef.current &&
+        !actionMenuContainerRef.current.contains(target)
+      ) {
+        setIsPlusMenuOpen(false);
+      }
+      if (
+        isComposerEmojiOpen &&
+        composerEmojiContainerRef.current &&
+        !composerEmojiContainerRef.current.contains(target)
+      ) {
+        setIsComposerEmojiOpen(false);
+      }
+      if (
+        isHeaderMenuOpen &&
+        headerMenuContainerRef.current &&
+        !headerMenuContainerRef.current.contains(target)
+      ) {
+        setIsHeaderMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPlusMenuOpen(false);
+        setIsComposerEmojiOpen(false);
+        setIsHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPlusMenuOpen, isComposerEmojiOpen, isHeaderMenuOpen]);
+
+  // Apply color-scheme preference to <meta name="color-scheme"> and stay synced across tabs
+  const handleSelectColorScheme = (next: 'dark' | 'light' | 'light dark') => {
+    setColorSchemePref(next);
+    const meta = document.querySelector(
+      'meta[name="color-scheme"]'
+    ) as HTMLMetaElement | null;
+    if (meta) {
+      meta.content = next;
+    }
+    try {
+      if (next === 'light dark') {
+        localStorage.removeItem('color-scheme');
+      } else {
+        localStorage.setItem('color-scheme', next);
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  };
+
+  useEffect(() => {
+    const meta = document.querySelector(
+      'meta[name="color-scheme"]'
+    ) as HTMLMetaElement | null;
+    if (meta) {
+      meta.content = colorSchemePref;
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'color-scheme') {
+        const next =
+          event.newValue === 'light' || event.newValue === 'dark'
+            ? event.newValue
+            : 'light dark';
+        setColorSchemePref(next);
+        if (meta) {
+          meta.content = next;
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [colorSchemePref]);
+
+  // Auto-resize composer textarea (fallback when field-sizing: content is unsupported) & track multiline state for pill radius morphing
+  useEffect(() => {
+    const textarea = composerTextareaRef.current;
+    if (!textarea) {
+      setIsComposerMultiline(false);
+      return;
+    }
+    const supportsFieldSizing =
+      typeof CSS !== 'undefined' &&
+      typeof CSS.supports === 'function' &&
+      CSS.supports('field-sizing', 'content');
+
+    if (!supportsFieldSizing) {
+      textarea.style.height = 'auto';
+      const nextHeight = Math.min(Math.max(textarea.scrollHeight, 38), 130);
+      textarea.style.height = `${nextHeight}px`;
+    }
+
+    const currentHeight = textarea.scrollHeight || textarea.clientHeight;
+    setIsComposerMultiline(
+      composerText.includes('\n') || currentHeight > 46
+    );
+  }, [composerText, isRecordingVoice]);
 
   const recipientUser = useMemo(
     () => users.find((u) => u.email === recipientEmail) || users[1],
@@ -1383,6 +1530,39 @@ export function App() {
     activeChannel,
     burnReadStartedAtMs,
     burnTickNowMs,
+  ]);
+
+  const lastMessageEmailId =
+    freeflowStream.length > 0
+      ? freeflowStream[freeflowStream.length - 1].emailId
+      : null;
+
+  // Auto-scroll message feed to bottom when switching channels or when new messages arrive / are sent
+  useEffect(() => {
+    const feedEl = freeflowFeedRef.current;
+    if (!feedEl) return;
+
+    const currentChId = activeChannel?.id ?? null;
+    const isChannelSwitch = prevChannelIdRef.current !== currentChId;
+    prevChannelIdRef.current = currentChId;
+
+    const scrollToBottom = (behavior: ScrollBehavior) => {
+      if (!freeflowFeedRef.current) return;
+      freeflowFeedRef.current.scrollTo({
+        top: freeflowFeedRef.current.scrollHeight,
+        behavior,
+      });
+    };
+
+    requestAnimationFrame(() => {
+      scrollToBottom(isChannelSwitch ? 'auto' : 'smooth');
+    });
+  }, [
+    activeChannel?.id,
+    freeflowStream.length,
+    lastMessageEmailId,
+    surfaceMode,
+    mobileShowChatPane,
   ]);
 
   // Compute last message preview & timestamp for each conversation in the thread list
@@ -2302,8 +2482,10 @@ export function App() {
   }
 
   // Send message from the Free-Flowing Messenger Composer
-  async function handleMessengerSend(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleMessengerSend(
+    e?: React.FormEvent | React.KeyboardEvent
+  ) {
+    e?.preventDefault();
     if (!activeChannel) return;
     if (!composerText.trim() && pendingAttachments.length === 0) return;
 
@@ -2328,8 +2510,13 @@ export function App() {
     });
 
     setComposerText('');
+    setIsComposerMultiline(false);
+    setIsPlusMenuOpen(false);
     setPendingAttachments([]);
     setReplyingToMessage(null);
+    if (composerTextareaRef.current) {
+      composerTextareaRef.current.style.height = '';
+    }
   }
 
   // Create and dispatch an Encrypted Poll (`chat.poll`)
@@ -2896,7 +3083,11 @@ export function App() {
     window.location.search.includes('iphone=1');
 
   return (
-    <div className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''}`}>
+    <div
+      className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''} ${
+        surfaceMode === 'messenger-ui' ? 'messenger-viewport' : ''
+      }`}
+    >
       {/* Hidden File Inputs for Real File/Image Attachments and Profile Avatar Upload */}
       <input
         ref={fileAttachmentInputRef}
@@ -3519,6 +3710,7 @@ export function App() {
                   </div>
 
                   <div className="dc-freeflow-header-actions">
+                    {/* Icon 1: Verification Shield (Compliant Build + Safety Number & QR Verification) */}
                     <button
                       type="button"
                       className={`dc-compliant-build-badge dc-icon-only-pill ${
@@ -3532,57 +3724,228 @@ export function App() {
                       onClick={() =>
                         safetyNumberDialogRef.current?.showModal()
                       }
-                      title="Verify 60-Digit Safety Number & Scan Peer QR Code"
-                      aria-label="Verify Safety Number and QR Code"
-                    >
-                      <QrCode size={15} />
-                    </button>
-
-                    <span
-                      className="dc-compliant-build-badge dc-icon-only-pill"
                       title={`Compliant Build Verified (${DCP_COMPLIANT_BUILD_VERSION} • SHA-256: ${DCP_COMPLIANT_BUNDLE_SHA256.slice(
                         0,
                         16
-                      )}…) • Enforces Remote Key Shredding & Zero-Plaintext IndexedDB`}
-                      aria-label="Compliant Build Verified"
+                      )}…) • Click to Verify 60-Digit Safety Number & QR Code`}
+                      aria-label="Verification Shield: Compliant Build and Safety Number Verification"
                     >
-                      <ShieldCheck size={15} />
-                    </span>
-
-                    <button
-                      type="button"
-                      className="dc-btn-shred-key dc-icon-only-pill"
-                      onClick={() => {
-                        setPendingShredOptions({
-                          shredScope: 'peer-pgp-key-and-threads',
-                        });
-                        shredConfirmDialogRef.current?.showModal();
-                      }}
-                      title="Purge & Shred Conversation Key and Messages"
-                      aria-label="Purge and shred conversation"
-                    >
-                      <Flame size={15} />
+                      <ShieldCheck size={16} />
                     </button>
 
-                    {activeChannel.type !== 'vault' && (
+                    {/* Icon 2: 3-Line Dropdown Menu (Add People, Burn Thread, Settings) */}
+                    <div
+                      className="dc-header-menu-wrap"
+                      ref={headerMenuContainerRef}
+                    >
                       <button
                         type="button"
-                        className="dc-btn-manage-members"
-                        onClick={() => groupInfoDialogRef.current?.showModal()}
-                        title="Manage conversation participants"
-                        aria-label="Manage conversation participants"
+                        className={`dc-header-menu-trigger dc-icon-only-pill ${
+                          isHeaderMenuOpen ? 'is-open' : ''
+                        }`}
+                        onClick={() => setIsHeaderMenuOpen((prev) => !prev)}
+                        aria-expanded={isHeaderMenuOpen}
+                        aria-haspopup="menu"
+                        aria-label="Open conversation menu (Add People, Burn Thread, Settings)"
+                        title="Menu: Add People, Burn Thread & Settings"
                       >
-                        <UserPlus size={15} />
-                        {activeChannel.participants.length > 2 && (
-                          <span>({activeChannel.participants.length})</span>
-                        )}
+                        <Menu size={17} />
                       </button>
-                    )}
+
+                      {isHeaderMenuOpen && (
+                        <div
+                          className="dc-header-dropdown-menu"
+                          role="menu"
+                          aria-label="Conversation actions and settings"
+                        >
+                          {activeChannel.type !== 'vault' && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="dc-header-menu-item"
+                              onClick={() => {
+                                setIsHeaderMenuOpen(false);
+                                groupInfoDialogRef.current?.showModal();
+                              }}
+                            >
+                              <span className="dc-header-menu-icon icon-people">
+                                <UserPlus size={15} />
+                              </span>
+                              <span className="dc-header-menu-label">
+                                Add People
+                                {activeChannel.participants.length > 2 &&
+                                  ` (${activeChannel.participants.length})`}
+                              </span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="dc-header-menu-item item-danger"
+                            onClick={() => {
+                              setIsHeaderMenuOpen(false);
+                              setPendingShredOptions({
+                                shredScope: 'peer-pgp-key-and-threads',
+                              });
+                              shredConfirmDialogRef.current?.showModal();
+                            }}
+                          >
+                            <span className="dc-header-menu-icon icon-burn">
+                              <Flame size={15} />
+                            </span>
+                            <span className="dc-header-menu-label">
+                              Burn Thread
+                            </span>
+                          </button>
+
+                          <div className="dc-header-menu-divider" />
+
+                          <button
+                            type="button"
+                            className="dc-header-menu-item dc-settings-toggle-row"
+                            aria-expanded={isSettingsExpandedInMenu}
+                            onClick={() =>
+                              setIsSettingsExpandedInMenu((prev) => !prev)
+                            }
+                          >
+                            <span className="dc-header-menu-icon icon-settings">
+                              <Settings size={15} />
+                            </span>
+                            <span className="dc-header-menu-label">
+                              Settings
+                            </span>
+                            <ChevronRight
+                              size={15}
+                              className={`dc-settings-chevron ${
+                                isSettingsExpandedInMenu ? 'is-expanded' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {isSettingsExpandedInMenu && (
+                            <div
+                              className="dc-header-settings-panel"
+                              role="group"
+                              aria-label="Messenger Settings"
+                            >
+                              <div className="dc-setting-group">
+                                <span className="dc-setting-label">
+                                  Appearance (Theme)
+                                </span>
+                                <div className="dc-setting-segmented">
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      colorSchemePref === 'dark'
+                                        ? 'is-active'
+                                        : ''
+                                    }`}
+                                    onClick={() =>
+                                      handleSelectColorScheme('dark')
+                                    }
+                                  >
+                                    <Moon size={12} /> Dark
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      colorSchemePref === 'light'
+                                        ? 'is-active'
+                                        : ''
+                                    }`}
+                                    onClick={() =>
+                                      handleSelectColorScheme('light')
+                                    }
+                                  >
+                                    <Sun size={12} /> Light
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      colorSchemePref === 'light dark'
+                                        ? 'is-active'
+                                        : ''
+                                    }`}
+                                    onClick={() =>
+                                      handleSelectColorScheme('light dark')
+                                    }
+                                  >
+                                    Auto
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="dc-setting-group">
+                                <span className="dc-setting-label">
+                                  Message Timestamps
+                                </span>
+                                <div className="dc-setting-segmented">
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      !showMessageTimestamps ? 'is-active' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setShowMessageTimestamps(false)
+                                    }
+                                  >
+                                    <EyeOff size={12} /> Hide Time
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      showMessageTimestamps ? 'is-active' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setShowMessageTimestamps(true)
+                                    }
+                                  >
+                                    <Clock size={12} /> Show Time
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="dc-setting-group">
+                                <span className="dc-setting-label">
+                                  Read Receipts
+                                </span>
+                                <div className="dc-setting-segmented">
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      readReceiptMode === 'auto'
+                                        ? 'is-active'
+                                        : ''
+                                    }`}
+                                    onClick={() => setReadReceiptMode('auto')}
+                                  >
+                                    Auto
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`dc-seg-btn ${
+                                      readReceiptMode === 'manual'
+                                        ? 'is-active'
+                                        : ''
+                                    }`}
+                                    onClick={() => setReadReceiptMode('manual')}
+                                  >
+                                    Manual
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </header>
 
-                {/* Pinned Message Banner (Feature 5) */}
-                {pinnedMessageByChannel[activeChannel.id] && (
+                {/* Pinned Message Banner (Feature 5 — hidden while showPinAndPacketControls is false, preserved for future restore) */}
+                {showPinAndPacketControls &&
+                  pinnedMessageByChannel[activeChannel.id] && (
                   <div className="dc-pinned-message-banner">
                     <div className="dc-pinned-banner-left">
                       <Pin size={13} className="dc-pin-icon" />
@@ -3674,7 +4037,7 @@ export function App() {
             )}
 
             {/* Free-Flowing Message Stream */}
-            <div className="dc-freeflow-feed">
+            <div className="dc-freeflow-feed" ref={freeflowFeedRef}>
               <div className="dc-e2ee-EncryptionNotice">
                 <Lock size={12} />
                 <span>
@@ -3811,444 +4174,515 @@ export function App() {
                   );
                 }
 
-                return (
-                  <article
-                    key={msg.emailId}
-                    className={`dc-imessage-row ${
-                      isOwn ? 'outgoing' : 'incoming'
-                    }`}
-                  >
-                    {!isOwn &&
-                      renderUserAvatar(
-                        senderIdentity || msg.packet.sender.email,
-                        displayAuthor,
-                        'dc-imessage-avatar'
-                      )}
+                const isTwoPersonChat =
+                  activeChannel.type !== 'group' ||
+                  activeChannel.participants.length <= 2;
+                const groupedReactions = msg.reactions.reduce<
+                  Array<{ emoji: string; senderNames: string[] }>
+                >((acc, r) => {
+                  const existing = acc.find((item) => item.emoji === r.emoji);
+                  if (existing) {
+                    if (!existing.senderNames.includes(r.senderName)) {
+                      existing.senderNames.push(r.senderName);
+                    }
+                  } else {
+                    acc.push({ emoji: r.emoji, senderNames: [r.senderName] });
+                  }
+                  return acc;
+                }, []);
+                const isMsgActionOpen =
+                  selectedActionMsgId === msg.packet.payload.messageId ||
+                  activeReactionPickerMsgId === msg.packet.payload.messageId;
 
-                    <div className="dc-imessage-column">
-                      <div className="dc-imessage-sender-line">
-                        <span className="dc-imessage-author">
-                          {isOwn ? 'You' : displayAuthor}
-                        </span>
-                        {displayHandle && (
-                          <span className="dc-imessage-handle">
-                            {displayHandle}
-                          </span>
-                        )}
-                        <span className="dc-imessage-provider">
-                          {msg.packet.sender.provider.toUpperCase()}
-                        </span>
-                        {msg.packet.complianceAttestation && (
-                          <span
-                            className="dc-compliant-mini-badge"
-                            title={`Signed Compliant Build Attestation (${msg.packet.complianceAttestation.buildVersion} • ${msg.packet.complianceAttestation.signatureSuite})`}
-                          >
-                            <ShieldCheck size={10} /> Compliant Build
-                          </span>
-                        )}
-                        {msg.packet.sender.profileCard && (
-                          <span
-                            className="dc-profile-synced-badge"
-                            title="This packet included the sender's Profile Card (Avatar + Handle) and saved it to your local DB"
-                          >
-                            <Sparkles size={10} /> Profile Synced
-                          </span>
-                        )}
-                        {msg.packet.payload.senderShieldedAlias && (
-                          <span
-                            className="dc-shielded-msg-badge"
-                            title={`Sent via Shielded Burner Alias: ${msg.packet.payload.senderShieldedAlias.aliasEmail}`}
-                          >
-                            <EyeOff size={10} />{' '}
-                            {msg.packet.payload.senderShieldedAlias.aliasEmail}
-                          </span>
-                        )}
-                        {msg.packet.payload.vaultCategory && (
-                          <span className="dc-vault-category-badge">
-                            <Bookmark size={10} />{' '}
-                            {msg.packet.payload.vaultCategory.toUpperCase()}
-                          </span>
-                        )}
-                        {Boolean(
-                          msg.packet.payload.ephemeralTtlSeconds &&
-                            msg.packet.payload.ephemeralTtlSeconds > 0
-                        ) && (
-                          <span
-                            className="dc-burn-countdown-badge"
-                            title="Burn-After-Reading self-destruct timer"
-                          >
-                            <Timer size={10} />{' '}
-                            {msg.receipts.length > 0
-                              ? (() => {
-                                  const earliestReadMs = Math.min(
-                                    ...msg.receipts.map((r) =>
-                                      new Date(
-                                        r.readAtIso || msg.packet.sentAt
-                                      ).getTime()
-                                    )
-                                  );
-                                  const remainingSec = Math.max(
-                                    0,
-                                    Math.ceil(
-                                      (earliestReadMs +
-                                        msg.packet.payload
-                                          .ephemeralTtlSeconds! *
-                                          1000 -
-                                        burnTickNowMs) /
-                                        1000
-                                    )
-                                  );
-                                  return `Burns in ${remainingSec}s`;
-                                })()
-                              : `Burn: ${msg.packet.payload.ephemeralTtlSeconds}s after read`}
-                          </span>
-                        )}
-                        <span className="dc-imessage-time">
-                          {new Date(msg.packet.sentAt).toLocaleTimeString([], {
-                            hour: '2-digit',
+                return (
+                  <React.Fragment key={msg.emailId}>
+                    {showMessageTimestamps && (
+                      <div className="dc-gmsg-timestamp-divider">
+                        <span>
+                          {new Date(msg.packet.sentAt).toLocaleString([], {
+                            weekday: 'short',
+                            hour: 'numeric',
                             minute: '2-digit',
                           })}
                         </span>
                       </div>
+                    )}
 
-                      {/* Free-Flowing Inline Reply Quote */}
-                      {msg.quotedMessage && (
-                        <div className="dc-inline-reply-quote">
-                          <CornerDownLeft size={12} />
-                          <div>
-                            <strong>{msg.quotedMessage.senderName}</strong>:{' '}
-                            <span>{msg.quotedMessage.textSnippet}</span>
+                    <article
+                      className={`dc-imessage-row ${
+                        isOwn ? 'outgoing' : 'incoming'
+                      } ${isTwoPersonChat ? 'two-person-row' : 'group-row'} ${
+                        groupedReactions.length > 0 ? 'has-reactions' : ''
+                      } ${isMsgActionOpen ? 'actions-active' : ''}`}
+                    >
+                      {!isTwoPersonChat &&
+                        !isOwn &&
+                        renderUserAvatar(
+                          senderIdentity || msg.packet.sender.email,
+                          displayAuthor,
+                          'dc-imessage-avatar'
+                        )}
+
+                      <div className="dc-imessage-column">
+                        {!isTwoPersonChat && !isOwn && (
+                          <div className="dc-group-sender-label">
+                            <span>{displayAuthor}</span>
+                            {displayHandle && (
+                              <small>{displayHandle}</small>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Message Bubble */}
-                      <div
-                        className={`dc-imessage-bubble ${
-                          isBurnHiddenInManualMode ? 'burn-shrouded-bubble' : ''
-                        }`}
-                      >
-                        {isBurnHiddenInManualMode ? (
-                          <div className="dc-burn-shroud-card">
-                            <div className="dc-burn-shroud-header">
-                              <Timer size={14} />
-                              <strong>
-                                Burn-After-Reading Message Hidden (
-                                {effectiveBurnTtl}s Timer)
-                              </strong>
+                        {/* Free-Flowing Inline Reply Quote */}
+                        {msg.quotedMessage && (
+                          <div className="dc-inline-reply-quote">
+                            <CornerDownLeft size={12} />
+                            <div>
+                              <strong>{msg.quotedMessage.senderName}</strong>:{' '}
+                              <span>{msg.quotedMessage.textSnippet}</span>
                             </div>
-                            <p>
-                              Manual Read Receipts are on. Non-time-sensitive
-                              messages remain visible without sending receipts,
-                              while burn-after-reading messages stay sealed
-                              until you view them.
-                            </p>
-                            <button
-                              type="button"
-                              className="dc-btn-reveal-burn"
-                              onClick={() =>
-                                handleSendReadReceipt(
-                                  msg.packet.payload.messageId
-                                )
-                              }
-                            >
-                              <Eye size={13} /> Click to View &amp; Send Read
-                              Receipt (Starts {effectiveBurnTtl}s Burn)
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            {!msg.packet.payload.poll && (
-                              <p>{msg.packet.payload.text}</p>
-                            )}
-
-                            {/* Encrypted Interactive Poll Card (Feature 5) */}
-                            {msg.packet.payload.poll &&
-                              (() => {
-                                const poll = msg.packet.payload.poll;
-                                const totalVotes = msg.pollVotes.length;
-                                return (
-                                  <div className="dc-encrypted-poll-card">
-                                    <div className="dc-poll-header">
-                                      <span className="dc-poll-badge">
-                                        <BarChart3 size={12} /> Encrypted Poll (
-                                        <code>chat.poll</code>)
-                                      </span>
-                                      <span className="dc-poll-total">
-                                        {totalVotes}{' '}
-                                        {totalVotes === 1 ? 'vote' : 'votes'}
-                                      </span>
-                                    </div>
-                                    <strong className="dc-poll-question">
-                                      {poll.question}
-                                    </strong>
-                                    <div className="dc-poll-options">
-                                      {poll.options.map((opt) => {
-                                        const optVotes = msg.pollVotes.filter(
-                                          (v) => v.optionId === opt.id
-                                        );
-                                        const count = optVotes.length;
-                                        const pct =
-                                          totalVotes > 0
-                                            ? Math.round(
-                                                (count / totalVotes) * 100
-                                              )
-                                            : 0;
-                                        const votedByMe = optVotes.some(
-                                          (v) =>
-                                            v.senderEmail.toLowerCase() ===
-                                            activeUser.email.toLowerCase()
-                                        );
-                                        return (
-                                          <button
-                                            key={opt.id}
-                                            type="button"
-                                            className={`dc-poll-option-btn ${
-                                              votedByMe ? 'voted' : ''
-                                            }`}
-                                            onClick={() =>
-                                              handleVoteOnEncryptedPoll(
-                                                msg.packet.payload.messageId,
-                                                poll.pollId,
-                                                opt.id,
-                                                opt.text
-                                              )
-                                            }
-                                          >
-                                            <div
-                                              className="dc-poll-option-fill"
-                                              style={{ width: `${pct}%` }}
-                                            />
-                                            <div className="dc-poll-option-content">
-                                              <span className="dc-poll-opt-label">
-                                                {votedByMe && (
-                                                  <CheckCircle2 size={13} />
-                                                )}
-                                                {opt.text}
-                                              </span>
-                                              <span className="dc-poll-opt-stats">
-                                                {pct}% ({count})
-                                              </span>
-                                            </div>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-
-                            {/* Client-Side Encrypted Link Preview Card (Feature 5) */}
-                            {msg.packet.payload.linkPreview && (
-                              <a
-                                href={msg.packet.payload.linkPreview.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="dc-link-preview-card"
-                              >
-                                <div className="dc-link-preview-top">
-                                  <Globe size={12} />
-                                  <span>
-                                    {msg.packet.payload.linkPreview.domain}
-                                  </span>
-                                  <small>Zero-Server Client Preview</small>
-                                </div>
-                                <strong>
-                                  {msg.packet.payload.linkPreview.title}
-                                </strong>
-                                <p>
-                                  {msg.packet.payload.linkPreview.description}
-                                </p>
-                              </a>
-                            )}
-
-                            {/* Real Inline Encrypted Attachments (Images, Audio Voice Notes, Files) */}
-                            {msg.packet.payload.attachments &&
-                              msg.packet.payload.attachments.length > 0 && (
-                                <div className="dc-msg-attachments">
-                                  {msg.packet.payload.attachments.map((att) => {
-                                    const isImage =
-                                      att.mimeType.startsWith('image/') &&
-                                      att.encryptedData.startsWith(
-                                        'data:image/'
-                                      );
-                                    const isAudio =
-                                      att.mimeType.startsWith('audio/') &&
-                                      att.encryptedData.startsWith(
-                                        'data:audio/'
-                                      );
-
-                                    return (
-                                      <div
-                                        key={att.id}
-                                        className="dc-attachment-card"
-                                      >
-                                        {isImage && (
-                                          <img
-                                            src={att.encryptedData}
-                                            alt={att.filename}
-                                            className="dc-inline-image-attachment"
-                                          />
-                                        )}
-                                        {isAudio && (
-                                          <div className="dc-voice-note-player">
-                                            <div className="dc-voice-note-label">
-                                              <Mic size={13} /> Encrypted Voice
-                                              Note ({att.filename})
-                                            </div>
-                                            <audio
-                                              controls
-                                              src={att.encryptedData}
-                                              className="dc-audio-el"
-                                            />
-                                          </div>
-                                        )}
-                                        {!isImage && !isAudio && (
-                                          <div className="dc-attachment-chip">
-                                            <FileText size={15} />
-                                            <div>
-                                              <div className="dc-att-name">
-                                                {att.filename}
-                                              </div>
-                                              <div className="dc-att-meta">
-                                                {(att.sizeBytes / 1024).toFixed(
-                                                  1
-                                                )}{' '}
-                                                KB &bull; Encrypted MIME (cid:
-                                                {att.cid})
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                          </>
-                        )}
-
-                        {/* Tapback Reactions Floating Pill */}
-                        {msg.reactions.length > 0 && (
-                          <div className="dc-tapback-bar">
-                            {msg.reactions.map((r, idx) => (
-                              <span
-                                key={`${r.emoji}_${idx}`}
-                                className="dc-tapback-pill"
-                                title={`Reacted by ${r.senderName}`}
-                              >
-                                {r.emoji}{' '}
-                                <small>{r.senderName.split(' ')[0]}</small>
-                              </span>
-                            ))}
                           </div>
                         )}
-                      </div>
 
-                      {/* Delivery & Read Receipt Status + Bubble Controls */}
-                      <div className="dc-imessage-controls">
-                        {isOwn ? (
-                          <span
-                            className={`dc-receipt-status ${
-                              hasBeenReadByPeer ? 'read' : 'delivered'
+                        <div className="dc-gmsg-bubble-line">
+                          {/* Message Bubble */}
+                          <div
+                            className={`dc-imessage-bubble ${
+                              isBurnHiddenInManualMode
+                                ? 'burn-shrouded-bubble'
+                                : ''
                             }`}
-                          >
-                            {hasBeenReadByPeer ? (
-                              <>
-                                <CheckCheck size={13} /> Read by{' '}
-                                {msg.receipts
-                                  .map((r) => r.senderName.split(' ')[0])
-                                  .join(', ')}
-                              </>
-                            ) : (
-                              <>
-                                <Check size={13} /> Delivered (Encrypted MIME)
-                              </>
-                            )}
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            className={alreadyReadByMe ? 'dc-read-sent' : ''}
                             onClick={() =>
-                              handleSendReadReceipt(
-                                msg.packet.payload.messageId
+                              setSelectedActionMsgId((prev) =>
+                                prev === msg.packet.payload.messageId
+                                  ? null
+                                  : msg.packet.payload.messageId
                               )
                             }
-                            disabled={alreadyReadByMe}
-                            title="Send encrypted DCP/1.0 Read Receipt packet back to sender"
                           >
-                            <CheckCheck size={12} />{' '}
-                            {alreadyReadByMe
-                              ? 'Read Receipt Sent'
-                              : 'Send Read Receipt'}
-                          </button>
-                        )}
+                            {isBurnHiddenInManualMode ? (
+                              <div
+                                className="dc-burn-shroud-card"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="dc-burn-shroud-header">
+                                  <Timer size={14} />
+                                  <strong>
+                                    Burn-After-Reading Message Hidden (
+                                    {effectiveBurnTtl}s Timer)
+                                  </strong>
+                                </div>
+                                <p>
+                                  Manual Read Receipts are on. Non-time-sensitive
+                                  messages remain visible without sending
+                                  receipts, while burn-after-reading messages
+                                  stay sealed until you view them.
+                                </p>
+                                <button
+                                  type="button"
+                                  className="dc-btn-reveal-burn"
+                                  onClick={() =>
+                                    handleSendReadReceipt(
+                                      msg.packet.payload.messageId
+                                    )
+                                  }
+                                >
+                                  <Eye size={13} /> Click to View &amp; Send
+                                  Read Receipt (Starts {effectiveBurnTtl}s Burn)
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                {!msg.packet.payload.poll && (
+                                  <p>{msg.packet.payload.text}</p>
+                                )}
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveReactionPickerMsgId(
-                              activeReactionPickerMsgId ===
-                                msg.packet.payload.messageId
-                                ? null
-                                : msg.packet.payload.messageId
-                            )
-                          }
-                        >
-                          <Smile size={12} /> React
-                        </button>
+                                {/* Encrypted Interactive Poll Card (Feature 5) */}
+                                {msg.packet.payload.poll &&
+                                  (() => {
+                                    const poll = msg.packet.payload.poll;
+                                    const totalVotes = msg.pollVotes.length;
+                                    return (
+                                      <div
+                                        className="dc-encrypted-poll-card"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <div className="dc-poll-header">
+                                          <span className="dc-poll-badge">
+                                            <BarChart3 size={12} /> Encrypted
+                                            Poll
+                                          </span>
+                                          <span className="dc-poll-total">
+                                            {totalVotes}{' '}
+                                            {totalVotes === 1
+                                              ? 'vote'
+                                              : 'votes'}
+                                          </span>
+                                        </div>
+                                        <strong className="dc-poll-question">
+                                          {poll.question}
+                                        </strong>
+                                        <div className="dc-poll-options">
+                                          {poll.options.map((opt) => {
+                                            const optVotes =
+                                              msg.pollVotes.filter(
+                                                (v) => v.optionId === opt.id
+                                              );
+                                            const count = optVotes.length;
+                                            const pct =
+                                              totalVotes > 0
+                                                ? Math.round(
+                                                    (count / totalVotes) * 100
+                                                  )
+                                                : 0;
+                                            const votedByMe = optVotes.some(
+                                              (v) =>
+                                                v.senderEmail.toLowerCase() ===
+                                                activeUser.email.toLowerCase()
+                                            );
+                                            return (
+                                              <button
+                                                key={opt.id}
+                                                type="button"
+                                                className={`dc-poll-option-btn ${
+                                                  votedByMe ? 'voted' : ''
+                                                }`}
+                                                onClick={() =>
+                                                  handleVoteOnEncryptedPoll(
+                                                    msg.packet.payload
+                                                      .messageId,
+                                                    poll.pollId,
+                                                    opt.id,
+                                                    opt.text
+                                                  )
+                                                }
+                                              >
+                                                <div
+                                                  className="dc-poll-option-fill"
+                                                  style={{ width: `${pct}%` }}
+                                                />
+                                                <div className="dc-poll-option-content">
+                                                  <span className="dc-poll-opt-label">
+                                                    {votedByMe && (
+                                                      <CheckCircle2 size={13} />
+                                                    )}
+                                                    {opt.text}
+                                                  </span>
+                                                  <span className="dc-poll-opt-stats">
+                                                    {pct}% ({count})
+                                                  </span>
+                                                </div>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
-                        <button
-                          type="button"
-                          onClick={() => setReplyingToMessage(msg)}
-                        >
-                          <CornerDownLeft size={12} /> Reply
-                        </button>
+                                {/* Client-Side Encrypted Link Preview Card (Feature 5) */}
+                                {msg.packet.payload.linkPreview && (
+                                  <a
+                                    href={msg.packet.payload.linkPreview.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="dc-link-preview-card"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="dc-link-preview-top">
+                                      <Globe size={12} />
+                                      <span>
+                                        {msg.packet.payload.linkPreview.domain}
+                                      </span>
+                                      <small>Zero-Server Client Preview</small>
+                                    </div>
+                                    <strong>
+                                      {msg.packet.payload.linkPreview.title}
+                                    </strong>
+                                    <p>
+                                      {
+                                        msg.packet.payload.linkPreview
+                                          .description
+                                      }
+                                    </p>
+                                  </a>
+                                )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePinMessage(msg)}
-                          title="Pin or unpin this encrypted message in the conversation header"
-                        >
-                          <Pin size={12} />{' '}
-                          {pinnedMessageByChannel[activeChannel.id]
-                            ?.messageId === msg.packet.payload.messageId
-                            ? 'Unpin'
-                            : 'Pin'}
-                        </button>
+                                {/* Real Inline Encrypted Attachments (Images, Audio Voice Notes, Files) */}
+                                {msg.packet.payload.attachments &&
+                                  msg.packet.payload.attachments.length > 0 && (
+                                    <div
+                                      className="dc-msg-attachments"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {msg.packet.payload.attachments.map(
+                                        (att) => {
+                                          const isImage =
+                                            att.mimeType.startsWith('image/') &&
+                                            att.encryptedData.startsWith(
+                                              'data:image/'
+                                            );
+                                          const isAudio =
+                                            att.mimeType.startsWith('audio/') &&
+                                            att.encryptedData.startsWith(
+                                              'data:audio/'
+                                            );
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPacketModal(msg.emailId)}
-                        >
-                          <Code2 size={12} /> Email Packet
-                        </button>
-                      </div>
+                                          return (
+                                            <div
+                                              key={att.id}
+                                              className="dc-attachment-card"
+                                            >
+                                              {isImage && (
+                                                <img
+                                                  src={att.encryptedData}
+                                                  alt={att.filename}
+                                                  className="dc-inline-image-attachment"
+                                                />
+                                              )}
+                                              {isAudio && (
+                                                <div className="dc-voice-note-player">
+                                                  <div className="dc-voice-note-label">
+                                                    <Mic size={13} /> Encrypted
+                                                    Voice Note ({att.filename})
+                                                  </div>
+                                                  <audio
+                                                    controls
+                                                    src={att.encryptedData}
+                                                    className="dc-audio-el"
+                                                  />
+                                                </div>
+                                              )}
+                                              {!isImage && !isAudio && (
+                                                <div className="dc-attachment-chip">
+                                                  <FileText size={15} />
+                                                  <div>
+                                                    <div className="dc-att-name">
+                                                      {att.filename}
+                                                    </div>
+                                                    <div className="dc-att-meta">
+                                                      {(
+                                                        att.sizeBytes / 1024
+                                                      ).toFixed(1)}{' '}
+                                                      KB &bull; Encrypted MIME
+                                                      (cid:{att.cid})
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        }
+                                      )}
+                                    </div>
+                                  )}
+                              </>
+                            )}
 
-                      {activeReactionPickerMsgId ===
-                        msg.packet.payload.messageId && (
-                        <div className="dc-quick-reaction-bar">
-                          {['❤️', '👍', '👎', '😂', '‼️', '🚀', '🔒'].map(
-                            (emoji) => (
-                              <button
-                                key={emoji}
-                                type="button"
-                                onClick={() =>
-                                  handleSendQuickReaction(
-                                    msg.packet.payload.messageId,
-                                    emoji
-                                  )
+                            {/* Bottom-Right Reactions Badge (Emoji only; hover lists reactor names like in Teams) */}
+                            {groupedReactions.length > 0 && (
+                              <div
+                                className="dc-gmsg-reaction-cluster"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {groupedReactions.map((group) => (
+                                  <button
+                                    key={group.emoji}
+                                    type="button"
+                                    className="dc-gmsg-reaction-badge"
+                                    onClick={() =>
+                                      handleSendQuickReaction(
+                                        msg.packet.payload.messageId,
+                                        group.emoji
+                                      )
+                                    }
+                                    aria-label={`${group.emoji} reaction by ${group.senderNames.join(
+                                      ', '
+                                    )}`}
+                                  >
+                                    <span className="dc-reaction-emoji">
+                                      {group.emoji}
+                                    </span>
+                                    {group.senderNames.length > 1 && (
+                                      <span className="dc-reaction-count">
+                                        {group.senderNames.length}
+                                      </span>
+                                    )}
+                                    <span
+                                      className="dc-reaction-hover-tooltip"
+                                      role="tooltip"
+                                    >
+                                      <strong>{group.emoji}</strong>{' '}
+                                      {group.senderNames.join(', ')}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Subtle Hover / Tap Action Pills (React, Reply, and optional Manual Read Receipt) */}
+                          <div className="dc-subtle-bubble-actions">
+                            <button
+                              type="button"
+                              className="dc-subtle-action-icon"
+                              onClick={() =>
+                                setActiveReactionPickerMsgId(
+                                  activeReactionPickerMsgId ===
+                                    msg.packet.payload.messageId
+                                    ? null
+                                    : msg.packet.payload.messageId
+                                )
+                              }
+                              title="React with emoji"
+                              aria-label="React to message"
+                            >
+                              <Smile size={14} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="dc-subtle-action-icon"
+                              onClick={() => setReplyingToMessage(msg)}
+                              title="Reply to message"
+                              aria-label="Reply to message"
+                            >
+                              <CornerDownLeft size={14} />
+                            </button>
+
+                            {!isOwn &&
+                              readReceiptMode === 'manual' &&
+                              !alreadyReadByMe && (
+                                <button
+                                  type="button"
+                                  className="dc-subtle-action-icon"
+                                  onClick={() =>
+                                    handleSendReadReceipt(
+                                      msg.packet.payload.messageId
+                                    )
+                                  }
+                                  title="Send encrypted Read Receipt"
+                                  aria-label="Send read receipt"
+                                >
+                                  <CheckCheck size={14} />
+                                </button>
+                              )}
+
+                            {/* Pin and Email Packet preserved in code, hidden while showPinAndPacketControls is false */}
+                            {showPinAndPacketControls && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="dc-subtle-action-icon"
+                                  onClick={() => handleTogglePinMessage(msg)}
+                                  title="Pin or unpin message"
+                                >
+                                  <Pin size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dc-subtle-action-icon"
+                                  onClick={() =>
+                                    handleOpenPacketModal(msg.emailId)
+                                  }
+                                  title="Inspect Email Packet"
+                                >
+                                  <Code2 size={13} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Subtle Status Footnote (Whisper-quiet Checkmarks & Burn Countdown when applicable) */}
+                        {(isOwn ||
+                          Boolean(
+                            msg.packet.payload.ephemeralTtlSeconds &&
+                              msg.packet.payload.ephemeralTtlSeconds > 0
+                          )) && (
+                          <div className="dc-subtle-status-row">
+                            {Boolean(
+                              msg.packet.payload.ephemeralTtlSeconds &&
+                                msg.packet.payload.ephemeralTtlSeconds > 0
+                            ) && (
+                              <span
+                                className="dc-burn-countdown-badge"
+                                title="Burn-After-Reading self-destruct timer"
+                              >
+                                <Timer size={10} />{' '}
+                                {msg.receipts.length > 0
+                                  ? (() => {
+                                      const earliestReadMs = Math.min(
+                                        ...msg.receipts.map((r) =>
+                                          new Date(
+                                            r.readAtIso || msg.packet.sentAt
+                                          ).getTime()
+                                        )
+                                      );
+                                      const remainingSec = Math.max(
+                                        0,
+                                        Math.ceil(
+                                          (earliestReadMs +
+                                            msg.packet.payload
+                                              .ephemeralTtlSeconds! *
+                                              1000 -
+                                            burnTickNowMs) /
+                                            1000
+                                        )
+                                      );
+                                      return `${remainingSec}s`;
+                                    })()
+                                  : `${msg.packet.payload.ephemeralTtlSeconds}s`}
+                              </span>
+                            )}
+
+                            {isOwn && (
+                              <span
+                                className={`dc-subtle-receipt-check ${
+                                  hasBeenReadByPeer ? 'is-read' : 'is-delivered'
+                                }`}
+                                title={
+                                  hasBeenReadByPeer
+                                    ? `Read by ${msg.receipts
+                                        .map((r) => r.senderName)
+                                        .join(', ')}`
+                                    : 'Delivered (Encrypted MIME)'
                                 }
                               >
-                                {emoji}
-                              </button>
-                            )
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </article>
+                                {hasBeenReadByPeer ? (
+                                  <CheckCheck size={13} />
+                                ) : (
+                                  <Check size={12} />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {activeReactionPickerMsgId ===
+                          msg.packet.payload.messageId && (
+                          <div className="dc-quick-reaction-bar">
+                            {['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥'].map(
+                              (emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSendQuickReaction(
+                                      msg.packet.payload.messageId,
+                                      emoji
+                                    )
+                                  }
+                                >
+                                  {emoji}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -4332,84 +4766,302 @@ export function App() {
                 </div>
               )}
 
-              <div className="dc-imessage-input-row">
-                <button
-                  type="button"
-                  className="dc-circle-icon-btn"
-                  onClick={() => fileAttachmentInputRef.current?.click()}
-                  title="Attach Real Photo, Audio, or Document (Encrypted on-device)"
-                >
-                  <Paperclip size={17} />
-                </button>
-
-                <button
-                  type="button"
-                  className="dc-circle-icon-btn"
-                  onClick={() => pollCreatorDialogRef.current?.showModal()}
-                  title="Create Encrypted Group or 1:1 Poll"
-                >
-                  <BarChart3 size={16} />
-                </button>
-
-                <div
-                  className={`dc-burn-selector-pill ${
-                    composerBurnSeconds > 0 ? 'burn-active' : ''
-                  }`}
-                  title="Burn-After-Reading Self-Destruct Timer (Starts countdown when recipient sends Read Receipt)"
-                >
-                  <Timer size={13} />
-                  <select
-                    aria-label="Burn-after-reading timer"
-                    value={composerBurnSeconds}
-                    onChange={(e) =>
-                      setComposerBurnSeconds(
-                        Number(e.target.value) as EphemeralTimerSeconds
-                      )
-                    }
+              {composerBurnSeconds > 0 && (
+                <div className="dc-composer-active-burn-bar">
+                  <span>
+                    <Flame size={13} /> Burn-after-reading timer armed:{' '}
+                    <strong>
+                      {composerBurnSeconds === 15
+                        ? '15s'
+                        : composerBurnSeconds === 60
+                        ? '1m'
+                        : composerBurnSeconds === 3600
+                        ? '1h'
+                        : '24h'}
+                    </strong>{' '}
+                    (countdown starts on recipient Read Receipt)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setComposerBurnSeconds(0)}
+                    aria-label="Clear burn timer"
+                    title="Turn off burn-after-reading timer"
                   >
-                    <option value={0}>Off</option>
-                    <option value={15}>15s</option>
-                    <option value={60}>1m</option>
-                    <option value={3600}>1h</option>
-                    <option value={86400}>24h</option>
-                  </select>
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+
+              <div className="dc-imessage-input-row">
+                {/* Collapsed Bottom-Left '+' Action Menu (Upload, Time Burn, Voice, Poll Group) */}
+                <div
+                  className="dc-composer-plus-wrap"
+                  ref={actionMenuContainerRef}
+                >
+                  <button
+                    type="button"
+                    className={`dc-circle-icon-btn dc-composer-plus-btn ${
+                      isPlusMenuOpen ? 'is-open' : ''
+                    } ${composerBurnSeconds > 0 ? 'has-active-burn' : ''}`}
+                    onClick={() => setIsPlusMenuOpen((prev) => !prev)}
+                    aria-expanded={isPlusMenuOpen}
+                    aria-haspopup="menu"
+                    aria-label={
+                      isPlusMenuOpen
+                        ? 'Close composer actions menu'
+                        : 'Open composer actions menu (Upload, Time Burn, Voice, Poll Group)'
+                    }
+                    title="Upload, Time Burn, Voice Note, or Poll Group"
+                  >
+                    <Plus size={18} className="dc-plus-glyph" />
+                    {composerBurnSeconds > 0 && !isPlusMenuOpen && (
+                      <span
+                        className="dc-plus-burn-dot"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+
+                  {isPlusMenuOpen && (
+                    <div
+                      className="dc-composer-action-menu"
+                      role="menu"
+                      aria-label="Composer actions"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="dc-action-menu-item"
+                        onClick={() => {
+                          setIsPlusMenuOpen(false);
+                          fileAttachmentInputRef.current?.click();
+                        }}
+                      >
+                        <span className="dc-action-menu-icon icon-upload">
+                          <Paperclip size={16} />
+                        </span>
+                        <span className="dc-action-menu-copy">
+                          <strong>Upload Photo or File</strong>
+                          <small>Encrypted on-device before send</small>
+                        </span>
+                      </button>
+
+                      <div
+                        className="dc-action-menu-item dc-action-menu-burn-block"
+                        role="group"
+                        aria-label="Time Burn self-destruct timer"
+                      >
+                        <div className="dc-action-menu-burn-head">
+                          <span className="dc-action-menu-icon icon-burn">
+                            <Timer size={16} />
+                          </span>
+                          <span className="dc-action-menu-copy">
+                            <strong>Time Burn</strong>
+                            <small>Self-destructs after recipient reads</small>
+                          </span>
+                        </div>
+                        <div className="dc-action-menu-burn-pills">
+                          {(
+                            [
+                              { value: 0, label: 'Off' },
+                              { value: 15, label: '15s' },
+                              { value: 60, label: '1m' },
+                              { value: 3600, label: '1h' },
+                              { value: 86400, label: '24h' },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              className={`dc-burn-option-chip ${
+                                composerBurnSeconds === opt.value
+                                  ? 'is-selected'
+                                  : ''
+                              }`}
+                              onClick={() => {
+                                setComposerBurnSeconds(
+                                  opt.value as EphemeralTimerSeconds
+                                );
+                                setIsPlusMenuOpen(false);
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="dc-action-menu-item"
+                        onClick={() => {
+                          setIsPlusMenuOpen(false);
+                          void handleToggleVoiceRecording();
+                        }}
+                      >
+                        <span
+                          className={`dc-action-menu-icon icon-voice ${
+                            isRecordingVoice ? 'is-recording' : ''
+                          }`}
+                        >
+                          {isRecordingVoice ? (
+                            <Square size={15} />
+                          ) : (
+                            <Mic size={16} />
+                          )}
+                        </span>
+                        <span className="dc-action-menu-copy">
+                          <strong>
+                            {isRecordingVoice
+                              ? 'Stop & Attach Voice Note'
+                              : 'Voice Note'}
+                          </strong>
+                          <small>Record encrypted audio clip</small>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="dc-action-menu-item"
+                        onClick={() => {
+                          setIsPlusMenuOpen(false);
+                          pollCreatorDialogRef.current?.showModal();
+                        }}
+                      >
+                        <span className="dc-action-menu-icon icon-poll">
+                          <BarChart3 size={16} />
+                        </span>
+                        <span className="dc-action-menu-copy">
+                          <strong>Poll Group</strong>
+                          <small>Create encrypted group or 1:1 poll</small>
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  className={`dc-circle-icon-btn ${
-                    isRecordingVoice ? 'recording-active' : ''
-                  }`}
-                  onClick={handleToggleVoiceRecording}
-                  title={
-                    isRecordingVoice
-                      ? 'Stop & Attach Encrypted Voice Note'
-                      : 'Record Encrypted Voice Note'
-                  }
-                >
-                  {isRecordingVoice ? (
-                    <Square size={15} />
-                  ) : (
-                    <Mic size={17} />
-                  )}
-                </button>
-
                 {isRecordingVoice ? (
-                  <div className="dc-recording-pill">
-                    <span className="dc-rec-dot" /> Recording Encrypted Voice
-                    Note ({recordingSeconds}s)… Click stop to attach
-                  </div>
+                  <>
+                    <div className="dc-recording-pill">
+                      <span className="dc-rec-dot" /> Recording Encrypted Voice
+                      Note ({recordingSeconds}s)…
+                    </div>
+                    <button
+                      type="button"
+                      className="dc-circle-icon-btn recording-active"
+                      onClick={handleToggleVoiceRecording}
+                      title="Stop & Attach Encrypted Voice Note"
+                      aria-label="Stop and attach voice note"
+                    >
+                      <Square size={15} />
+                    </button>
+                  </>
                 ) : (
-                  <input
-                    type="text"
-                    value={composerText}
-                    onChange={(e) => setComposerText(e.target.value)}
-                    placeholder={
-                      activeChannel.type === 'vault'
-                        ? `Save encrypted ${vaultCategoryInput} to Vault (@me)…`
-                        : `Text ${activeChannelDisplayTitle} (Encrypted via ${activeUser.provider.toUpperCase()})…`
-                    }
-                  />
+                  <div
+                    className={`dc-composer-textarea-wrap growable-textarea ${
+                      isComposerMultiline ? 'is-multiline' : ''
+                    }`}
+                    data-replicated-value={composerText}
+                  >
+                    <textarea
+                      ref={composerTextareaRef}
+                      rows={1}
+                      className={`dc-composer-textarea ${
+                        isComposerMultiline ? 'is-multiline' : ''
+                      }`}
+                      value={composerText}
+                      onChange={(e) => setComposerText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' &&
+                          !e.shiftKey &&
+                          !e.nativeEvent.isComposing
+                        ) {
+                          const isCoarsePointer =
+                            typeof window !== 'undefined' &&
+                            window.matchMedia('(pointer: coarse)').matches;
+                          if (!isCoarsePointer) {
+                            e.preventDefault();
+                            if (
+                              !isSending &&
+                              (composerText.trim() ||
+                                pendingAttachments.length > 0)
+                            ) {
+                              void handleMessengerSend(e);
+                            }
+                          }
+                        }
+                      }}
+                      placeholder={
+                        activeChannel.type === 'vault'
+                          ? `Save encrypted ${vaultCategoryInput} to Vault (@me)…`
+                          : `Text ${activeChannelDisplayTitle} (Encrypted via ${activeUser.provider.toUpperCase()})…`
+                      }
+                    />
+
+                    {/* Quick Emoji Selector Button on Right Side of Input Box (Google Messages style) */}
+                    <div
+                      className="dc-composer-emoji-wrap"
+                      ref={composerEmojiContainerRef}
+                    >
+                      <button
+                        type="button"
+                        className={`dc-composer-emoji-btn ${
+                          isComposerEmojiOpen ? 'is-open' : ''
+                        }`}
+                        onClick={() => setIsComposerEmojiOpen((prev) => !prev)}
+                        aria-expanded={isComposerEmojiOpen}
+                        aria-haspopup="menu"
+                        aria-label="Open quick emoji selector"
+                        title="Insert emoji"
+                      >
+                        <Smile size={18} />
+                      </button>
+
+                      {isComposerEmojiOpen && (
+                        <div
+                          className="dc-composer-emoji-popover"
+                          role="menu"
+                          aria-label="Quick emojis"
+                        >
+                          {[
+                            '👍',
+                            '❤️',
+                            '😂',
+                            '🔥',
+                            '🎉',
+                            '🙌',
+                            '😮',
+                            '😢',
+                            '🙏',
+                            '💯',
+                            '👀',
+                            '✨',
+                            '🚀',
+                            '🔒',
+                            '✅',
+                            '🤝',
+                          ].map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              role="menuitem"
+                              className="dc-emoji-grid-btn"
+                              onClick={() => {
+                                setComposerText((prev) => prev + emoji);
+                                setIsComposerEmojiOpen(false);
+                                composerTextareaRef.current?.focus();
+                              }}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 <button
