@@ -1472,9 +1472,7 @@ export function App() {
       if (
         pkt.type !== 'chat.message' &&
         pkt.type !== 'chat.poll' &&
-        pkt.type !== 'chat.member-update' &&
-        pkt.type !== 'chat.shred-request' &&
-        pkt.type !== 'chat.shred-ack'
+        pkt.type !== 'chat.member-update'
       ) {
         continue;
       }
@@ -2322,10 +2320,12 @@ export function App() {
       encryptedPacketArmored: encAck,
     });
 
-    const finalEmails = [mimeAck, mimeReq, ...remainingEmails];
+    const finalEmails = [...remainingEmails];
     setTransportEmails(finalEmails);
-    setSelectedEmailId(mimeAck.id);
+    setSelectedEmailId(finalEmails[0]?.id || '');
     await saveTransportEmailsToIdb(finalEmails);
+    void mimeReq;
+    void mimeAck;
   }
 
   // Add Member to Group
@@ -3112,10 +3112,10 @@ export function App() {
             type="button"
             className="dc-menu-trigger-btn"
             onClick={() => menuDirectoryDialogRef.current?.showModal()}
-            title="Open Channels, Groups & Contacts Menu"
+            title="Open Groups & Friends"
           >
             <Menu size={17} />
-            <span>Channels &amp; Contacts</span>
+            <span>Friends &amp; Groups</span>
           </button>
 
           <div className="dc-brand-icon">
@@ -3128,44 +3128,8 @@ export function App() {
           <div>
             <div className="dc-brand-title-row">
               <h1>@me</h1>
-              <span className="dc-badge-e2ee">
-                <Lock size={11} /> E2EE Texting over Email
-              </span>
-              <span
-                className="dc-badge-filtered-count"
-                title="Regular emails in inbox ignored by the app"
-              >
-                <Filter size={11} /> {ignoredRegularEmails.length} Regular Emails
-                Ignored
-              </span>
             </div>
           </div>
-        </div>
-
-        {/* Surface Mode Switcher */}
-        <div className="dc-mode-switcher" role="tablist" aria-label="View Mode">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={surfaceMode === 'messenger-ui'}
-            className={`dc-mode-btn ${
-              surfaceMode === 'messenger-ui' ? 'active' : ''
-            }`}
-            onClick={() => setSurfaceMode('messenger-ui')}
-          >
-            <MessageSquare size={14} /> Texting App
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={surfaceMode === 'protocol-workbench'}
-            className={`dc-mode-btn ${
-              surfaceMode === 'protocol-workbench' ? 'active' : ''
-            }`}
-            onClick={() => setSurfaceMode('protocol-workbench')}
-          >
-            <Terminal size={14} /> Protocol Workbench
-          </button>
         </div>
 
         <div className="dc-topbar-controls">
@@ -3189,7 +3153,7 @@ export function App() {
 
           <div className="dc-identity-switcher">
             <select
-              aria-label="Switch Active Device Identity"
+              aria-label="Switch Active Account"
               value={activeUserEmail}
               onChange={(e) => setActiveUserEmail(e.target.value)}
             >
@@ -3197,7 +3161,7 @@ export function App() {
                 .filter((u) => u.hasAppInstalled)
                 .map((u) => (
                   <option key={u.email} value={u.email}>
-                    Switch: {u.displayName} ({u.provider.toUpperCase()})
+                    {u.displayName} ({u.handle || u.email})
                   </option>
                 ))}
             </select>
@@ -3211,18 +3175,18 @@ export function App() {
               setSimulatedOAuthProvider(null);
               connectWizardDialogRef.current?.showModal();
             }}
-            title="Connect Gmail, Outlook, Yahoo, Proton Mail, or Custom Domain"
+            title="Sign in or add another email account"
           >
-            <Link2 size={13} /> Connect Email
+            <Link2 size={13} /> Add Account
           </button>
 
           <button
             type="button"
             className="dc-btn-ghost"
             onClick={handleOpenPersonalVault}
-            title="Open Personal Encrypted Vault (@me Note-to-Self)"
+            title="Open Saved Notes (@me)"
           >
-            <Bookmark size={13} /> Vault (@me)
+            <Bookmark size={13} /> Notes
           </button>
 
           <button
@@ -3233,16 +3197,16 @@ export function App() {
               setLockScreenError('');
               setIsAppLocked(true);
             }}
-            title="Lock @me with Biometric Passkey (WebAuthn) or PIN / Duress Code"
+            title="Lock @me with PIN or Biometrics"
           >
-            <Fingerprint size={13} /> Lock App
+            <Fingerprint size={13} /> Lock
           </button>
 
           <button
             type="button"
             className="dc-btn-ghost"
             onClick={handleResetDemoState}
-            title="Regenerate OpenPGP keys and reset sample inbox"
+            title="Reset demo conversations"
           >
             <RefreshCw size={13} />
           </button>
@@ -3390,7 +3354,7 @@ export function App() {
                   type="search"
                   value={contactSearchQuery}
                   onChange={(e) => setContactSearchQuery(e.target.value)}
-                  placeholder="Search @handles, contacts, emails, or texts…"
+                  placeholder="Search friends, @handles, or messages…"
                 />
                 {contactSearchQuery && (
                   <button
@@ -3416,11 +3380,10 @@ export function App() {
                     <UserPlus size={15} />
                     <div>
                       <strong>
-                        Text &ldquo;{contactSearchQuery.trim()}&rdquo;
+                        Message &ldquo;{contactSearchQuery.trim()}&rdquo;
                       </strong>
                       <span>
-                        Sends your Profile Card + Encrypted Packet (or App Store
-                        Invite)
+                        Start a chat or send an invite
                       </span>
                     </div>
                     <ChevronRight size={15} />
@@ -3431,7 +3394,7 @@ export function App() {
               {matchingContacts.length > 0 && (
                 <div className="dc-search-contacts-results">
                   <div className="dc-search-section-label">
-                    MATCHING CONTACTS IN LOCAL DB
+                    FRIENDS &amp; CONTACTS
                   </div>
                   {matchingContacts.map((c) => (
                     <button
@@ -3449,10 +3412,8 @@ export function App() {
                           )}
                         </strong>
                         <span>
-                          {c.email} &bull;{' '}
-                          {c.hasAppInstalled
-                            ? `${c.provider.toUpperCase()} PGP Ready`
-                            : 'Sends Store Invite'}
+                          {c.email}
+                          {!c.hasAppInstalled ? ' • Invite to @me' : ''}
                         </span>
                       </div>
                     </button>
@@ -3468,11 +3429,10 @@ export function App() {
                   <div className="dc-empty-threads-icon">
                     <MessageSquare size={22} />
                   </div>
-                  <strong>No messages yet for {activeUser.displayName}</strong>
+                  <strong>No chats yet, {activeUser.displayName}!</strong>
                   <p>
-                    Signed in as <code>{activeUser.email}</code>. Your inbox is
-                    isolated and end-to-end encrypted. Search a contact above or
-                    start a new message to begin!
+                    Search a friend&apos;s @handle or email above, or tap the +
+                    button to start chatting.
                   </p>
                   <button
                     type="button"
@@ -3482,7 +3442,7 @@ export function App() {
                       newChannelModalRef.current?.showModal();
                     }}
                   >
-                    <Plus size={14} /> Start First Encrypted Message
+                    <Plus size={14} /> New Chat
                   </button>
                 </div>
               ) : (
@@ -3543,7 +3503,7 @@ export function App() {
                           <div className="dc-thread-card-top">
                             <span className="dc-thread-title">
                               {isVault
-                                ? 'Vault (@me)'
+                                ? 'Saved Notes (@me)'
                                 : isGroup
                                 ? `#${ch.name}`
                                 : (
@@ -3567,54 +3527,12 @@ export function App() {
                           </div>
 
                           <div className="dc-thread-snippet">{lastText}</div>
-
-                          <div className="dc-thread-badges">
-                            {isVault ? (
-                              <span className="dc-mini-badge vault-badge">
-                                <Bookmark size={10} /> Personal E2EE Vault
-                              </span>
-                            ) : isGroup ? (
-                              <span className="dc-mini-badge">
-                                <Users size={10} /> {ch.participants.length}{' '}
-                                members
-                              </span>
-                            ) : hasApp ? (
-                              <span className="dc-mini-badge verified">
-                                <Lock size={10} />{' '}
-                                {peerUser?.handle ? `${peerUser.handle} • ` : ''}
-                                {peerUser?.provider.toUpperCase()} E2EE
-                              </span>
-                            ) : (
-                              <span className="dc-mini-badge invite">
-                                <Smartphone size={10} /> Store Invite Fallback
-                              </span>
-                            )}
-                            {ch.shieldedAliasEmail && (
-                              <span
-                                className="dc-mini-badge shielded-alias-badge"
-                                title={`Shielded Burner Alias active: ${ch.shieldedAliasEmail}`}
-                              >
-                                <EyeOff size={10} /> Shielded Alias
-                              </span>
-                            )}
-                          </div>
                         </div>
                       </button>
                     );
                   }
                 )
               )}
-            </div>
-
-            <div className="dc-sidebar-footer-card">
-              <div className="dc-sidebar-footer-title">
-                <ShieldCheck size={14} /> Strict Email Filter Active
-              </div>
-              <p>
-                <strong>{ignoredRegularEmails.length} regular emails</strong>{' '}
-                ignored. Peer avatars &amp; handles sync from first-contact
-                packets into local IndexedDB.
-              </p>
             </div>
           </aside>
 
@@ -3628,14 +3546,12 @@ export function App() {
               <div className="dc-empty-chat-pane">
                 <div className="dc-empty-chat-card">
                   <div className="dc-empty-threads-icon">
-                    <ShieldCheck size={28} />
+                    <MessageSquare size={28} />
                   </div>
-                  <h2>Welcome, {activeUser.displayName}!</h2>
+                  <h2>Hey, {activeUser.displayName}! 👋</h2>
                   <p>
-                    Your account (<code>{activeUser.email}</code>) is active with
-                    an on-device OpenPGP keypair. Because @me is strictly
-                    account-scoped, you only see conversations where{' '}
-                    <strong>{activeUser.email}</strong> is a participant.
+                    Pick a conversation on the left or message any friend using
+                    their email or @handle — no phone number needed.
                   </p>
                   <div className="dc-empty-chat-actions">
                     <button
@@ -3646,14 +3562,14 @@ export function App() {
                         newChannelModalRef.current?.showModal();
                       }}
                     >
-                      <Plus size={15} /> New Encrypted Message
+                      <Plus size={15} /> Start a Chat
                     </button>
                     <button
                       type="button"
                       className="dc-btn-ghost"
                       onClick={handleOpenPersonalVault}
                     >
-                      <Bookmark size={15} /> Open Vault (@me)
+                      <Bookmark size={15} /> Saved Notes
                     </button>
                   </div>
                 </div>
@@ -3699,41 +3615,12 @@ export function App() {
                       )}
                       <div>
                         <h2>{activeChannelDisplayTitle}</h2>
-                        {activeChannel.shieldedAliasEmail && (
-                          <span className="dc-header-alias-pill">
-                            <EyeOff size={10} /> Masked as{' '}
-                            {activeChannel.shieldedAliasEmail}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="dc-freeflow-header-actions">
-                    {/* Icon 1: Verification Shield (Compliant Build + Safety Number & QR Verification) */}
-                    <button
-                      type="button"
-                      className={`dc-compliant-build-badge dc-icon-only-pill ${
-                        activeChannelPeerUser &&
-                        verifiedPeersMap[
-                          activeChannelPeerUser.email.toLowerCase()
-                        ]
-                          ? 'peer-key-verified'
-                          : ''
-                      }`}
-                      onClick={() =>
-                        safetyNumberDialogRef.current?.showModal()
-                      }
-                      title={`Compliant Build Verified (${DCP_COMPLIANT_BUILD_VERSION} • SHA-256: ${DCP_COMPLIANT_BUNDLE_SHA256.slice(
-                        0,
-                        16
-                      )}…) • Click to Verify 60-Digit Safety Number & QR Code`}
-                      aria-label="Verification Shield: Compliant Build and Safety Number Verification"
-                    >
-                      <ShieldCheck size={16} />
-                    </button>
-
-                    {/* Icon 2: 3-Line Dropdown Menu (Add People, Burn Thread, Settings) */}
+                    {/* Top-Right 3-Line Dropdown Menu (Add People, Burn Thread, Settings) */}
                     <div
                       className="dc-header-menu-wrap"
                       ref={headerMenuContainerRef}
@@ -3905,36 +3792,6 @@ export function App() {
                                   </button>
                                 </div>
                               </div>
-
-                              <div className="dc-setting-group">
-                                <span className="dc-setting-label">
-                                  Read Receipts
-                                </span>
-                                <div className="dc-setting-segmented">
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      readReceiptMode === 'auto'
-                                        ? 'is-active'
-                                        : ''
-                                    }`}
-                                    onClick={() => setReadReceiptMode('auto')}
-                                  >
-                                    Auto
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      readReceiptMode === 'manual'
-                                        ? 'is-active'
-                                        : ''
-                                    }`}
-                                    onClick={() => setReadReceiptMode('manual')}
-                                  >
-                                    Manual
-                                  </button>
-                                </div>
-                              </div>
                             </div>
                           )}
                         </div>
@@ -3981,48 +3838,13 @@ export function App() {
                   </div>
                 )}
 
-                {/* Peer PGP Key Rotation / Change Alert Banner (Feature 4) */}
-                {activeChannelPeerUser?.keyShreddedAt &&
-                  !verifiedPeersMap[
-                    activeChannelPeerUser.email.toLowerCase()
-                  ] && (
-                    <div className="dc-key-rotation-alert">
-                      <div className="dc-key-rotation-left">
-                        <AlertTriangle size={14} />
-                        <span>
-                          <strong>
-                            Security Notice — Peer OpenPGP Key Rotated:
-                          </strong>{' '}
-                          {activeChannelPeerUser.displayName}&apos;s keypair was
-                          regenerated at{' '}
-                          {new Date(
-                            activeChannelPeerUser.keyShreddedAt
-                          ).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          . Verify the new 60-digit Safety Number.
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="dc-btn-banner"
-                        onClick={() =>
-                          safetyNumberDialogRef.current?.showModal()
-                        }
-                      >
-                        <QrCode size={12} /> Verify Safety Number
-                      </button>
-                    </div>
-                  )}
-
             {/* Non-App Recipient Onboarding Banner */}
             {channelHasNonAppParticipant && (
               <div className="dc-non-app-banner">
                 <div>
-                  <strong>Recipient does not have @me yet:</strong> Texts
-                  sent here include your encrypted Profile Card + an{' '}
-                  <strong>App Store / Google Play Download Card</strong>.
+                  <strong>{activeChannelDisplayTitle} isn&apos;t on @me yet:</strong>{' '}
+                  Your message will send them an invite link so they can reply
+                  right away!
                 </div>
                 <button
                   type="button"
@@ -4031,42 +3853,36 @@ export function App() {
                     handleSimulateInstallAppForUser('jordan.taylor@yahoo.com')
                   }
                 >
-                  <UserCheck size={13} /> Simulate Recipient Installing App
+                  <UserCheck size={13} /> Simulate Friend Joining
                 </button>
               </div>
             )}
 
             {/* Free-Flowing Message Stream */}
             <div className="dc-freeflow-feed" ref={freeflowFeedRef}>
-              <div className="dc-e2ee-EncryptionNotice">
-                <Lock size={12} />
-                <span>
-                  End-to-End Encrypted over Email (<code>DCP/1.0</code>).{' '}
-                  {readReceiptMode === 'auto'
-                    ? 'Read receipts are automatically sent when you view messages.'
-                    : 'Manual Read Receipts active: regular messages can be viewed silently; Burn-After-Reading messages stay hidden until you click to view & send receipt.'}
-                </span>
-                <button
-                  type="button"
-                  className={`dc-read-mode-pill ${
-                    readReceiptMode === 'manual' ? 'manual-mode' : 'auto-mode'
-                  }`}
-                  onClick={() =>
-                    setReadReceiptMode((m) => (m === 'auto' ? 'manual' : 'auto'))
-                  }
-                  title="Switch between Automatic Read Receipts on View vs. Manual Read Receipts (which hides Burn-After-Reading messages until clicked)"
-                >
-                  {readReceiptMode === 'auto' ? (
-                    <>
-                      <CheckCheck size={11} /> Read Receipts: Auto
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff size={11} /> Read Receipts: Manual
-                    </>
-                  )}
-                </button>
-              </div>
+              {freeflowStream.length === 0 && (
+                <div className="dc-clean-empty-thread">
+                  <div className="dc-clean-empty-avatar">
+                    {activeChannel.type === 'vault' ? (
+                      <Bookmark size={22} />
+                    ) : activeChannel.type === 'dm' ? (
+                      activeChannelDisplayTitle.charAt(0).toUpperCase()
+                    ) : (
+                      <Users size={22} />
+                    )}
+                  </div>
+                  <strong>
+                    {activeChannel.type === 'vault'
+                      ? 'Saved Notes (@me)'
+                      : `Chat with ${activeChannelDisplayTitle}`}
+                  </strong>
+                  <p>
+                    {activeChannel.type === 'vault'
+                      ? 'Jot down notes, links, or files for yourself below.'
+                      : `No messages here yet. Send a message below to say hi! 👋`}
+                  </p>
+                </div>
+              )}
 
               {freeflowStream.map((msg) => {
                 const isOwn =
@@ -4104,72 +3920,9 @@ export function App() {
                     <div
                       key={msg.emailId}
                       className="dc-system-event-pill"
-                      onClick={() => handleOpenPacketModal(msg.emailId)}
                     >
                       <Users size={13} />
                       <span>{msg.packet.payload.text}</span>
-                      <code>Inspect MIME</code>
-                    </div>
-                  );
-                }
-
-                // System Card for Remote Key Shredding Request or Compliant Build Shred Receipt
-                if (
-                  msg.packet.type === 'chat.shred-request' ||
-                  msg.packet.type === 'chat.shred-ack'
-                ) {
-                  const isAck = msg.packet.type === 'chat.shred-ack';
-                  return (
-                    <div
-                      key={msg.emailId}
-                      className={`dc-shred-event-card ${
-                        isAck ? 'shred-ack' : 'shred-req'
-                      }`}
-                      onClick={() => handleOpenPacketModal(msg.emailId)}
-                    >
-                      <div className="dc-shred-event-top">
-                        {isAck ? (
-                          <ShieldCheck size={15} />
-                        ) : (
-                          <Flame size={15} />
-                        )}
-                        <strong>
-                          {isAck
-                            ? 'Cryptographic Key Destruction & IndexedDB Scrub Receipt (chat.shred-ack)'
-                            : 'Remote PGP Key Erase Command Dispatched (chat.shred-request)'}
-                        </strong>
-                        <code>Inspect Signed Packet</code>
-                      </div>
-                      <p>{msg.packet.payload.text}</p>
-                      {msg.packet.payload.shredAck && (
-                        <div className="dc-shred-ack-specs">
-                          <span>
-                            Purged FP:{' '}
-                            <code>
-                              {formatFingerprint(
-                                msg.packet.payload.shredAck.purgedKeyFingerprint
-                              ).slice(0, 24)}
-                              …
-                            </code>
-                          </span>
-                          <span>
-                            IndexedDB Scrubbed:{' '}
-                            <strong>
-                              {
-                                msg.packet.payload.shredAck
-                                  .scrubbedEmailIdsCount
-                              }{' '}
-                              records zero-filled
-                            </strong>
-                          </span>
-                          <span>
-                            Build Hash:{' '}
-                            <code>
-                              {msg.packet.payload.shredAck.attestedBuildHash}…
-                            </code>
-                          </span>
-                        </div>
-                      )}
                     </div>
                   );
                 }
@@ -4996,8 +4749,8 @@ export function App() {
                       }}
                       placeholder={
                         activeChannel.type === 'vault'
-                          ? `Save encrypted ${vaultCategoryInput} to Vault (@me)…`
-                          : `Text ${activeChannelDisplayTitle} (Encrypted via ${activeUser.provider.toUpperCase()})…`
+                          ? `Save a ${vaultCategoryInput} to Notes (@me)…`
+                          : `Message ${activeChannelDisplayTitle}…`
                       }
                     />
 
@@ -6299,7 +6052,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={menuDialogTitleId}>
-              <Users size={17} /> Channels, Groups &amp; Contacts Directory
+              <Users size={17} /> Friends &amp; Groups
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -6312,7 +6065,7 @@ export function App() {
             {/* Section 1: Channels & Groups */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>Encrypted Channels &amp; Groups</h3>
+                <h3>Group Chats</h3>
                 <button
                   type="button"
                   className="dc-pill-action-btn"
@@ -6349,14 +6102,7 @@ export function App() {
                                   activeUser.email.toLowerCase()
                               ).length
                             }{' '}
-                            other members:{' '}
-                            {ch.participants
-                              .filter(
-                                (p) =>
-                                  p.toLowerCase() !==
-                                  activeUser.email.toLowerCase()
-                              )
-                              .join(', ')}
+                            friends in group
                           </span>
                         </div>
                       </div>
@@ -6380,10 +6126,10 @@ export function App() {
               </div>
             </div>
 
-            {/* Section 2: Contacts Stored in Local IndexedDB */}
+            {/* Section 2: Friends & Contacts */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>Contacts Cached in Local IndexedDB</h3>
+                <h3>Friends</h3>
                 <button
                   type="button"
                   className="dc-pill-action-btn"
@@ -6392,7 +6138,7 @@ export function App() {
                     newChannelModalRef.current?.showModal();
                   }}
                 >
-                  <UserPlus size={13} /> New Contact DM
+                  <UserPlus size={13} /> Add Friend
                 </button>
               </div>
 
@@ -6418,10 +6164,8 @@ export function App() {
                             )}
                           </strong>
                           <span>
-                            {contact.email} &bull;{' '}
-                            {contact.hasAppInstalled
-                              ? `${contact.provider.toUpperCase()} OpenPGP Verified`
-                              : 'No App Yet (Sends Store Invite)'}
+                            {contact.email}
+                            {!contact.hasAppInstalled ? ' • Invite to @me' : ''}
                           </span>
                         </div>
                       </div>
@@ -6432,7 +6176,7 @@ export function App() {
                           handleStartOrOpenContactChat(contact.email)
                         }
                       >
-                        Text
+                        Chat
                       </button>
                     </div>
                   ))}
@@ -6473,14 +6217,14 @@ export function App() {
                   type="email"
                   value={newMemberEmailInput}
                   onChange={(e) => setNewMemberEmailInput(e.target.value)}
-                  placeholder="Add email to group (e.g. jordan.taylor@yahoo.com)"
+                  placeholder="Add friend's email (e.g. jordan.taylor@yahoo.com)"
                   required
                 />
                 <input
                   type="text"
                   value={newMemberNameInput}
                   onChange={(e) => setNewMemberNameInput(e.target.value)}
-                  placeholder="Display Name (optional)"
+                  placeholder="Name (optional)"
                 />
                 <button type="submit" className="dc-btn-send">
                   <UserPlus size={14} /> Add
@@ -6512,39 +6256,13 @@ export function App() {
                               )}
                             </strong>
                             <span>
-                              {email} &bull;{' '}
-                              {u?.hasAppInstalled
-                                ? `PGP FP: ${formatFingerprint(
-                                    u.pgpKeyPair?.fingerprint || ''
-                                  ).slice(0, 19)}…`
-                                : 'No App Installed — Receives App Store Invite Card'}
+                              {email}
+                              {!u?.hasAppInstalled ? ' • Invite sent' : ''}
                             </span>
                           </div>
                         </div>
 
                         <div className="dc-participant-actions">
-                          {u?.hasAppInstalled && (
-                            <button
-                              type="button"
-                              className="dc-btn-shred-key dc-icon-only-pill"
-                              onClick={() => {
-                                groupInfoDialogRef.current?.close();
-                                setPendingShredOptions({
-                                  shredScope: 'peer-pgp-key-and-threads',
-                                  targetPeerEmail: email,
-                                });
-                                shredConfirmDialogRef.current?.showModal();
-                              }}
-                              title={`Erase ${
-                                u?.displayName || email
-                              }'s PGP key & scrub messages`}
-                              aria-label={`Erase ${
-                                u?.displayName || email
-                              }'s PGP key and scrub messages`}
-                            >
-                              <Flame size={14} />
-                            </button>
-                          )}
                           {activeChannel.participants.length > 2 && (
                             <button
                               type="button"
@@ -6567,40 +6285,13 @@ export function App() {
                     );
                   })}
               </div>
-
-              <div className="dc-compliance-modal-footer">
-                <div>
-                  <strong>
-                    <ShieldCheck size={14} /> Compliant Build (
-                    {DCP_COMPLIANT_BUILD_VERSION})
-                  </strong>
-                  <p>
-                    Zero-Plaintext IndexedDB &amp; Remote Key Shredding active.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="dc-btn-shred-key dc-icon-only-pill"
-                  onClick={() => {
-                    groupInfoDialogRef.current?.close();
-                    setPendingShredOptions({
-                      shredScope: 'peer-pgp-key-and-threads',
-                    });
-                    shredConfirmDialogRef.current?.showModal();
-                  }}
-                  title="Purge & Shred Conversation Key and Messages"
-                  aria-label="Purge and shred conversation"
-                >
-                  <Flame size={14} />
-                </button>
-              </div>
             </>
           )}
         </div>
       </dialog>
 
       {/* =====================================================================
-          MODAL 4B: WARNING & CONFIRMATION POPUP FOR REMOTE KEY SHRED & PURGE
+          MODAL 4B: WARNING & CONFIRMATION POPUP FOR BURNING / CLEARING THREAD
          ===================================================================== */}
       <dialog
         ref={shredConfirmDialogRef}
@@ -6611,8 +6302,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={shredConfirmDialogTitleId} className="dc-shred-modal-title">
-              <Flame size={18} /> Confirm Permanent Key Shred &amp; Message
-              Purge
+              <Flame size={18} /> Burn &amp; Clear Chat?
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -6623,33 +6313,13 @@ export function App() {
 
           <div className="dc-shred-warning-body">
             <div className="dc-shred-warning-banner">
-              <strong>Warning: This action cannot be undone.</strong>
+              <strong>This action cannot be undone.</strong>
               <p>
-                Are you sure you want to permanently purge and delete the
-                messages in <strong>{activeChannelDisplayTitle}</strong> from
-                both <strong>your device</strong> and{' '}
-                <strong>the recipient&apos;s device</strong>?
+                Burning this thread permanently deletes all messages in{' '}
+                <strong>{activeChannelDisplayTitle}</strong> for both of you and
+                resets the chat to a clean slate.
               </p>
             </div>
-
-            <ul className="dc-shred-checklist">
-              <li>
-                <strong>1. Remote PGP Key Erasure:</strong> Sends a signed{' '}
-                <code>chat.shred-request</code> command instructing the
-                recipient&apos;s compliant app to permanently destroy the
-                decryption key for this thread.
-              </li>
-              <li>
-                <strong>2. Zero-Fill IndexedDB Scrub:</strong> Overwrites and
-                purges all encrypted message records in local IndexedDB on both
-                devices.
-              </li>
-              <li>
-                <strong>3. Signed Destruction Receipt:</strong> Returns a
-                cryptographic <code>chat.shred-ack</code> receipt verifying the
-                purge completed.
-              </li>
-            </ul>
 
             <div className="dc-modal-actions">
               <button
@@ -6674,7 +6344,7 @@ export function App() {
                   await handleRemoteKeyShredAndScrub(opts);
                 }}
               >
-                <Flame size={15} /> Yes, Purge &amp; Shred Messages
+                <Flame size={15} /> Burn Chat
               </button>
             </div>
           </div>

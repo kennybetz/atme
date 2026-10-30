@@ -1270,6 +1270,45 @@ pre,
   scroll-behavior: smooth;
 }
 
+.dc-clean-empty-thread {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 36px 24px;
+  max-width: 360px;
+  color: var(--text-muted);
+}
+
+.dc-clean-empty-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  color: #ffffff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  box-shadow: 0 8px 24px rgba(10, 132, 255, 0.25);
+}
+
+.dc-clean-empty-thread strong {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.dc-clean-empty-thread p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .dc-e2ee-EncryptionNotice {
   align-self: center;
   max-width: 540px;
