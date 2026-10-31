@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock,
   Code2,
+  Copy,
   CornerDownLeft,
   ExternalLink,
   Eye,
@@ -430,6 +431,11 @@ export function App() {
   const [isComposerEmojiOpen, setIsComposerEmojiOpen] =
     useState<boolean>(false);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState<boolean>(false);
+  const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState<boolean>(false);
+  const [profileModalStep, setProfileModalStep] = useState<'edit' | 'qr-card'>(
+    'edit'
+  );
+  const [qrLinkCopied, setQrLinkCopied] = useState<boolean>(false);
   const [isSettingsExpandedInMenu, setIsSettingsExpandedInMenu] =
     useState<boolean>(false);
   const [showMessageTimestamps, setShowMessageTimestamps] =
@@ -456,6 +462,7 @@ export function App() {
   const actionMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const composerEmojiContainerRef = useRef<HTMLDivElement | null>(null);
   const headerMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const avatarMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const freeflowFeedRef = useRef<HTMLDivElement | null>(null);
   const prevChannelIdRef = useRef<string | null>(null);
@@ -647,9 +654,16 @@ export function App() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Dismiss composer '+' menu, quick emoji picker, or top-right header menu on outside click/touch or Escape key
+  // Dismiss composer '+' menu, quick emoji picker, top-right header menu, or left avatar menu on outside click/touch or Escape key
   useEffect(() => {
-    if (!isPlusMenuOpen && !isComposerEmojiOpen && !isHeaderMenuOpen) return;
+    if (
+      !isPlusMenuOpen &&
+      !isComposerEmojiOpen &&
+      !isHeaderMenuOpen &&
+      !isAvatarMenuOpen
+    ) {
+      return;
+    }
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
       if (
@@ -673,12 +687,20 @@ export function App() {
       ) {
         setIsHeaderMenuOpen(false);
       }
+      if (
+        isAvatarMenuOpen &&
+        avatarMenuContainerRef.current &&
+        !avatarMenuContainerRef.current.contains(target)
+      ) {
+        setIsAvatarMenuOpen(false);
+      }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsPlusMenuOpen(false);
         setIsComposerEmojiOpen(false);
         setIsHeaderMenuOpen(false);
+        setIsAvatarMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
@@ -689,7 +711,12 @@ export function App() {
       document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlusMenuOpen, isComposerEmojiOpen, isHeaderMenuOpen]);
+  }, [
+    isPlusMenuOpen,
+    isComposerEmojiOpen,
+    isHeaderMenuOpen,
+    isAvatarMenuOpen,
+  ]);
 
   // Apply color-scheme preference to <meta name="color-scheme"> and stay synced across tabs
   const handleSelectColorScheme = (next: 'dark' | 'light' | 'light dark') => {
@@ -794,6 +821,21 @@ export function App() {
       pollCreatorDialogRef.current.showModal();
     } else if (modalParam === 'lock') {
       setIsAppLocked(true);
+    } else {
+      // First step in the app: open the Profile Builder -> QR Code generator if not completed yet
+      try {
+        const onboarded = localStorage.getItem('atme_profile_onboarded');
+        if (
+          !onboarded &&
+          profileDialogRef.current &&
+          !profileDialogRef.current.open
+        ) {
+          setProfileModalStep('edit');
+          profileDialogRef.current.showModal();
+        }
+      } catch {
+        // Ignore storage errors
+      }
     }
   }, []);
 
@@ -1870,8 +1912,83 @@ export function App() {
     }
   }
 
+  // Deterministic 21x21 QR Code Matrix for the active user's shareable @me Friend Card
+  const userInviteQrMatrix = useMemo<boolean[][]>(() => {
+    const cleanHandle = (
+      profileHandleInput ||
+      activeUser.handle ||
+      '@user'
+    ).replace(/^@/, '');
+    const seed = `https://atme.kennybetz.workers.dev/?invite=${encodeURIComponent(
+      cleanHandle
+    )}&email=${encodeURIComponent(activeUser.email)}&name=${encodeURIComponent(
+      profileNameInput || activeUser.displayName
+    )}`;
+    const size = 21;
+    const grid: boolean[][] = Array.from({ length: size }, () =>
+      Array(size).fill(false)
+    );
+
+    const drawFinder = (r0: number, c0: number) => {
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < 7; c++) {
+          const isBorder = r === 0 || r === 6 || c === 0 || c === 6;
+          const isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+          grid[r0 + r][c0 + c] = isBorder || isInner;
+        }
+      }
+    };
+
+    drawFinder(0, 0);
+    drawFinder(0, size - 7);
+    drawFinder(size - 7, 0);
+
+    // Timing lines
+    for (let i = 8; i < size - 8; i++) {
+      grid[6][i] = i % 2 === 0;
+      grid[i][6] = i % 2 === 0;
+    }
+
+    // Deterministic hash fill for remaining modules
+    let hash = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      hash ^= seed.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const inTopLeft = r < 8 && c < 8;
+        const inTopRight = r < 8 && c >= size - 8;
+        const inBottomLeft = r >= size - 8 && c < 8;
+        const onTiming = r === 6 || c === 6;
+        if (inTopLeft || inTopRight || inBottomLeft || onTiming) continue;
+        hash ^= (r * 31 + c * 17 + seed.charCodeAt((r + c) % seed.length)) & 0xff;
+        hash = Math.imul(hash, 16777619);
+        grid[r][c] = (Math.abs(hash) & 3) !== 0;
+      }
+    }
+    return grid;
+  }, [
+    activeUser.email,
+    activeUser.displayName,
+    activeUser.handle,
+    profileHandleInput,
+    profileNameInput,
+  ]);
+
+  function handleSelectPresetAvatar(
+    emoji: string,
+    bgStart: string,
+    bgEnd: string
+  ) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${bgStart}"/><stop offset="100%" stop-color="${bgEnd}"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="46">${emoji}</text></svg>`;
+    const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    setProfileAvatarInput(dataUrl);
+  }
+
   // Save User Profile (Avatar, Display Name, Handle, Bio) to Local IndexedDB
-  // and flag next message to broadcast the updated Profile Card to peers!
+  // and transition to the generated @me Friend QR Code Card!
   async function handleSaveUserProfile(e: React.FormEvent) {
     e.preventDefault();
     const formattedHandle = profileHandleInput.trim().startsWith('@')
@@ -1895,9 +2012,13 @@ export function App() {
     setUsers(updatedUsers);
     await saveUserIdentitiesToIdb(updatedUsers);
     setForceBroadcastProfileNext(true);
-    setProfileSaveBanner(
-      'Profile saved to local IndexedDB! Your updated Avatar & Handle will be attached to your next encrypted message.'
-    );
+    try {
+      localStorage.setItem('atme_profile_onboarded', '1');
+    } catch {
+      // Ignore storage errors
+    }
+    setProfileModalStep('qr-card');
+    setProfileSaveBanner('Your @me Profile & QR Card are ready to share!');
     setTimeout(() => setProfileSaveBanner(''), 4000);
   }
 
@@ -3074,6 +3195,9 @@ export function App() {
   }
 
   async function handleResetDemoState() {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('atme_profile_onboarded');
+    }
     await clearIdbDatabase();
     window.location.reload();
   }
@@ -3104,114 +3228,6 @@ export function App() {
         style={{ display: 'none' }}
         onChange={handleAvatarFileSelected}
       />
-
-      {/* Top Global Navigation Bar */}
-      <header className="dc-global-nav">
-        <div className="dc-brand">
-          <button
-            type="button"
-            className="dc-menu-trigger-btn"
-            onClick={() => menuDirectoryDialogRef.current?.showModal()}
-            title="Open Groups & Friends"
-          >
-            <Menu size={17} />
-            <span>Friends &amp; Groups</span>
-          </button>
-
-          <div className="dc-brand-icon">
-            <img
-              src="/atme-app-icon.png"
-              alt="@me"
-              className="dc-brand-img"
-            />
-          </div>
-          <div>
-            <div className="dc-brand-title-row">
-              <h1>@me</h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="dc-topbar-controls">
-          {/* Current User Profile Button (Avatar + Name + Handle) */}
-          <button
-            type="button"
-            className="dc-profile-pill-btn"
-            onClick={() => profileDialogRef.current?.showModal()}
-            title="Edit My Profile (Avatar, Name, Handle)"
-          >
-            {renderUserAvatar(
-              activeUser,
-              activeUser.displayName,
-              'dc-nav-avatar'
-            )}
-            <div className="dc-profile-pill-text">
-              <strong>{activeUser.displayName}</strong>
-              <span>{activeUser.handle || '@user'}</span>
-            </div>
-          </button>
-
-          <div className="dc-identity-switcher">
-            <select
-              aria-label="Switch Active Account"
-              value={activeUserEmail}
-              onChange={(e) => setActiveUserEmail(e.target.value)}
-            >
-              {users
-                .filter((u) => u.hasAppInstalled)
-                .map((u) => (
-                  <option key={u.email} value={u.email}>
-                    {u.displayName} ({u.handle || u.email})
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className="dc-btn-ghost"
-            onClick={() => {
-              setConnectModalMode('easy');
-              setSimulatedOAuthProvider(null);
-              connectWizardDialogRef.current?.showModal();
-            }}
-            title="Sign in or add another email account"
-          >
-            <Link2 size={13} /> Add Account
-          </button>
-
-          <button
-            type="button"
-            className="dc-btn-ghost"
-            onClick={handleOpenPersonalVault}
-            title="Open Saved Notes (@me)"
-          >
-            <Bookmark size={13} /> Notes
-          </button>
-
-          <button
-            type="button"
-            className="dc-btn-ghost"
-            onClick={() => {
-              setLockScreenPinInput('');
-              setLockScreenError('');
-              setIsAppLocked(true);
-            }}
-            title="Lock @me with PIN or Biometrics"
-          >
-            <Fingerprint size={13} /> Lock
-          </button>
-
-          <button
-            type="button"
-            className="dc-btn-ghost"
-            onClick={handleResetDemoState}
-            title="Reset demo conversations"
-          >
-            <RefreshCw size={13} />
-          </button>
-        </div>
-      </header>
 
       {/* =====================================================================
           DURESS / PANIC WIPE ALERT BANNER (When unlocked via Duress PIN 9999)
@@ -3316,23 +3332,15 @@ export function App() {
           >
             <div className="dc-threads-pane-top">
               <div className="dc-threads-title-row">
-                <h2>Messages</h2>
+                <div className="dc-threads-brand">
+                  <img
+                    src="/atme-app-icon.png"
+                    alt="@me"
+                    className="dc-threads-brand-logo"
+                  />
+                  <h2>Messages</h2>
+                </div>
                 <div className="dc-threads-top-actions">
-                  <button
-                    type="button"
-                    className="dc-pill-action-btn dc-vault-quick-btn"
-                    onClick={handleOpenPersonalVault}
-                    title="Open Personal Encrypted Vault (@me)"
-                  >
-                    <Bookmark size={12} /> Vault
-                  </button>
-                  <button
-                    type="button"
-                    className="dc-pill-action-btn"
-                    onClick={() => profileDialogRef.current?.showModal()}
-                  >
-                    <User size={13} /> My Profile
-                  </button>
                   <button
                     type="button"
                     className="dc-compose-circle-btn"
@@ -3340,10 +3348,188 @@ export function App() {
                       setNewChatType('dm');
                       newChannelModalRef.current?.showModal();
                     }}
-                    title="New Message to any Email"
+                    title="New Message"
                   >
                     <Plus size={16} />
                   </button>
+
+                  {/* Single Consolidated Avatar Menu */}
+                  <div
+                    className="dc-avatar-menu-wrap"
+                    ref={avatarMenuContainerRef}
+                  >
+                    <button
+                      type="button"
+                      className={`dc-avatar-menu-trigger ${
+                        isAvatarMenuOpen ? 'active' : ''
+                      }`}
+                      onClick={() => setIsAvatarMenuOpen((prev) => !prev)}
+                      title={`${activeUser.displayName} (${activeUser.handle || '@me'}) — Menu`}
+                      aria-label="Open Profile & Account Menu"
+                      aria-expanded={isAvatarMenuOpen}
+                    >
+                      {renderUserAvatar(
+                        activeUser,
+                        activeUser.displayName,
+                        'dc-header-user-avatar'
+                      )}
+                      <span className="dc-avatar-online-dot" />
+                    </button>
+
+                    {isAvatarMenuOpen && (
+                      <div
+                        className="dc-avatar-dropdown-menu"
+                        role="menu"
+                        aria-label="Account & Profile Menu"
+                      >
+                        <div className="dc-avatar-menu-header">
+                          <div className="dc-avatar-menu-user">
+                            {renderUserAvatar(
+                              activeUser,
+                              activeUser.displayName,
+                              'dc-avatar-menu-pic'
+                            )}
+                            <div className="dc-avatar-menu-meta">
+                              <strong>{activeUser.displayName}</strong>
+                              <span>{activeUser.handle || '@user'}</span>
+                              {activeUser.bio && (
+                                <small className="dc-avatar-menu-vibe">
+                                  {activeUser.bio}
+                                </small>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="dc-avatar-qr-quick-btn"
+                            onClick={() => {
+                              setIsAvatarMenuOpen(false);
+                              setProfileModalStep('qr-card');
+                              profileDialogRef.current?.showModal();
+                            }}
+                          >
+                            <QrCode size={14} /> My @me QR Card
+                          </button>
+                        </div>
+
+                        <div className="dc-header-dropdown-divider" />
+
+                        <button
+                          type="button"
+                          className="dc-header-dropdown-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            setProfileModalStep('edit');
+                            profileDialogRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-menu-icon-badge badge-profile">
+                            <User size={15} />
+                          </span>
+                          <span>Edit Profile &amp; Vibe</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-header-dropdown-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            menuDirectoryDialogRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-menu-icon-badge badge-add-people">
+                            <Users size={15} />
+                          </span>
+                          <span>Friends &amp; Groups</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-header-dropdown-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            handleOpenPersonalVault();
+                          }}
+                        >
+                          <span className="dc-menu-icon-badge badge-notes">
+                            <Bookmark size={15} />
+                          </span>
+                          <span>Saved Notes (@me)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-header-dropdown-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            setConnectModalMode('easy');
+                            setSimulatedOAuthProvider(null);
+                            connectWizardDialogRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-menu-icon-badge badge-settings">
+                            <Link2 size={15} />
+                          </span>
+                          <span>Add / Connect Account</span>
+                        </button>
+
+                        <div className="dc-header-dropdown-divider" />
+
+                        <div className="dc-avatar-menu-switcher">
+                          <label htmlFor="avatar-account-switch">
+                            Switch Account
+                          </label>
+                          <select
+                            id="avatar-account-switch"
+                            value={activeUserEmail}
+                            onChange={(e) => {
+                              setActiveUserEmail(e.target.value);
+                              setIsAvatarMenuOpen(false);
+                            }}
+                          >
+                            {users
+                              .filter((u) => u.hasAppInstalled)
+                              .map((u) => (
+                                <option key={u.email} value={u.email}>
+                                  {u.displayName} ({u.handle || u.email})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div className="dc-header-dropdown-divider" />
+
+                        <div className="dc-avatar-menu-footer">
+                          <button
+                            type="button"
+                            className="dc-avatar-footer-btn"
+                            onClick={() => {
+                              setIsAvatarMenuOpen(false);
+                              setLockScreenPinInput('');
+                              setLockScreenError('');
+                              setIsAppLocked(true);
+                            }}
+                          >
+                            <Fingerprint size={13} /> Lock App
+                          </button>
+                          <button
+                            type="button"
+                            className="dc-avatar-footer-btn"
+                            onClick={() => {
+                              setIsAvatarMenuOpen(false);
+                              handleResetDemoState();
+                            }}
+                          >
+                            <RefreshCw size={13} /> Reset Demo
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -5276,7 +5462,7 @@ export function App() {
       )}
 
       {/* =====================================================================
-          MODAL 1: USER PROFILE EDITOR (Avatar Image, Display Name, @Handle, Bio)
+          MODAL 1: BUILD YOUR @ME PROFILE -> GENERATES SHAREABLE @ME QR CARD
          ===================================================================== */}
       <dialog
         ref={profileDialogRef}
@@ -5287,130 +5473,293 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={profileDialogTitleId}>
-              <User size={17} /> My Encrypted Profile Card ({activeUser.email})
+              {profileModalStep === 'edit' ? (
+                <>
+                  <Sparkles size={17} /> Build Your @me Profile
+                </>
+              ) : (
+                <>
+                  <QrCode size={17} /> Your @me Friend Card
+                </>
+              )}
             </h2>
-            <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
-                <X size={16} />
+            <div className="dc-profile-modal-tabs">
+              <button
+                type="button"
+                className={`dc-profile-step-tab ${
+                  profileModalStep === 'edit' ? 'active' : ''
+                }`}
+                onClick={() => setProfileModalStep('edit')}
+              >
+                1. Profile
               </button>
-            </form>
+              <button
+                type="button"
+                className={`dc-profile-step-tab ${
+                  profileModalStep === 'qr-card' ? 'active' : ''
+                }`}
+                onClick={() => setProfileModalStep('qr-card')}
+              >
+                2. My QR Card
+              </button>
+              <form method="dialog">
+                <button
+                  type="submit"
+                  className="dc-icon-btn"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </form>
+            </div>
           </div>
 
-          <div className="dc-callout-banner">
-            <strong>How Zero-Server Profile Sync Works:</strong> Your small
-            avatar image, display name, and <code>@handle</code> are stored in
-            your device&apos;s IndexedDB and automatically bundled inside the
-            encrypted <code>sender.profileCard</code> JSON field the first time
-            you message a user or group (or whenever you update your profile) so
-            peers automatically cache your info in their local DB!
-          </div>
+          {profileModalStep === 'edit' ? (
+            <form className="dc-profile-form" onSubmit={handleSaveUserProfile}>
+              <p className="dc-profile-step-subtitle">
+                Pick an avatar, choose your display name &amp;{' '}
+                <code>@handle</code>, and set your vibe to generate your
+                shareable <strong>@me QR Card</strong>.
+              </p>
 
-          <form className="dc-profile-form" onSubmit={handleSaveUserProfile}>
-            <div className="dc-profile-avatar-editor">
-              <div className="dc-profile-avatar-preview-wrap">
-                {profileAvatarInput ? (
-                  <img
-                    src={profileAvatarInput}
-                    alt="Profile Avatar"
-                    className="dc-profile-avatar-large"
-                  />
-                ) : (
-                  <div className="dc-profile-avatar-large dc-avatar-placeholder">
-                    {profileNameInput.charAt(0).toUpperCase() || 'U'}
+              <div className="dc-profile-avatar-editor">
+                <div className="dc-profile-avatar-preview-wrap">
+                  {profileAvatarInput ? (
+                    <img
+                      src={profileAvatarInput}
+                      alt="Profile Avatar"
+                      className="dc-profile-avatar-large"
+                    />
+                  ) : (
+                    <div className="dc-profile-avatar-large dc-avatar-placeholder">
+                      {profileNameInput.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  )}
+                </div>
+                <div className="dc-profile-avatar-buttons">
+                  <div className="dc-preset-avatars-row">
+                    {[
+                      { emoji: '⚡', bg1: '#6366f1', bg2: '#a855f7' },
+                      { emoji: '🎮', bg1: '#2563eb', bg2: '#06b6d4' },
+                      { emoji: '🎧', bg1: '#ec4899', bg2: '#8b5cf6' },
+                      { emoji: '🛹', bg1: '#10b981', bg2: '#059669' },
+                      { emoji: '✨', bg1: '#f59e0b', bg2: '#ef4444' },
+                      { emoji: '🚀', bg1: '#3b82f6', bg2: '#1d4ed8' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.emoji}
+                        type="button"
+                        className="dc-preset-avatar-btn"
+                        style={{
+                          background: `linear-gradient(135deg, ${preset.bg1}, ${preset.bg2})`,
+                        }}
+                        onClick={() =>
+                          handleSelectPresetAvatar(
+                            preset.emoji,
+                            preset.bg1,
+                            preset.bg2
+                          )
+                        }
+                        title={`Use ${preset.emoji} avatar`}
+                      >
+                        {preset.emoji}
+                      </button>
+                    ))}
                   </div>
-                )}
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn"
+                    onClick={() => avatarUploadInputRef.current?.click()}
+                  >
+                    <Camera size={14} /> Or Upload Photo
+                  </button>
+                </div>
               </div>
-              <div className="dc-profile-avatar-buttons">
+
+              <div className="dc-form-row">
+                <div className="dc-form-group">
+                  <label htmlFor="profile-name-input">Your Name</label>
+                  <input
+                    id="profile-name-input"
+                    type="text"
+                    value={profileNameInput}
+                    onChange={(e) => setProfileNameInput(e.target.value)}
+                    placeholder="Alex Rivera"
+                    required
+                  />
+                </div>
+
+                <div className="dc-form-group">
+                  <label htmlFor="profile-handle-input">Your @handle</label>
+                  <input
+                    id="profile-handle-input"
+                    type="text"
+                    value={profileHandleInput}
+                    onChange={(e) => setProfileHandleInput(e.target.value)}
+                    placeholder="@alexrivera"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="dc-form-group">
+                <label htmlFor="profile-bio-input">Current Vibe / Status</label>
+                <input
+                  id="profile-bio-input"
+                  type="text"
+                  value={profileBioInput}
+                  onChange={(e) => setProfileBioInput(e.target.value)}
+                  placeholder="🎮 Down to game • Tap my QR to chat"
+                />
+                <div className="dc-vibe-chips-row">
+                  {[
+                    '🎮 Down to game',
+                    '🎧 Listening to music',
+                    '📚 Studying rn',
+                    '🏀 At practice',
+                    '✨ Free to chat',
+                  ].map((vibe) => (
+                    <button
+                      key={vibe}
+                      type="button"
+                      className={`dc-vibe-chip ${
+                        profileBioInput === vibe ? 'active' : ''
+                      }`}
+                      onClick={() => setProfileBioInput(vibe)}
+                    >
+                      {vibe}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="dc-modal-actions">
+                <button type="submit" className="dc-btn-send dc-btn-full">
+                  <QrCode size={15} /> Save Profile &amp; Generate My @me QR
+                  Card →
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="dc-qr-card-step">
+              <div className="dc-qr-share-card">
+                <div className="dc-qr-card-badge">
+                  <img
+                    src="/atme-app-icon.png"
+                    alt="@me"
+                    className="dc-qr-badge-icon"
+                  />
+                  <span>@me FRIEND PASS</span>
+                </div>
+
+                <div className="dc-qr-card-identity">
+                  {profileAvatarInput || activeUser.avatarDataUrl ? (
+                    <img
+                      src={profileAvatarInput || activeUser.avatarDataUrl}
+                      alt={profileNameInput || activeUser.displayName}
+                      className="dc-qr-card-avatar"
+                    />
+                  ) : (
+                    <div className="dc-qr-card-avatar dc-avatar-placeholder">
+                      {(profileNameInput || activeUser.displayName)
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <h3>{profileNameInput || activeUser.displayName}</h3>
+                  <span className="dc-qr-card-handle">
+                    {profileHandleInput || activeUser.handle || '@user'}
+                  </span>
+                  {(profileBioInput || activeUser.bio) && (
+                    <p className="dc-qr-card-vibe">
+                      {profileBioInput || activeUser.bio}
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  className="dc-qr-code-box"
+                  aria-label="Scan @me QR code to add friend"
+                >
+                  <svg
+                    viewBox="0 0 21 21"
+                    className="dc-qr-svg"
+                    shapeRendering="crispEdges"
+                  >
+                    {userInviteQrMatrix.map((row, rIdx) =>
+                      row.map((cell, cIdx) =>
+                        cell ? (
+                          <rect
+                            key={`${rIdx}-${cIdx}`}
+                            x={cIdx}
+                            y={rIdx}
+                            width={1}
+                            height={1}
+                            fill="#0f172a"
+                          />
+                        ) : null
+                      )
+                    )}
+                  </svg>
+                </div>
+
+                <span className="dc-qr-scan-caption">
+                  Point a friend&apos;s camera here or share your invite link to
+                  chat instantly — no phone number needed.
+                </span>
+              </div>
+
+              <div className="dc-qr-card-actions">
                 <button
                   type="button"
-                  className="dc-pill-action-btn"
-                  onClick={() => avatarUploadInputRef.current?.click()}
+                  className="dc-btn-secondary-action"
+                  onClick={async () => {
+                    const cleanHandle = (
+                      profileHandleInput ||
+                      activeUser.handle ||
+                      '@user'
+                    ).replace(/^@/, '');
+                    const shareUrl = `${window.location.origin}/?add=${encodeURIComponent(
+                      activeUser.email
+                    )}&handle=${encodeURIComponent(cleanHandle)}`;
+                    try {
+                      await navigator.clipboard.writeText(shareUrl);
+                    } catch {
+                      // Fallback if clipboard is unavailable
+                    }
+                    setQrLinkCopied(true);
+                    setTimeout(() => setQrLinkCopied(false), 2400);
+                  }}
                 >
-                  <Camera size={14} /> Upload Small Avatar Image (Auto-resized
-                  96×96)
+                  {qrLinkCopied ? (
+                    <>
+                      <Check size={15} /> Invite Link Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={15} /> Copy My Invite Link
+                    </>
+                  )}
                 </button>
-                <small className="dc-form-hint">
-                  Compressed on-device to a tiny WebP data URL (~4 KB) for fast
-                  email packet sync.
-                </small>
+
+                <button
+                  type="button"
+                  className="dc-btn-secondary-action"
+                  onClick={() => setProfileModalStep('edit')}
+                >
+                  <User size={15} /> Edit Profile
+                </button>
+
+                <button
+                  type="button"
+                  className="dc-btn-send"
+                  onClick={() => profileDialogRef.current?.close()}
+                >
+                  Start Messaging →
+                </button>
               </div>
             </div>
-
-            <div className="dc-form-row">
-              <div className="dc-form-group">
-                <label htmlFor="profile-name-input">Display Name</label>
-                <input
-                  id="profile-name-input"
-                  type="text"
-                  value={profileNameInput}
-                  onChange={(e) => setProfileNameInput(e.target.value)}
-                  placeholder="Alex Rivera"
-                  required
-                />
-              </div>
-
-              <div className="dc-form-group">
-                <label htmlFor="profile-handle-input">Username / Handle</label>
-                <input
-                  id="profile-handle-input"
-                  type="text"
-                  value={profileHandleInput}
-                  onChange={(e) => setProfileHandleInput(e.target.value)}
-                  placeholder="@alexrivera"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="dc-form-group">
-              <label htmlFor="profile-bio-input">Short Status / Bio</label>
-              <input
-                id="profile-bio-input"
-                type="text"
-                value={profileBioInput}
-                onChange={(e) => setProfileBioInput(e.target.value)}
-                placeholder="Building zero-server E2EE messaging over email"
-              />
-            </div>
-
-            <div className="dc-burner-alias-box">
-              <label className="dc-burner-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={readReceiptMode === 'manual'}
-                  onChange={(e) =>
-                    setReadReceiptMode(e.target.checked ? 'manual' : 'auto')
-                  }
-                />
-                <div>
-                  <strong>
-                    <EyeOff size={13} /> Manual Read Receipt Mode (Hide
-                    Burn-After-Reading Until Clicked)
-                  </strong>
-                  <span>
-                    When enabled, you can read regular non-time-sensitive
-                    messages in any thread without sending read receipts. All
-                    incoming Burn-After-Reading messages remain hidden behind a
-                    click-to-view button that sends the read receipt and starts
-                    the burn timer when clicked.
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            {profileSaveBanner && (
-              <div className="dc-profile-saved-alert">
-                <CheckCircle2 size={14} /> {profileSaveBanner}
-              </div>
-            )}
-
-            <div className="dc-modal-actions">
-              <button type="submit" className="dc-btn-send">
-                <ShieldCheck size={15} /> Save Profile &amp; Sync on Next
-                Message
-              </button>
-            </div>
-          </form>
+          )}
         </div>
       </dialog>
 

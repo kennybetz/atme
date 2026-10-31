@@ -4327,6 +4327,432 @@ dialog.dc-modal-dialog::backdrop {
   background: rgba(255, 159, 10, 0.32);
 }
 
+/* =====================================================================
+   SINGLE AVATAR MENU & 2-STEP PROFILE BUILDER + @ME QR FRIEND CARD
+   ===================================================================== */
+.dc-threads-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.dc-threads-brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 3px 10px rgba(10, 132, 255, 0.3);
+}
+
+.dc-avatar-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dc-avatar-menu-trigger {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(88, 166, 255, 0.45);
+  background: var(--bg-card);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.dc-avatar-menu-trigger:hover,
+.dc-avatar-menu-trigger.active {
+  transform: scale(1.05);
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+}
+
+.dc-header-user-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-avatar-online-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #30d158;
+  border: 2px solid var(--bg-panel);
+}
+
+.dc-avatar-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 268px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52);
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dc-avatar-menu-header {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 8px 8px 6px;
+  border-radius: 12px;
+  background: rgba(88, 166, 255, 0.06);
+}
+
+.dc-avatar-menu-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dc-avatar-menu-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+}
+
+.dc-avatar-menu-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dc-avatar-menu-meta strong {
+  font-size: 0.88rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dc-avatar-menu-meta span {
+  font-size: 0.74rem;
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.dc-avatar-menu-vibe {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dc-avatar-qr-quick-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(124, 58, 237, 0.25));
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.dc-avatar-qr-quick-btn:hover {
+  transform: translateY(-1px);
+  border-color: #58a6ff;
+}
+
+.dc-menu-icon-badge.badge-profile {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #ffffff;
+}
+
+.dc-menu-icon-badge.badge-notes {
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #ffffff;
+}
+
+.dc-avatar-menu-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.dc-avatar-menu-switcher label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.dc-avatar-menu-switcher select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.76rem;
+}
+
+.dc-avatar-menu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 4px 0;
+}
+
+.dc-avatar-footer-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.dc-avatar-footer-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+}
+
+/* 2-Step Profile Builder & Shareable @me QR Friend Pass */
+.dc-profile-modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dc-profile-step-tab {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dc-profile-step-tab.active {
+  background: rgba(88, 166, 255, 0.18);
+  border-color: rgba(88, 166, 255, 0.55);
+  color: #58a6ff;
+}
+
+.dc-profile-step-subtitle {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.dc-preset-avatars-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.dc-preset-avatar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.dc-preset-avatar-btn:hover {
+  transform: scale(1.1);
+  border-color: #ffffff;
+}
+
+.dc-vibe-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.dc-vibe-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.dc-vibe-chip:hover,
+.dc-vibe-chip.active {
+  border-color: #58a6ff;
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--text-main);
+}
+
+.dc-btn-full {
+  width: 100%;
+  justify-content: center;
+}
+
+.dc-qr-card-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.dc-qr-share-card {
+  width: 100%;
+  max-width: 340px;
+  border-radius: 22px;
+  padding: 20px 18px;
+  background: linear-gradient(155deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98));
+  border: 1px solid rgba(88, 166, 255, 0.38);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.dc-qr-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #58a6ff;
+}
+
+.dc-qr-badge-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.dc-qr-card-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.dc-qr-card-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #58a6ff;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.dc-qr-card-identity h3 {
+  margin: 0;
+  font-size: 1.12rem;
+  color: #ffffff;
+}
+
+.dc-qr-card-handle {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #58a6ff;
+}
+
+.dc-qr-card-vibe {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.dc-qr-code-box {
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+.dc-qr-svg {
+  width: 156px;
+  height: 156px;
+  display: block;
+}
+
+.dc-qr-scan-caption {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.4;
+  max-width: 260px;
+}
+
+.dc-qr-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+
 
 
 
