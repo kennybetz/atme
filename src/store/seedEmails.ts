@@ -24,7 +24,7 @@ export const INITIAL_USERS: UserIdentity[] = [
     displayName: 'Alex Rivera',
     handle: '@alexrivera',
     avatarDataUrl: makeSvgAvatarDataUrl('AR', '#0a84ff', '#5e5ce6'),
-    bio: 'Building zero-server E2EE messaging over email',
+    bio: '',
     profileUpdatedAt: '2026-10-25T03:00:00.000Z',
     provider: 'gmail',
     hasAppInstalled: true,
@@ -34,24 +34,24 @@ export const INITIAL_USERS: UserIdentity[] = [
     displayName: 'Sam Chen',
     handle: '@samchen',
     avatarDataUrl: makeSvgAvatarDataUrl('SC', '#30d158', '#0a84ff'),
-    bio: 'Security & Distributed Systems',
+    bio: '',
     profileUpdatedAt: '2026-10-25T03:05:00.000Z',
     provider: 'outlook',
     hasAppInstalled: true,
   },
   {
     email: 'elena.vogt@proton.me',
-    displayName: 'Elena Vogt (Proton)',
+    displayName: 'Elena Vogt',
     handle: '@elenavogt',
     avatarDataUrl: makeSvgAvatarDataUrl('EV', '#6d4aff', '#c084fc'),
-    bio: 'Cryptography Researcher • Proton Mail PGP',
+    bio: '',
     profileUpdatedAt: '2026-10-25T03:10:00.000Z',
     provider: 'proton',
     hasAppInstalled: true,
   },
   {
     email: 'jordan.taylor@yahoo.com',
-    displayName: 'Jordan Taylor (No App Yet)',
+    displayName: 'Jordan Taylor',
     handle: '@jordantaylor',
     provider: 'yahoo',
     hasAppInstalled: false,
@@ -62,7 +62,7 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
   {
     id: 'ch_product_launch',
     type: 'workspace-channel',
-    name: 'product-launch',
+    name: 'friday-hangout',
     participants: [
       'alex.rivera@gmail.com',
       'sam.chen@outlook.com',
@@ -72,7 +72,7 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
   {
     id: 'ch_security_ops',
     type: 'workspace-channel',
-    name: 'security-ops',
+    name: 'gaming-squad',
     participants: [
       'alex.rivera@gmail.com',
       'elena.vogt@proton.me',
@@ -81,7 +81,7 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
   {
     id: 'dm_alex_elena',
     type: 'dm',
-    name: 'Elena Vogt (Proton)',
+    name: 'Elena Vogt',
     participants: ['alex.rivera@gmail.com', 'elena.vogt@proton.me'],
   },
   {
@@ -99,19 +99,19 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
   {
     id: 'vault_alex.rivera@gmail.com',
     type: 'vault',
-    name: 'Vault (@me)',
+    name: 'Notes (@me)',
     participants: ['alex.rivera@gmail.com'],
   },
   {
     id: 'vault_sam.chen@outlook.com',
     type: 'vault',
-    name: 'Vault (@me)',
+    name: 'Notes (@me)',
     participants: ['sam.chen@outlook.com'],
   },
   {
     id: 'vault_elena.vogt@proton.me',
     type: 'vault',
-    name: 'Vault (@me)',
+    name: 'Notes (@me)',
     participants: ['elena.vogt@proton.me'],
   },
 ];
@@ -243,7 +243,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 42).toISOString()),
     payload: {
       messageId: 'msg_seed_01',
-      text: 'Welcome to @me! My first message in this thread automatically carries my encrypted Profile Card (avatar + @alexrivera handle) so your devices store it in local IndexedDB.',
+      text: 'Yo! Welcome to @me 👋',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 42).toISOString(),
@@ -273,7 +273,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 30).toISOString()),
     payload: {
       messageId: 'msg_seed_02',
-      text: 'Connected from my Proton Mail account! Your avatar and @alexrivera handle synced into my local DB automatically.',
+      text: 'Just scanned your QR! Ready for Friday? 🎮',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 30).toISOString(),
@@ -319,8 +319,8 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     payload: {
       messageId: 'msg_seed_react_01',
       targetMessageId: 'msg_seed_02',
-      reactionEmoji: '🔒',
-      text: 'Reacted 🔒',
+      reactionEmoji: '🔥',
+      text: 'Reacted 🔥',
     },
     sentAt: new Date(now - 1000 * 60 * 26).toISOString(),
   };
@@ -350,7 +350,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     payload: {
       messageId: 'msg_seed_reply_01',
       replyToMessageId: 'msg_seed_01',
-      text: 'Replying inline from Outlook — and I can see the Read Receipt on your message!',
+      text: 'Let’s gooo 🔥',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 20).toISOString(),
@@ -372,7 +372,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     },
     payload: {
       messageId: 'msg_seed_03',
-      text: 'Hey Jordan! Since you do not have the app yet, your Yahoo email shows an App Store download card. Once you install @me, this message and my profile card decrypt automatically!',
+      text: 'Hey Jordan! Scan my @me QR so we can chat 🛹',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 5).toISOString(),
@@ -402,7 +402,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 3).toISOString()),
     payload: {
       messageId: 'msg_seed_dm_elena_01',
-      text: 'Hey Alex! Just @me from your Gmail — it arrives encrypted in my Proton inbox and renders right here like iMessage.',
+      text: 'Hey Alex! Are we meeting after school? 🎧',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 3).toISOString(),
@@ -426,7 +426,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     payload: {
       messageId: 'msg_seed_dm_alex_02',
       replyToMessageId: 'msg_seed_dm_elena_01',
-      text: 'Zero central servers, compliant build verified, and we can shred keys anytime.',
+      text: 'Yep! See you at 4pm 🚀',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 1).toISOString(),
@@ -478,7 +478,76 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     sentAt: new Date(now - 1000 * 30).toISOString(),
   };
 
-  // Seed Poll in #product-launch
+  const pktDmElenaUnread1: import('../protocol/types').DcpPacket = {
+    protocol: 'DCP/1.0',
+    packetId: 'pkt_seed_dm_elena_unread_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: INITIAL_CHANNELS[2],
+    sender: {
+      email: elena.email,
+      displayName: elena.displayName,
+      handle: elena.handle,
+      provider: elena.provider,
+      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
+      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
+    },
+    complianceAttestation: makeAttest(new Date(now - 1000 * 20).toISOString()),
+    payload: {
+      messageId: 'msg_seed_dm_elena_unread_01',
+      text: 'Can you bring your portable speaker? 🔊',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 20).toISOString(),
+  };
+
+  const pktDmElenaUnread2: import('../protocol/types').DcpPacket = {
+    protocol: 'DCP/1.0',
+    packetId: 'pkt_seed_dm_elena_unread_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: INITIAL_CHANNELS[2],
+    sender: {
+      email: elena.email,
+      displayName: elena.displayName,
+      handle: elena.handle,
+      provider: elena.provider,
+      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
+      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
+    },
+    complianceAttestation: makeAttest(new Date(now - 1000 * 8).toISOString()),
+    payload: {
+      messageId: 'msg_seed_dm_elena_unread_02',
+      text: 'Setting up the music playlist now 🎶',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 8).toISOString(),
+  };
+
+  const pktDmSamUnread: import('../protocol/types').DcpPacket = {
+    protocol: 'DCP/1.0',
+    packetId: 'pkt_seed_dm_sam_unread_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: INITIAL_CHANNELS[3],
+    sender: {
+      email: sam.email,
+      displayName: sam.displayName,
+      handle: sam.handle,
+      provider: sam.provider,
+      pgpFingerprint: '7A1B2C3D4E5F67897A1B2C3D4E5F67897A1B2C3D',
+      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
+    },
+    complianceAttestation: makeAttest(new Date(now - 1000 * 12).toISOString()),
+    payload: {
+      messageId: 'msg_seed_dm_sam_unread_01',
+      text: 'Security audit passed with zero errors! 🛡️',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 12).toISOString(),
+  };
+
+  // Seed Poll in #friday-hangout
   const pktPoll: import('../protocol/types').DcpPacket = {
     protocol: 'DCP/1.0',
     packetId: 'pkt_seed_poll_01',
@@ -496,14 +565,14 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 14).toISOString()),
     payload: {
       messageId: 'msg_seed_poll_01',
-      text: '📊 Poll: Which zero-server feature should we highlight first in the @me release?',
+      text: '📊 Food for Friday?',
       poll: {
         pollId: 'poll_release_01',
-        question: 'Which zero-server feature should we highlight first in the @me release?',
+        question: 'Food for Friday?',
         options: [
-          { id: 'opt_shred', text: '🔥 Remote Key Shredding + Burn Timers' },
-          { id: 'opt_vault', text: '🔐 Personal Encrypted Vault (@me)' },
-          { id: 'opt_alias', text: '🎭 Shielded Burner Email Aliases' },
+          { id: 'opt_shred', text: '🍕 Pizza' },
+          { id: 'opt_vault', text: '🌮 Tacos' },
+          { id: 'opt_alias', text: '🧋 Boba' },
         ],
       },
     },
@@ -531,7 +600,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
         pollId: 'poll_release_01',
         optionId: 'opt_shred',
       },
-      text: 'Voted for 🔥 Remote Key Shredding + Burn Timers',
+      text: 'Voted for 🍕 Pizza',
     },
     sentAt: new Date(now - 1000 * 60 * 13).toISOString(),
   };
@@ -557,7 +626,7 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
         pollId: 'poll_release_01',
         optionId: 'opt_vault',
       },
-      text: 'Voted for 🔐 Personal Encrypted Vault (@me)',
+      text: 'Voted for 🌮 Tacos',
     },
     sentAt: new Date(now - 1000 * 60 * 12).toISOString(),
   };
@@ -580,16 +649,8 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 15).toISOString()),
     payload: {
       messageId: 'msg_seed_vault_01',
-      vaultCategory: 'credential',
-      text: 'Production SSH Signing Key Backup & Recovery Seed • Stored E2EE in my Gmail [@me] Vault: https://github.com/openpgpjs/openpgpjs',
-      linkPreview: {
-        url: 'https://github.com/openpgpjs/openpgpjs',
-        domain: 'github.com',
-        siteName: 'GitHub',
-        title: 'Repository • openpgpjs › openpgpjs',
-        description: 'Client-side generated preview • Zero server tracking or link unfurling ping.',
-        themeColor: '#238636',
-      },
+      vaultCategory: 'note',
+      text: '📌 Locker combo: 24-18-09',
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 15).toISOString(),
@@ -610,6 +671,9 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     pktDmAlexReply,
     pktDmElenaReact,
     pktDmElenaRead,
+    pktDmElenaUnread1,
+    pktDmElenaUnread2,
+    pktDmSamUnread,
   ];
 
   const accepted: import('../protocol/types').FilterInspectionResult[] = seedPackets.map(

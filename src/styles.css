@@ -832,6 +832,36 @@ pre,
   white-space: nowrap;
 }
 
+.dc-thread-card.has-unread .dc-thread-title {
+  color: var(--text-main);
+  font-weight: 800;
+}
+
+.dc-thread-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.dc-thread-unread-badge {
+  background: var(--imessage-blue);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(10, 132, 255, 0.35);
+}
+
 .dc-thread-badges {
   display: flex;
   gap: 6px;
@@ -889,6 +919,7 @@ pre,
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .dc-freeflow-header {
@@ -1161,6 +1192,107 @@ pre,
   height: 1px;
   background: var(--border-subtle);
   margin: 4px 6px;
+}
+
+.dc-header-menu-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.dc-header-action-btn {
+  flex: 1;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--bg-card);
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dc-header-action-btn:hover {
+  transform: translateY(-1.5px);
+}
+
+.dc-header-action-btn:active {
+  transform: translateY(0);
+}
+
+.dc-header-action-btn.action-people {
+  color: light-dark(#0284c7, #38bdf8);
+  background: light-dark(rgba(2, 132, 199, 0.1), rgba(56, 189, 248, 0.16));
+  border-color: light-dark(rgba(2, 132, 199, 0.25), rgba(56, 189, 248, 0.28));
+}
+.dc-header-action-btn.action-people:hover {
+  background: light-dark(rgba(2, 132, 199, 0.18), rgba(56, 189, 248, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(2, 132, 199, 0.2), rgba(56, 189, 248, 0.25));
+}
+
+.dc-header-action-btn.action-clear {
+  color: light-dark(#ea580c, #fb923c);
+  background: light-dark(rgba(234, 88, 12, 0.1), rgba(251, 146, 60, 0.16));
+  border-color: light-dark(rgba(234, 88, 12, 0.25), rgba(251, 146, 60, 0.28));
+}
+.dc-header-action-btn.action-clear:hover {
+  background: light-dark(rgba(234, 88, 12, 0.18), rgba(251, 146, 60, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(234, 88, 12, 0.2), rgba(251, 146, 60, 0.25));
+}
+
+.dc-header-action-btn.action-block {
+  color: light-dark(#dc2626, #f87171);
+  background: light-dark(rgba(220, 38, 38, 0.1), rgba(248, 113, 113, 0.16));
+  border-color: light-dark(rgba(220, 38, 38, 0.25), rgba(248, 113, 113, 0.28));
+}
+.dc-header-action-btn.action-block:hover {
+  background: light-dark(rgba(220, 38, 38, 0.18), rgba(248, 113, 113, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(220, 38, 38, 0.2), rgba(248, 113, 113, 0.25));
+}
+
+.dc-header-toggle-row-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.dc-header-toggle-row-btn:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-toggle-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  transition: all 0.14s ease;
+}
+
+.dc-toggle-status-pill.is-visible {
+  color: light-dark(#0284c7, #38bdf8);
+  border-color: light-dark(rgba(2, 132, 199, 0.3), rgba(56, 189, 248, 0.35));
+  background: light-dark(rgba(2, 132, 199, 0.1), rgba(56, 189, 248, 0.15));
+}
+
+.dc-header-toggle-row-btn:hover .dc-toggle-status-pill {
+  color: var(--text-main);
 }
 
 .dc-header-menu-chevron {
@@ -1495,6 +1627,74 @@ pre,
   white-space: pre-wrap;
 }
 
+/* Unread Message Bubble Highlights & Indicators */
+.dc-imessage-bubble.is-unread-bubble {
+  box-shadow: 0 0 0 1.5px rgba(10, 132, 255, 0.45);
+}
+
+.dc-bubble-unread-pip {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--imessage-blue);
+  border: 2px solid var(--bg-app);
+  box-shadow: 0 0 6px rgba(10, 132, 255, 0.6);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.dc-imessage-row.outgoing .dc-bubble-unread-pip {
+  left: auto;
+  right: -3px;
+}
+
+/* Unread Messages In-Feed Divider */
+.dc-unread-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 10px;
+  width: 100%;
+}
+
+.dc-unread-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(10, 132, 255, 0.45),
+    transparent
+  );
+}
+
+.dc-unread-divider-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(10, 132, 255, 0.35);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--imessage-blue);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(10, 132, 255, 0.15);
+}
+
+.dc-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--imessage-blue);
+  box-shadow: 0 0 6px var(--imessage-blue);
+}
+
 /* Google Messages Bottom-Right Reaction Cluster & Teams-Style Hover Tooltip */
 .dc-gmsg-reaction-cluster {
   position: absolute;
@@ -1726,6 +1926,69 @@ pre,
   opacity: 0.85;
 }
 
+/* Floating Skip to Latest Button */
+@keyframes dc-slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.dc-skip-to-bottom-btn {
+  position: absolute;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: dc-slide-up-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.dc-skip-to-bottom-btn:hover {
+  transform: translateX(-50%) translateY(-2px);
+  background: var(--bg-panel);
+  border-color: var(--imessage-blue);
+  box-shadow: 0 8px 24px rgba(10, 132, 255, 0.25);
+}
+
+.dc-skip-to-bottom-btn:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.dc-skip-count-badge {
+  background: var(--imessage-blue);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* iMessage / Android Pill Composer */
 .dc-imessage-composer {
   padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
@@ -1887,18 +2150,21 @@ pre,
   position: absolute;
   bottom: calc(100% + 10px);
   left: 0;
-  width: 276px;
+  width: 242px;
   max-width: calc(100vw - 28px);
-  background: rgba(16, 22, 34, 0.96);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: light-dark(rgba(255, 255, 255, 0.98), rgba(18, 24, 38, 0.96));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
   border-radius: 18px;
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  gap: 8px;
+  box-shadow: light-dark(
+    0 12px 32px rgba(15, 23, 42, 0.14),
+    0 18px 44px rgba(0, 0, 0, 0.55)
+  );
   z-index: 60;
   transform-origin: bottom left;
   animation: dcActionMenuPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1915,119 +2181,135 @@ pre,
   }
 }
 
-.dc-action-menu-item {
-  width: 100%;
-  background: transparent;
-  border: 1px solid transparent;
+.dc-action-menu-icons-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.dc-action-icon-btn {
+  height: 44px;
   border-radius: 12px;
-  padding: 9px 10px;
-  display: flex;
+  border: 1px solid transparent;
+  display: inline-flex;
   align-items: center;
-  gap: 11px;
-  color: var(--text-main);
-  text-align: left;
+  justify-content: center;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  background: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.05));
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.dc-action-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+.dc-action-icon-btn:hover {
+  transform: translateY(-1.5px);
 }
 
-.dc-action-menu-burn-block {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  cursor: default;
+.dc-action-icon-btn:active {
+  transform: translateY(0);
 }
 
-.dc-action-menu-burn-head {
+.dc-action-icon-btn.action-camera {
+  color: light-dark(#0284c7, #38bdf8);
+  background: light-dark(rgba(2, 132, 199, 0.1), rgba(56, 189, 248, 0.16));
+  border-color: light-dark(rgba(2, 132, 199, 0.25), rgba(56, 189, 248, 0.28));
+}
+
+.dc-action-icon-btn.action-camera:hover {
+  background: light-dark(rgba(2, 132, 199, 0.18), rgba(56, 189, 248, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(2, 132, 199, 0.2), rgba(56, 189, 248, 0.25));
+}
+
+.dc-action-icon-btn.action-upload {
+  color: light-dark(#2563eb, #60a5fa);
+  background: light-dark(rgba(37, 99, 235, 0.1), rgba(96, 165, 250, 0.16));
+  border-color: light-dark(rgba(37, 99, 235, 0.25), rgba(96, 165, 250, 0.28));
+}
+
+.dc-action-icon-btn.action-upload:hover {
+  background: light-dark(rgba(37, 99, 235, 0.18), rgba(96, 165, 250, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(37, 99, 235, 0.2), rgba(96, 165, 250, 0.25));
+}
+
+.dc-action-icon-btn.action-voice {
+  color: light-dark(#dc2626, #f87171);
+  background: light-dark(rgba(220, 38, 38, 0.1), rgba(248, 113, 113, 0.16));
+  border-color: light-dark(rgba(220, 38, 38, 0.25), rgba(248, 113, 113, 0.28));
+}
+
+.dc-action-icon-btn.action-voice:hover {
+  background: light-dark(rgba(220, 38, 38, 0.18), rgba(248, 113, 113, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(220, 38, 38, 0.2), rgba(248, 113, 113, 0.25));
+}
+
+.dc-action-icon-btn.action-voice.is-recording {
+  background: var(--rose);
+  color: #ffffff;
+  border-color: var(--rose);
+}
+
+.dc-action-icon-btn.action-poll {
+  color: light-dark(#16a34a, #4ade80);
+  background: light-dark(rgba(22, 163, 74, 0.1), rgba(74, 222, 128, 0.16));
+  border-color: light-dark(rgba(22, 163, 74, 0.25), rgba(74, 222, 128, 0.28));
+}
+
+.dc-action-icon-btn.action-poll:hover {
+  background: light-dark(rgba(22, 163, 74, 0.18), rgba(74, 222, 128, 0.26));
+  box-shadow: 0 4px 12px light-dark(rgba(22, 163, 74, 0.2), rgba(74, 222, 128, 0.25));
+}
+
+.dc-action-menu-burn-row {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 6px;
+  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.04));
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 4px;
 }
 
-.dc-action-menu-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+.dc-action-timer-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.dc-action-menu-icon.icon-upload {
-  background: rgba(10, 132, 255, 0.16);
-  color: #409cff;
-}
-
-.dc-action-menu-icon.icon-burn {
-  background: rgba(255, 159, 10, 0.16);
-  color: #ffb340;
-}
-
-.dc-action-menu-icon.icon-voice {
-  background: rgba(255, 69, 58, 0.16);
-  color: #ff6961;
-}
-
-.dc-action-menu-icon.icon-voice.is-recording {
-  background: var(--rose);
-  color: #ffffff;
-}
-
-.dc-action-menu-icon.icon-poll {
-  background: rgba(48, 209, 88, 0.16);
-  color: #30d158;
-}
-
-.dc-action-menu-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.dc-action-menu-copy strong {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.dc-action-menu-copy small {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  color: light-dark(#d97706, #fbbf24);
+  background: light-dark(rgba(217, 119, 6, 0.12), rgba(251, 191, 36, 0.16));
 }
 
 .dc-action-menu-burn-pills {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .dc-burn-option-chip {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
+  background: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.05));
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  color: light-dark(#475569, #94a3b8);
   border-radius: 8px;
   padding: 5px 0;
   font-size: 0.73rem;
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .dc-burn-option-chip:hover {
-  border-color: rgba(255, 159, 10, 0.55);
-  color: var(--text-main);
+  border-color: rgba(255, 159, 10, 0.6);
+  color: light-dark(#0f172a, #f8fafc);
+  background: light-dark(rgba(255, 159, 10, 0.1), rgba(255, 159, 10, 0.14));
 }
 
 .dc-burn-option-chip.is-selected {
-  background: rgba(255, 159, 10, 0.2);
-  border-color: rgba(255, 159, 10, 0.7);
-  color: #ffb340;
+  background: light-dark(rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.25));
+  border-color: light-dark(#d97706, #f59e0b);
+  color: light-dark(#b45309, #fbbf24);
+  font-weight: 700;
 }
 
 .dc-composer-textarea-wrap {
@@ -4360,6 +4642,142 @@ dialog.dc-modal-dialog::backdrop {
   --imessage-blue-dark: #ca8a04;
 }
 
+.dc-root-viewport[data-bubble-theme='custom'] {
+  --imessage-blue: var(--dc-custom-color, #06b6d4);
+  --imessage-blue-dark: color-mix(in oklab, var(--dc-custom-color, #06b6d4), black 22%);
+}
+
+/* Sync active thread card, primary buttons, tabs, reply quotes & QR Pass to selected theme color */
+.dc-root-viewport .dc-thread-card.active {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 84%);
+  border-color: color-mix(in oklab, var(--imessage-blue), transparent 52%);
+}
+
+.dc-root-viewport .dc-btn-send {
+  background: linear-gradient(135deg, var(--imessage-blue), var(--imessage-blue-dark));
+  border-color: color-mix(in oklab, var(--imessage-blue), white 15%);
+  box-shadow: 0 4px 14px color-mix(in oklab, var(--imessage-blue), transparent 68%);
+}
+
+.dc-root-viewport .dc-inline-reply-quote {
+  border-left-color: var(--imessage-blue);
+}
+
+.dc-root-viewport .dc-profile-step-tab.active {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 82%);
+  border-color: color-mix(in oklab, var(--imessage-blue), transparent 42%);
+  color: var(--imessage-blue);
+}
+
+.dc-root-viewport .dc-qr-share-card {
+  border-color: color-mix(in oklab, var(--imessage-blue), transparent 52%);
+  background: linear-gradient(
+    155deg,
+    color-mix(in oklab, var(--imessage-blue), #0f172a 82%),
+    rgba(15, 23, 42, 0.98)
+  );
+}
+
+.dc-root-viewport .dc-qr-card-badge {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 84%);
+  border-color: color-mix(in oklab, var(--imessage-blue), transparent 55%);
+  color: var(--imessage-blue);
+}
+
+.dc-root-viewport .dc-qr-card-handle {
+  color: var(--imessage-blue);
+}
+
+/* Custom Color Picker Circle with Conic Rainbow Ring */
+.dc-custom-color-circle {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(
+    from 0deg,
+    #ff3b30,
+    #ff9500,
+    #ffcc00,
+    #34c759,
+    #00c7be,
+    #007aff,
+    #af52de,
+    #ff2d55,
+    #ff3b30
+  );
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  forced-color-adjust: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.dc-custom-color-circle:hover {
+  transform: scale(1.12);
+}
+
+.dc-custom-color-circle.active {
+  transform: scale(1.16);
+  box-shadow: 0 0 0 2px #ffffff, 0 0 10px var(--imessage-blue);
+}
+
+.dc-custom-color-circle input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.dc-custom-color-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(15, 23, 42, 0.85);
+  pointer-events: none;
+  forced-color-adjust: none;
+}
+
+.dc-onboarding-color-circle {
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+}
+
+.dc-custom-theme-pill-option {
+  position: relative;
+  overflow: hidden;
+}
+
+.dc-custom-theme-pill-option input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* 1-Tap QR Code Button in Top-Left Header */
+.dc-qr-header-btn {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 85%);
+  border-color: color-mix(in oklab, var(--imessage-blue), transparent 55%);
+  color: var(--imessage-blue);
+}
+
+.dc-qr-header-btn:hover {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 72%);
+  color: #ffffff;
+}
+
 /* =====================================================================
    SINGLE AVATAR MENU & 2-STEP PROFILE BUILDER + @ME QR FRIEND CARD
    ===================================================================== */
@@ -4463,6 +4881,22 @@ dialog.dc-modal-dialog::backdrop {
   gap: 11px;
 }
 
+.dc-avatar-menu-user-btn {
+  width: 100%;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.dc-avatar-menu-user-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .dc-avatar-menu-pic,
 .dc-avatar-menu-pic.dc-avatar-img {
   width: 42px;
@@ -4501,7 +4935,7 @@ dialog.dc-modal-dialog::backdrop {
 
 .dc-avatar-qr-actions-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
@@ -4670,6 +5104,14 @@ dialog.dc-modal-dialog::backdrop {
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
+  outline: none;
+  box-shadow: none;
+}
+
+.dc-profile-step-tab:focus,
+.dc-profile-step-tab:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .dc-profile-step-tab.active {
@@ -4979,6 +5421,412 @@ dialog.dc-modal-dialog::backdrop {
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.35);
 }
+
+.dc-pill-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.dc-pill-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--imessage-blue);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.dc-pill-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.32);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dc-pill-switch:checked {
+  background: #30d158;
+  border-color: #30d158;
+}
+
+.dc-pill-switch:checked::after {
+  transform: translateX(20px);
+}
+
+/* =====================================================================
+   DEFAULT EMOJIS (TOP 5 SLOTS + SEARCHABLE ALL-EMOJIS PICKER IN SETTINGS)
+   ===================================================================== */
+.dc-default-emoji-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.dc-default-emoji-trigger:hover {
+  border-color: var(--imessage-blue);
+}
+
+.dc-default-emoji-preview-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.96rem;
+}
+
+.dc-default-emoji-customizer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+  border: 1px solid var(--border-subtle);
+}
+
+.dc-top5-emoji-slots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.dc-top5-emoji-slot-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.dc-top5-emoji-slot-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--imessage-blue);
+}
+
+.dc-top5-emoji-slot-btn.is-editing {
+  border-color: var(--imessage-blue);
+  background: color-mix(in oklab, var(--imessage-blue), transparent 80%);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--imessage-blue), transparent 65%);
+}
+
+.dc-slot-emoji {
+  font-size: 1.18rem;
+  line-height: 1.1;
+}
+
+.dc-top5-emoji-slot-btn small {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.dc-all-emojis-picker-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dc-emoji-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dc-emoji-search-icon {
+  position: absolute;
+  left: 9px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.dc-emoji-search-input-wrap input {
+  width: 100%;
+  padding: 6px 8px 6px 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.76rem;
+}
+
+.dc-all-emojis-scroll-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  max-height: 148px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.dc-emoji-catalog-btn {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 1.12rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.dc-emoji-catalog-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.14);
+}
+
+.dc-emoji-catalog-btn.is-current {
+  border-color: var(--imessage-blue);
+  background: color-mix(in oklab, var(--imessage-blue), transparent 82%);
+}
+
+/* Composer Popover Top 5 Row + Subgrid */
+.dc-composer-emoji-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc-composer-top5-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.dc-emoji-top5-btn {
+  background: color-mix(in oklab, var(--imessage-blue), transparent 86%);
+  border: 1px solid color-mix(in oklab, var(--imessage-blue), transparent 62%);
+  border-radius: 10px;
+}
+
+.dc-composer-emoji-grid-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 1px 0;
+}
+
+.dc-composer-emoji-subgrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+/* =====================================================================
+   IN-APP EPHEMERAL CAMERA CAPTURE & DIRECT BUBBLE CLICK REACTIONS
+   ===================================================================== */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.dc-imessage-bubble {
+  cursor: pointer;
+}
+
+.dc-action-menu-icon.icon-camera {
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+}
+
+.dc-camera-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-camera-viewport {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #0f172a, #1e1b4b 55%, #31104b);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-camera-video,
+.dc-camera-preview-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dc-camera-video.is-mirrored {
+  transform: scaleX(-1);
+}
+
+.dc-camera-video.is-fallback-hidden {
+  display: none;
+}
+
+.dc-camera-fallback-viewfinder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  color: #e2e8f0;
+  padding: 16px;
+}
+
+.dc-camera-fallback-viewfinder strong {
+  font-size: 1rem;
+}
+
+.dc-camera-fallback-viewfinder span {
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.dc-camera-privacy-pill {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #34d399;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dc-camera-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.dc-camera-shutter-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  padding: 4px;
+  border: 3px solid #ffffff;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.dc-camera-shutter-btn:hover {
+  transform: scale(1.06);
+  border-color: var(--imessage-blue);
+}
+
+.dc-camera-shutter-btn:active {
+  transform: scale(0.94);
+}
+
+.dc-camera-shutter-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: background 0.14s ease;
+}
+
+.dc-camera-shutter-btn:hover .dc-camera-shutter-inner {
+  background: var(--imessage-blue);
+}
+
+/* Inline Chat Photo & Full-Screen Tap-to-Expand Lightbox */
+.dc-root-viewport .dc-inline-image-attachment {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 280px;
+  max-height: 260px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  object-fit: contain;
+  cursor: zoom-in;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dc-root-viewport .dc-inline-image-attachment:hover {
+  transform: scale(1.015);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.dc-fullscreen-image-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(6, 10, 18, 0.94);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  cursor: zoom-out;
+  animation: dcFadeIn 0.16s ease-out;
+}
+
+.dc-fullscreen-image-el {
+  max-width: 95vw;
+  max-height: 92dvh;
+  width: auto;
+  height: auto;
+  border-radius: 16px;
+  object-fit: contain;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+
+
 
 
 

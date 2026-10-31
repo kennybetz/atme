@@ -43,7 +43,7 @@ export type DcpPacketType =
  * Self-destructing / Burn-After-Reading timer policy (in seconds after read receipt or send).
  * 0 = Off (permanent until manually shredded)
  */
-export type EphemeralTimerSeconds = 0 | 15 | 60 | 3600 | 86400;
+export type EphemeralTimerSeconds = 0 | 15 | 20 | 60 | 300 | 3600 | 86400;
 
 export interface DcpPollOption {
   id: string;

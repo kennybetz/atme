@@ -1,6 +1,7 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState, useCallback } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
   ArrowLeft,
   BarChart3,
   Bookmark,
@@ -261,6 +262,118 @@ function createSynthesizedVoiceNoteDataUrl(durationSec = 2): {
   };
 }
 
+type BubbleThemeId =
+  | 'ocean'
+  | 'berry'
+  | 'violet'
+  | 'mint'
+  | 'sunset'
+  | 'gold'
+  | 'custom';
+
+const DEFAULT_TOP_5_EMOJIS: string[] = ['❤️', '😂', '🔥', '💀', '😭'];
+
+const ALL_SEARCHABLE_EMOJIS: Array<{ emoji: string; keywords: string }> = [
+  { emoji: '❤️', keywords: 'heart love red like' },
+  { emoji: '😂', keywords: 'laugh cry tears joy lol funny' },
+  { emoji: '🔥', keywords: 'fire lit hot flame hype' },
+  { emoji: '💀', keywords: 'skull dead Icant funny skeleton' },
+  { emoji: '😭', keywords: 'sob crying sad tears' },
+  { emoji: '👍', keywords: 'thumbs up yes ok good approve' },
+  { emoji: '👎', keywords: 'thumbs down no bad' },
+  { emoji: '🎉', keywords: 'party celebrate confetti tada' },
+  { emoji: '🙌', keywords: 'hands praise hooray celebrate' },
+  { emoji: '😮', keywords: 'wow surprised shocked omg' },
+  { emoji: '😢', keywords: 'sad tear cry' },
+  { emoji: '🙏', keywords: 'pray please thanks highfive' },
+  { emoji: '💯', keywords: '100 hundred perfect facts real' },
+  { emoji: '👀', keywords: 'eyes lookingtea see watch' },
+  { emoji: '✨', keywords: 'sparkles magic shine stars vibe' },
+  { emoji: '🚀', keywords: 'rocket launch space fast hype' },
+  { emoji: '🫶', keywords: 'heart hands love care' },
+  { emoji: '🥹', keywords: 'holding back tears touched happy cry' },
+  { emoji: '🤣', keywords: 'rofl rolling laughing floor lol' },
+  { emoji: '😎', keywords: 'cool sunglasses chill boss' },
+  { emoji: '🥳', keywords: 'party face birthday celebrate' },
+  { emoji: '🤯', keywords: 'mind blown exploding head crazy' },
+  { emoji: '🫠', keywords: 'melting face awkward hot' },
+  { emoji: '🫡', keywords: 'salute respect yes sir' },
+  { emoji: '🤝', keywords: 'handshake deal friend agree' },
+  { emoji: '⚡', keywords: 'lightning bolt zap energy fast' },
+  { emoji: '💜', keywords: 'purple heart love' },
+  { emoji: '🩷', keywords: 'pink heart love cute' },
+  { emoji: '🩵', keywords: 'light blue heart cyan' },
+  { emoji: '💚', keywords: 'green heart' },
+  { emoji: '🧡', keywords: 'orange heart' },
+  { emoji: '💛', keywords: 'yellow heart gold' },
+  { emoji: '🖤', keywords: 'black heart dark' },
+  { emoji: '🤍', keywords: 'white heart pure' },
+  { emoji: '💔', keywords: 'broken heart sad' },
+  { emoji: '❤️‍🔥', keywords: 'heart on fire passionate' },
+  { emoji: '👑', keywords: 'crown king queen royal goat' },
+  { emoji: '🐐', keywords: 'goat greatest of all time' },
+  { emoji: '🏆', keywords: 'trophy winner champion award' },
+  { emoji: '💎', keywords: 'diamond gem icy rich' },
+  { emoji: '🌟', keywords: 'glowing star shine' },
+  { emoji: '🌈', keywords: 'rainbow colorful pride' },
+  { emoji: '☀️', keywords: 'sun sunny bright' },
+  { emoji: '🌙', keywords: 'moon night' },
+  { emoji: '👻', keywords: 'ghost spooky boo' },
+  { emoji: '👽', keywords: 'alien ufo space' },
+  { emoji: '🤖', keywords: 'robot bot ai' },
+  { emoji: '👾', keywords: 'alien monster arcade game' },
+  { emoji: '🎮', keywords: 'video game controller gaming' },
+  { emoji: '🎧', keywords: 'headphones music audio' },
+  { emoji: '🛹', keywords: 'skateboard skate' },
+  { emoji: '🏀', keywords: 'basketball sports hoop' },
+  { emoji: '⚽', keywords: 'soccer ball football' },
+  { emoji: '🏈', keywords: 'football american sports' },
+  { emoji: '⚾', keywords: 'baseball sports' },
+  { emoji: '🎾', keywords: 'tennis ball' },
+  { emoji: '🍕', keywords: 'pizza food slice' },
+  { emoji: '🍔', keywords: 'burger hamburger food' },
+  { emoji: '🍟', keywords: 'fries french fries food' },
+  { emoji: '🌮', keywords: 'taco food' },
+  { emoji: '🍦', keywords: 'ice cream sweet cone' },
+  { emoji: '🍩', keywords: 'donut doughnut sweet' },
+  { emoji: '🧋', keywords: 'boba bubble tea drink' },
+  { emoji: '🍿', keywords: 'popcorn movie drama' },
+  { emoji: '🐱', keywords: 'cat kitty pet' },
+  { emoji: '🐶', keywords: 'dog puppy pet' },
+  { emoji: '🦊', keywords: 'fox animal' },
+  { emoji: '🐼', keywords: 'panda bear' },
+  { emoji: '🐸', keywords: 'frog toad meme' },
+  { emoji: '🦋', keywords: 'butterfly bug pretty' },
+  { emoji: '🦄', keywords: 'unicorn magic horse' },
+  { emoji: '🦖', keywords: 'dino dinosaur trex' },
+  { emoji: '🦈', keywords: 'shark ocean' },
+  { emoji: '🫡', keywords: 'salute respect' },
+  { emoji: '🤫', keywords: 'shh quiet secret' },
+  { emoji: '🤔', keywords: 'thinking hmm question' },
+  { emoji: '🙄', keywords: 'eye roll annoyed whatever' },
+  { emoji: '😴', keywords: 'sleeping tired zzz' },
+  { emoji: '🥶', keywords: 'cold freezing icy' },
+  { emoji: '🥵', keywords: 'hot sweating' },
+  { emoji: '🤡', keywords: 'clown silly circus' },
+  { emoji: '🤠', keywords: 'cowboy hat yeehaw' },
+  { emoji: '😇', keywords: 'angel halo innocent' },
+  { emoji: '😈', keywords: 'devil horns mischievous' },
+  { emoji: '✌️', keywords: 'peace victory hand' },
+  { emoji: '🤞', keywords: 'fingers crossed luck' },
+  { emoji: '🤙', keywords: 'call me shaka hang loose' },
+  { emoji: '👋', keywords: 'wave hello hi bye' },
+  { emoji: '👏', keywords: 'clap applause bravo' },
+  { emoji: '💪', keywords: 'muscle strong flex' },
+  { emoji: '🧠', keywords: 'brain smart genius' },
+  { emoji: '💥', keywords: 'boom explosion collision' },
+  { emoji: '💫', keywords: 'dizzy star shooting' },
+  { emoji: '💤', keywords: 'zzz sleep' },
+  { emoji: '✅', keywords: 'check mark done yes green' },
+  { emoji: '❌', keywords: 'cross mark no wrong x' },
+  { emoji: '❓', keywords: 'question mark what' },
+  { emoji: '❗', keywords: 'exclamation mark alert' },
+];
+
 export function App() {
   const [surfaceMode, setSurfaceMode] =
     useState<AppSurfaceMode>('messenger-ui');
@@ -418,6 +531,19 @@ export function App() {
   const pollCreatorDialogRef = useRef<HTMLDialogElement | null>(null);
   const appLockConfigDialogRef = useRef<HTMLDialogElement | null>(null);
   const safetyListDialogRef = useRef<HTMLDialogElement | null>(null);
+  const cameraCaptureDialogRef = useRef<HTMLDialogElement | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [isCameraStreaming, setIsCameraStreaming] = useState<boolean>(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<
+    'user' | 'environment'
+  >('user');
+  const [capturedPhotoDataUrl, setCapturedPhotoDataUrl] = useState<
+    string | null
+  >(null);
+  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(
+    null
+  );
 
   // Pending Shred & Purge Confirmation State
   const [pendingShredOptions, setPendingShredOptions] = useState<{
@@ -455,10 +581,8 @@ export function App() {
     return 'dark';
   });
 
-  // Custom Chat Bubble Color Theme
-  const [chatBubbleTheme, setChatBubbleTheme] = useState<
-    'ocean' | 'berry' | 'violet' | 'mint' | 'sunset' | 'gold'
-  >(() => {
+  // Custom Chat Bubble Color Theme + Custom Color Picker Circle
+  const [chatBubbleTheme, setChatBubbleTheme] = useState<BubbleThemeId>(() => {
     try {
       const saved = localStorage.getItem('atme_bubble_theme');
       if (
@@ -467,7 +591,8 @@ export function App() {
         saved === 'violet' ||
         saved === 'mint' ||
         saved === 'sunset' ||
-        saved === 'gold'
+        saved === 'gold' ||
+        saved === 'custom'
       ) {
         return saved;
       }
@@ -476,6 +601,44 @@ export function App() {
     }
     return 'ocean';
   });
+
+  const [customBubbleHex, setCustomBubbleHex] = useState<string>(() => {
+    try {
+      const savedHex = localStorage.getItem('atme_custom_bubble_hex');
+      if (savedHex && /^#[0-9a-fA-F]{6}$/.test(savedHex)) {
+        return savedHex;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return '#06b6d4';
+  });
+
+  // Top 5 Customizable Default Emojis (persisted in localStorage)
+  const [defaultQuickEmojis, setDefaultQuickEmojis] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('atme_default_emojis');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === 5 &&
+          parsed.every((item) => typeof item === 'string' && item.trim())
+        ) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return DEFAULT_TOP_5_EMOJIS;
+  });
+  const [isDefaultEmojiMenuOpen, setIsDefaultEmojiMenuOpen] =
+    useState<boolean>(false);
+  const [editingEmojiSlotIndex, setEditingEmojiSlotIndex] = useState<
+    number | null
+  >(null);
+  const [emojiSearchQuery, setEmojiSearchQuery] = useState<string>('');
 
   // Blocked Users List & Whitelist Only ("Approved Friends") Mode
   const [blockedEmails, setBlockedEmails] = useState<string[]>(() => {
@@ -540,6 +703,11 @@ export function App() {
     'auto'
   );
   const autoReadSentKeysRef = useRef<Set<string>>(new Set());
+  const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
+  const isScrolledToBottomRef = useRef<boolean>(true);
+  const [readMessageIds, setReadMessageIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   // Feature 2: Personal Encrypted Vault (@me) Category Tag
   const [vaultCategoryInput, setVaultCategoryInput] = useState<
@@ -567,9 +735,9 @@ export function App() {
   // Feature 5: Encrypted Polls & Pinned Messages State
   const [pollQuestionInput, setPollQuestionInput] = useState<string>('');
   const [pollOptionsInput, setPollOptionsInput] = useState<string[]>([
-    'Yes, ship it 🚀',
-    'Let us review first 🔒',
-    'Need more details 📋',
+    '🍕 Pizza',
+    '🌮 Tacos',
+    '🧋 Boba',
   ]);
   const [pinnedMessageByChannel, setPinnedMessageByChannel] = useState<
     Record<string, { messageId: string; text: string; senderName: string }>
@@ -606,6 +774,7 @@ export function App() {
   const pollCreatorDialogTitleId = useId();
   const appLockDialogTitleId = useId();
   const safetyDialogTitleId = useId();
+  const cameraDialogTitleId = useId();
 
   // New Group / Channel or DM Creation Form State
   const [newChatName, setNewChatName] = useState<string>('');
@@ -645,11 +814,11 @@ export function App() {
   const userScopedChannels = useMemo(
     () =>
       channels.filter((c) => {
+        if (c.type === 'vault') return false;
         const isParticipant = c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
         );
         if (!isParticipant) return false;
-        if (c.type === 'vault') return true;
         if (c.type === 'dm' || c.participants.length <= 2) {
           const peer = c.participants.find(
             (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
@@ -900,13 +1069,25 @@ export function App() {
     setProfileAvatarInput(activeUser.avatarDataUrl);
   }, [activeUser]);
 
-  // Support URL query params for deep-linking, QR code scans (?add=email&handle=...), or mobile preview states
+  // Support URL query params for deep-linking, QR code scans (?add=email&handle=...), or screenshot/preview states (?view=...)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const chParam = params.get('channel');
     if (chParam) {
       setActiveChannelId(chParam);
+    }
+
+    const themeParam = params.get('theme');
+    if (
+      themeParam === 'ocean' ||
+      themeParam === 'berry' ||
+      themeParam === 'violet' ||
+      themeParam === 'mint' ||
+      themeParam === 'sunset' ||
+      themeParam === 'gold'
+    ) {
+      setChatBubbleTheme(themeParam);
     }
 
     // If opened from scanning a friend's @me QR code (?add=email or ?email=...), automatically whitelist & open chat!
@@ -946,29 +1127,63 @@ export function App() {
           ? qrHandleParam
           : `@${qrHandleParam}`
         : qrNameParam || qrEmailParam;
-      setSafetyBannerNotice(
-        `✨ QR Scanned! Added ${label} (${qrEmailParam}) to your Approved Whitelist.`
-      );
+      setSafetyBannerNotice(`✨ Approved ${label}`);
       setTimeout(() => setSafetyBannerNotice(''), 6000);
       return;
     }
 
-    const modalParam = params.get('modal');
-    if (modalParam === 'shred' && shredConfirmDialogRef.current && !shredConfirmDialogRef.current.open) {
+    const schemeParam = params.get('scheme');
+    if (schemeParam === 'light' || schemeParam === 'dark') {
+      setColorSchemePref(schemeParam);
+    }
+
+    const viewParam = params.get('view') || params.get('modal');
+    if (viewParam === 'main-chat') {
+      return;
+    } else if (viewParam === 'onboarding') {
+      setProfileModalStep('edit');
+      profileDialogRef.current?.showModal();
+    } else if (viewParam === 'qr-pass') {
+      setProfileModalStep('qr-card');
+      profileDialogRef.current?.showModal();
+    } else if (viewParam === 'avatar-menu') {
+      setIsAvatarMenuOpen(true);
+    } else if (viewParam === 'header-menu') {
+      setIsHeaderMenuOpen(true);
+    } else if (viewParam === 'header-settings') {
+      setIsHeaderMenuOpen(true);
+      setIsSettingsExpandedInMenu(true);
+    } else if (viewParam === 'plus-menu') {
+      setIsPlusMenuOpen(true);
+    } else if (viewParam === 'emoji-menu') {
+      setIsComposerEmojiOpen(true);
+    } else if (viewParam === 'safety-scan') {
+      setSafetyModalTab('scan-qr');
+      safetyListDialogRef.current?.showModal();
+    } else if (viewParam === 'safety-whitelist') {
+      setSafetyModalTab('whitelist');
+      safetyListDialogRef.current?.showModal();
+    } else if (viewParam === 'safety-blocked') {
+      setSafetyModalTab('blocked');
+      safetyListDialogRef.current?.showModal();
+    } else if (viewParam === 'friends-modal') {
+      menuDirectoryDialogRef.current?.showModal();
+    } else if (viewParam === 'new-chat') {
+      setNewChatType('dm');
+      newChannelModalRef.current?.showModal();
+    } else if (viewParam === 'shred' || viewParam === 'burn-modal') {
       setPendingShredOptions({ shredScope: 'peer-pgp-key-and-threads' });
-      shredConfirmDialogRef.current.showModal();
-    } else if (modalParam === 'group' && groupInfoDialogRef.current && !groupInfoDialogRef.current.open) {
-      groupInfoDialogRef.current.showModal();
-    } else if (modalParam === 'safety' && safetyNumberDialogRef.current && !safetyNumberDialogRef.current.open) {
-      safetyNumberDialogRef.current.showModal();
-    } else if (modalParam === 'poll' && pollCreatorDialogRef.current && !pollCreatorDialogRef.current.open) {
-      pollCreatorDialogRef.current.showModal();
-    } else if (modalParam === 'lock') {
+      shredConfirmDialogRef.current?.showModal();
+    } else if (viewParam === 'group') {
+      groupInfoDialogRef.current?.showModal();
+    } else if (viewParam === 'poll' || viewParam === 'poll-modal') {
+      pollCreatorDialogRef.current?.showModal();
+    } else if (viewParam === 'lock') {
       setIsAppLocked(true);
     } else {
       // First step in the app: open the Profile Builder -> QR Code generator if not completed yet
       try {
-        const onboarded = localStorage.getItem('atme_profile_onboarded');
+        const onboarded = localStorage.getItem('atme_profile_onboarded') || new URLSearchParams(window.location.search).has('no_onboarding');
         if (
           !onboarded &&
           profileDialogRef.current &&
@@ -1089,7 +1304,7 @@ export function App() {
           },
           payload: {
             messageId: 'msg_seed_01',
-            text: 'Welcome to @me! My first message in this thread automatically carries my encrypted Profile Card (avatar + @alexrivera handle) so your devices store it in local IndexedDB.',
+            text: 'Yo! Welcome to @me 👋',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
@@ -1129,7 +1344,7 @@ export function App() {
           },
           payload: {
             messageId: 'msg_seed_02',
-            text: 'Connected from my Proton Mail account! Your avatar and @alexrivera handle synced into my local DB automatically.',
+            text: 'Just scanned your QR! Ready for Friday? 🎮',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
@@ -1244,7 +1459,7 @@ export function App() {
           payload: {
             messageId: 'msg_seed_reply_01',
             replyToMessageId: 'msg_seed_01',
-            text: 'Replying inline from Outlook — and I can see the Read Receipt on your message!',
+            text: 'Let’s gooo 🔥',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
@@ -1288,7 +1503,7 @@ export function App() {
           },
           payload: {
             messageId: 'msg_seed_03',
-            text: 'Hey Jordan! Since you do not have the app yet, your Yahoo email shows an App Store download card. Once you install @me, this message and my profile card decrypt automatically!',
+            text: 'Hey Jordan! Scan my @me QR so we can chat 🛹',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
@@ -1338,7 +1553,7 @@ export function App() {
           complianceAttestation: elenaAttest,
           payload: {
             messageId: 'msg_seed_dm_elena_01',
-            text: 'Hey Alex! Just @me from your Gmail — it arrives encrypted in my Proton inbox and renders right here like iMessage.',
+            text: 'Hey Alex! Are we meeting after school? 🎧',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
@@ -1380,7 +1595,7 @@ export function App() {
           payload: {
             messageId: 'msg_seed_dm_alex_02',
             replyToMessageId: 'msg_seed_dm_elena_01',
-            text: 'Zero central servers, compliant build verified, and we can shred keys anytime.',
+            text: 'Yep! See you at 4pm 🚀',
             formatting: 'markdown',
           },
           sentAt: new Date(Date.now() - 1000 * 60 * 1).toISOString(),
@@ -1728,7 +1943,196 @@ export function App() {
       ? freeflowStream[freeflowStream.length - 1].emailId
       : null;
 
-  // Auto-scroll message feed to bottom when switching channels or when new messages arrive / are sent
+  // Compute unread message count map for all channels for the active user
+  // Compute unread message count map for all channels for the active user
+  const channelUnreadCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const readReceiptTargetIds = new Set<string>();
+    for (const item of acceptedPackets) {
+      const pkt = item.decryptedPacket;
+      if (
+        pkt &&
+        pkt.type === 'chat.receipt' &&
+        pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase() &&
+        pkt.payload.targetMessageId
+      ) {
+        readReceiptTargetIds.add(pkt.payload.targetMessageId);
+      }
+    }
+
+    for (const ch of userScopedChannels) {
+      const unreadItems = acceptedPackets.filter((item) => {
+        const pkt = item.decryptedPacket;
+        if (!pkt || pkt.channel.id !== ch.id) return false;
+        if (
+          pkt.type !== 'chat.message' &&
+          pkt.type !== 'chat.poll'
+        ) {
+          return false;
+        }
+        const isOwn =
+          pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase();
+        if (isOwn) return false;
+
+        const msgId = pkt.payload.messageId;
+        if (readReceiptTargetIds.has(msgId)) return false;
+
+        const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
+        if (
+          autoReadSentKeysRef.current.has(dedupKey) ||
+          readMessageIds.has(msgId)
+        ) {
+          return false;
+        }
+        return true;
+      });
+      map[ch.id] = unreadItems.length;
+    }
+    return map;
+  }, [userScopedChannels, acceptedPackets, activeUser.email, readMessageIds]);
+
+  const activeChannelUnreadCount = activeChannel
+    ? channelUnreadCountMap[activeChannel.id] || 0
+    : 0;
+
+  const firstUnreadMsgIndex = useMemo(() => {
+    if (!activeChannel || activeChannelUnreadCount === 0) return -1;
+    return freeflowStream.findIndex((m) => {
+      if (
+        m.packet.type !== 'chat.message' &&
+        m.packet.type !== 'chat.poll'
+      ) {
+        return false;
+      }
+      const isOwn =
+        m.packet.sender.email.toLowerCase() === activeUser.email.toLowerCase();
+      if (isOwn) return false;
+      const alreadyReceipted = m.receipts.some(
+        (r) => r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
+      );
+      if (alreadyReceipted) return false;
+      const dedupKey = `${activeUser.email.toLowerCase()}:${m.packet.payload.messageId}`;
+      return (
+        !autoReadSentKeysRef.current.has(dedupKey) &&
+        !readMessageIds.has(m.packet.payload.messageId)
+      );
+    });
+  }, [
+    activeChannel,
+    activeChannelUnreadCount,
+    freeflowStream,
+    activeUser.email,
+    readMessageIds,
+  ]);
+
+  const markActiveChannelAsRead = useCallback(async () => {
+    if (
+      isAppLocked ||
+      isInitializingKeys ||
+      surfaceMode !== 'messenger-ui' ||
+      !activeChannel
+    ) {
+      return;
+    }
+
+    const unreadIncoming = freeflowStream.filter((msg) => {
+      if (
+        msg.packet.type !== 'chat.message' &&
+        msg.packet.type !== 'chat.poll'
+      ) {
+        return false;
+      }
+      const isOwn =
+        msg.packet.sender.email.toLowerCase() ===
+        activeUser.email.toLowerCase();
+      if (isOwn) return false;
+
+      const alreadyReceipted = msg.receipts.some(
+        (r) => r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
+      );
+      if (alreadyReceipted) return false;
+
+      const dedupKey = `${activeUser.email.toLowerCase()}:${msg.packet.payload.messageId}`;
+      return (
+        !autoReadSentKeysRef.current.has(dedupKey) &&
+        !readMessageIds.has(msg.packet.payload.messageId)
+      );
+    });
+
+    if (unreadIncoming.length === 0) return;
+
+    setReadMessageIds((prev) => {
+      const next = new Set(prev);
+      unreadIncoming.forEach((m) => next.add(m.packet.payload.messageId));
+      return next;
+    });
+
+    if (readReceiptMode === 'auto') {
+      for (const msg of unreadIncoming) {
+        const msgId = msg.packet.payload.messageId;
+        const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
+        if (autoReadSentKeysRef.current.has(dedupKey)) continue;
+        autoReadSentKeysRef.current.add(dedupKey);
+
+        setBurnReadStartedAtMs((prev) => ({
+          ...prev,
+          [msgId]: prev[msgId] || Date.now(),
+        }));
+
+        await dispatchDcpEmailPacket({
+          channel: activeChannel,
+          type: 'chat.receipt',
+          targetMessageId: msgId,
+          receiptStatus: 'read',
+          text: `Auto read receipt for ${msgId}`,
+        });
+      }
+    }
+  }, [
+    isAppLocked,
+    isInitializingKeys,
+    surfaceMode,
+    activeChannel,
+    freeflowStream,
+    activeUser.email,
+    readReceiptMode,
+    readMessageIds,
+  ]);
+
+  const handleFeedScroll = useCallback(() => {
+    const feedEl = freeflowFeedRef.current;
+    if (!feedEl) return;
+    const threshold = 48;
+    const atBottom =
+      feedEl.scrollHeight - feedEl.scrollTop - feedEl.clientHeight <= threshold;
+    setIsAtBottom(atBottom);
+    isScrolledToBottomRef.current = atBottom;
+
+    if (atBottom) {
+      void markActiveChannelAsRead();
+    }
+  }, [markActiveChannelAsRead]);
+
+  const handleSkipToLatest = useCallback(() => {
+    const feedEl = freeflowFeedRef.current;
+    if (!feedEl) return;
+    feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'smooth' });
+    setIsAtBottom(true);
+    isScrolledToBottomRef.current = true;
+    void markActiveChannelAsRead();
+  }, [markActiveChannelAsRead]);
+
+  // Reset unread tracking on user account switch
+  useEffect(() => {
+    setReadMessageIds(new Set());
+    prevChannelIdRef.current = null;
+    setIsAtBottom(true);
+    isScrolledToBottomRef.current = true;
+  }, [activeUser.email]);
+
+  // Handle scroll positioning on channel change and incoming messages:
+  // - When entering a chat with unread messages, start at the last unread message at the top
+  // - When in an active chat, only auto-scroll if already scrolled to the bottom
   useEffect(() => {
     const feedEl = freeflowFeedRef.current;
     if (!feedEl) return;
@@ -1737,23 +2141,68 @@ export function App() {
     const isChannelSwitch = prevChannelIdRef.current !== currentChId;
     prevChannelIdRef.current = currentChId;
 
-    const scrollToBottom = (behavior: ScrollBehavior) => {
-      if (!freeflowFeedRef.current) return;
-      freeflowFeedRef.current.scrollTo({
-        top: freeflowFeedRef.current.scrollHeight,
-        behavior,
-      });
-    };
+    if (isChannelSwitch) {
+      const unreadCount = currentChId
+        ? channelUnreadCountMap[currentChId] || 0
+        : 0;
 
-    requestAnimationFrame(() => {
-      scrollToBottom(isChannelSwitch ? 'auto' : 'smooth');
-    });
+      if (unreadCount > 0) {
+        requestAnimationFrame(() => {
+          const target =
+            document.getElementById('dc-first-unread-marker') ||
+            feedEl.querySelector('.dc-imessage-row.is-unread');
+          if (target) {
+            target.scrollIntoView({ block: 'start', behavior: 'auto' });
+            setIsAtBottom(false);
+            isScrolledToBottomRef.current = false;
+            return;
+          }
+          feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
+          setIsAtBottom(true);
+          isScrolledToBottomRef.current = true;
+          void markActiveChannelAsRead();
+        });
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
+        setIsAtBottom(true);
+        isScrolledToBottomRef.current = true;
+        void markActiveChannelAsRead();
+      });
+      return;
+    }
+
+    // Inside active chat: ONLY auto-scroll new messages if scrolled to the bottom!
+    const lastMsg =
+      freeflowStream.length > 0
+        ? freeflowStream[freeflowStream.length - 1]
+        : null;
+    const isOwnLastMessage =
+      lastMsg &&
+      lastMsg.packet.sender.email.toLowerCase() ===
+        activeUser.email.toLowerCase();
+
+    if (isOwnLastMessage || isScrolledToBottomRef.current) {
+      requestAnimationFrame(() => {
+        feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'smooth' });
+        setIsAtBottom(true);
+        isScrolledToBottomRef.current = true;
+        void markActiveChannelAsRead();
+      });
+    } else {
+      setIsAtBottom(false);
+    }
   }, [
     activeChannel?.id,
     freeflowStream.length,
     lastMessageEmailId,
     surfaceMode,
     mobileShowChatPane,
+    channelUnreadCountMap,
+    markActiveChannelAsRead,
+    activeUser.email,
   ]);
 
   // Compute last message preview & timestamp for each conversation in the thread list
@@ -1786,21 +2235,23 @@ export function App() {
         const peerUser = users.find(
           (u) => u.email.toLowerCase() === peerEmail.toLowerCase()
         );
+        const unreadCount = channelUnreadCountMap[ch.id] || 0;
 
         return {
           channel: ch,
           lastText:
             lastPacket?.payload.text ||
             (ch.type === 'vault'
-              ? 'Personal E2EE Vault — Save notes, keys & files to yourself'
+              ? '📌 Notes'
               : ch.type === 'dm'
-              ? `Encrypted chat with ${peerEmail}`
-              : `${ch.participants.length} members in group`),
+              ? '💬 Chat'
+              : `👥 ${ch.participants.length}`),
           lastTime: lastPacket?.sentAt || '',
           lastTimestampMs: lastPacket
             ? new Date(lastPacket.sentAt).getTime()
             : 0,
           peerUser,
+          unreadCount,
         };
       })
       .filter((item) => {
@@ -1822,6 +2273,7 @@ export function App() {
     contactSearchQuery,
     activeUser,
     users,
+    channelUnreadCountMap,
   ]);
 
   // Contacts matching the search input
@@ -2138,15 +2590,41 @@ export function App() {
     setProfileAvatarInput(dataUrl);
   }
 
-  function handleSelectBubbleTheme(
-    theme: 'ocean' | 'berry' | 'violet' | 'mint' | 'sunset' | 'gold'
-  ) {
+  function handleSelectBubbleTheme(theme: BubbleThemeId) {
     setChatBubbleTheme(theme);
     try {
       localStorage.setItem('atme_bubble_theme', theme);
     } catch {
       // Ignore storage errors
     }
+  }
+
+  function handleSelectCustomBubbleColor(hexColor: string) {
+    setCustomBubbleHex(hexColor);
+    setChatBubbleTheme('custom');
+    try {
+      localStorage.setItem('atme_custom_bubble_hex', hexColor);
+      localStorage.setItem('atme_bubble_theme', 'custom');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  function handleReplaceDefaultEmojiSlot(slotIdx: number, nextEmoji: string) {
+    setDefaultQuickEmojis((prev) => {
+      const next = [...prev];
+      if (slotIdx >= 0 && slotIdx < 5) {
+        next[slotIdx] = nextEmoji;
+      }
+      try {
+        localStorage.setItem('atme_default_emojis', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+    setEditingEmojiSlotIndex(null);
+    setEmojiSearchQuery('');
   }
 
   function handleBlockEmail(rawEmail: string) {
@@ -2440,6 +2918,204 @@ export function App() {
     e.target.value = '';
   }
 
+  // In-App Ephemeral Camera Capture (Never saves to device camera roll; only OpenPGP-encrypted inside localDb)
+  function stopCameraStream() {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+    setIsCameraStreaming(false);
+  }
+
+  async function startCameraStream(facing: 'user' | 'environment' = cameraFacingMode) {
+    stopCameraStream();
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facing,
+            width: { ideal: 1280 },
+            height: { ideal: 960 },
+          },
+          audio: false,
+        });
+        cameraStreamRef.current = stream;
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream;
+          await cameraVideoRef.current.play().catch(() => {});
+        }
+        setIsCameraStreaming(true);
+      } else {
+        setIsCameraStreaming(false);
+      }
+    } catch {
+      // Camera hardware unavailable or permission declined — uses in-memory viewfinder canvas on snap
+      setIsCameraStreaming(false);
+    }
+  }
+
+  async function handleOpenCameraModal() {
+    setCapturedPhotoDataUrl(null);
+    cameraCaptureDialogRef.current?.showModal();
+    await startCameraStream(cameraFacingMode);
+  }
+
+  function handleCloseCameraModal() {
+    stopCameraStream();
+    setCapturedPhotoDataUrl(null);
+  }
+
+  async function handleFlipCamera() {
+    const nextFacing = cameraFacingMode === 'user' ? 'environment' : 'user';
+    setCameraFacingMode(nextFacing);
+    await startCameraStream(nextFacing);
+  }
+
+  function handleSnapCameraPhoto() {
+    const canvas = document.createElement('canvas');
+
+    if (
+      isCameraStreaming &&
+      cameraVideoRef.current &&
+      cameraVideoRef.current.videoWidth > 0 &&
+      cameraVideoRef.current.videoHeight > 0
+    ) {
+      const video = cameraVideoRef.current;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const viewportEl = video.parentElement;
+      const viewportWidth = viewportEl?.clientWidth || 640;
+      const viewportHeight = viewportEl?.clientHeight || 480;
+      const targetAspect = viewportWidth / viewportHeight;
+      const videoAspect = vw / vh;
+
+      // Center-crop the video frame to match the exact viewfinder aspect ratio (just like object-fit: cover)
+      // so the snapped preview and sent photo never squish or stretch in X or Y
+      let sx = 0;
+      let sy = 0;
+      let sw = vw;
+      let sh = vh;
+      if (videoAspect > targetAspect) {
+        sw = Math.round(vh * targetAspect);
+        sx = Math.round((vw - sw) / 2);
+      } else if (videoAspect < targetAspect) {
+        sh = Math.round(vw / targetAspect);
+        sy = Math.round((vh - sh) / 2);
+      }
+
+      const maxDim = 960;
+      const scale = Math.min(1, maxDim / Math.max(sw, sh));
+      const width = Math.max(1, Math.round(sw * scale));
+      const height = Math.max(1, Math.round(sh * scale));
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.save();
+      if (cameraFacingMode === 'user') {
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
+      ctx.restore();
+    } else {
+      const width = 640;
+      const height = 480;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // In-memory synthesized camera frame when testing in environments without a physical webcam
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(0.5, '#1e1b4b');
+      grad.addColorStop(1, '#31104b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Glowing orbs
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.beginPath();
+      ctx.arc(170, 160, 110, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(236, 72, 153, 0.25)';
+      ctx.beginPath();
+      ctx.arc(470, 310, 130, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center subject badge
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      ctx.font = 'bold 64px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('📸 ✨', width / 2, height / 2 - 10);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+      ctx.fillText(
+        `${activeUser.displayName} (${activeUser.handle || '@me'})`,
+        width / 2,
+        height / 2 + 48
+      );
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '600 15px ui-monospace, SFMono-Regular, monospace';
+      ctx.fillText(
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+        width / 2,
+        height / 2 + 80
+      );
+    }
+
+    const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    stopCameraStream();
+    setCapturedPhotoDataUrl(jpegDataUrl);
+  }
+
+  async function handleSendCapturedCameraPhoto() {
+    if (!capturedPhotoDataUrl || !activeChannel) return;
+    const snapDataUrl = capturedPhotoDataUrl;
+    const approxBytes = Math.round((snapDataUrl.length * 3) / 4);
+    const stamp = Date.now().toString(36);
+    const photoAttachment: DcpAttachment = {
+      id: `att_cam_${stamp}`,
+      filename: `snap-${stamp}.jpg`,
+      mimeType: 'image/jpeg',
+      sizeBytes: approxBytes,
+      cid: `snap_${stamp}@dontcall.local`,
+      encryptedData: snapDataUrl,
+    };
+
+    // Clear from memory and close camera dialog before dispatching encrypted packet to localDb
+    setCapturedPhotoDataUrl(null);
+    stopCameraStream();
+    cameraCaptureDialogRef.current?.close();
+
+    await dispatchDcpEmailPacket({
+      channel: activeChannel,
+      type: 'chat.message',
+      text: composerText.trim() || '📸 Photo',
+      attachments: [photoAttachment],
+      ephemeralTtlSeconds:
+        composerBurnSeconds > 0 ? composerBurnSeconds : undefined,
+      vaultCategory:
+        activeChannel.type === 'vault' ? 'file' : undefined,
+    });
+    if (composerText.trim()) {
+      setComposerText('');
+    }
+  }
+
   // Real Voice Note Recording via Browser MediaRecorder (with automatic synthesized WAV fallback)
   async function handleToggleVoiceRecording() {
     if (isRecordingVoice) {
@@ -2551,6 +3227,7 @@ export function App() {
   // encrypted `chat.receipt` packets for any unread incoming messages in `activeChannel`.
   useEffect(() => {
     if (
+      !isAtBottom ||
       readReceiptMode !== 'auto' ||
       isAppLocked ||
       isInitializingKeys ||
@@ -3595,6 +4272,11 @@ export function App() {
   return (
     <div
       data-bubble-theme={chatBubbleTheme}
+      style={
+        {
+          '--dc-custom-color': customBubbleHex,
+        } as React.CSSProperties
+      }
       className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''} ${
         surfaceMode === 'messenger-ui' ? 'messenger-viewport' : ''
       }`}
@@ -3667,24 +4349,18 @@ export function App() {
             <div className="dc-applock-icon-ring">
               <Fingerprint size={28} />
             </div>
-            <h2>@me Vault &amp; Inbox Locked</h2>
-            <p>
-              Local IndexedDB ciphertext is sealed for{' '}
-              <strong>{activeUser.displayName}</strong> (
-              <code>{activeUser.email}</code>). Authenticate with your device
-              Passkey or PIN to resume decryption.
-            </p>
+            <h2>🔒 Locked</h2>
 
             <button
               type="button"
               className="dc-btn-passkey-unlock"
               onClick={handleUnlockWithWebAuthnPasskey}
             >
-              <Fingerprint size={16} /> Unlock with Biometric Passkey (WebAuthn)
+              <Fingerprint size={16} /> 👆 Face / Touch ID
             </button>
 
             <div className="dc-applock-divider">
-              <span>OR ENTER PIN / DURESS CODE</span>
+              <span>OR PIN</span>
             </div>
 
             <form
@@ -3698,11 +4374,11 @@ export function App() {
                 maxLength={8}
                 value={lockScreenPinInput}
                 onChange={(e) => setLockScreenPinInput(e.target.value)}
-                placeholder="Enter PIN (2580) or Duress PIN (9999)"
-                aria-label="PIN or Duress PIN"
+                placeholder="🔢 PIN (2580)"
+                aria-label="PIN"
               />
               <button type="submit" className="dc-btn-send">
-                <Lock size={14} /> Unlock
+                <Lock size={14} /> 🔓 Unlock
               </button>
             </form>
 
@@ -3712,11 +4388,10 @@ export function App() {
 
             <div className="dc-applock-hints">
               <span>
-                <KeyRound size={11} /> Normal Unlock PIN: <code>{appLockPin}</code>
+                <KeyRound size={11} /> 🔑 PIN: <code>{appLockPin}</code>
               </span>
               <span>
-                <Flame size={11} /> Silent Panic / Duress Wipe PIN:{' '}
-                <code>{duressPanicPin}</code>
+                <Flame size={11} /> 🔥 Wipe: <code>{duressPanicPin}</code>
               </span>
             </div>
           </div>
@@ -3739,12 +4414,26 @@ export function App() {
                 <div className="dc-threads-brand">
                   <img
                     src="/atme-app-icon.png"
-                    alt="@me"
+                    alt="@"
                     className="dc-threads-brand-logo"
                   />
-                  <h2>Messages</h2>
+                  <h2>me</h2>
                 </div>
                 <div className="dc-threads-top-actions">
+                  <button
+                    type="button"
+                    className="dc-compose-circle-btn dc-qr-header-btn"
+                    onClick={() => {
+                      setProfileModalStep('qr-card');
+                      profileDialogRef.current?.showModal();
+                      (document.activeElement as HTMLElement | null)?.blur?.();
+                    }}
+                    title="@me QR"
+                    aria-label="Open @me QR"
+                  >
+                    <QrCode size={15} />
+                  </button>
+
                   <button
                     type="button"
                     className="dc-compose-circle-btn"
@@ -3753,6 +4442,7 @@ export function App() {
                       newChannelModalRef.current?.showModal();
                     }}
                     title="New Message"
+                    aria-label="New Message"
                   >
                     <Plus size={16} />
                   </button>
@@ -3787,7 +4477,16 @@ export function App() {
                         aria-label="Account & Profile Menu"
                       >
                         <div className="dc-avatar-menu-header">
-                          <div className="dc-avatar-menu-user">
+                          <button
+                            type="button"
+                            className="dc-avatar-menu-user dc-avatar-menu-user-btn"
+                            onClick={() => {
+                              setIsAvatarMenuOpen(false);
+                              setProfileModalStep('edit');
+                              profileDialogRef.current?.showModal();
+                            }}
+                            title="Edit Profile"
+                          >
                             {renderUserAvatar(
                               activeUser,
                               activeUser.displayName,
@@ -3797,7 +4496,7 @@ export function App() {
                               <strong>{activeUser.displayName}</strong>
                               <span>{activeUser.handle || '@user'}</span>
                             </div>
-                          </div>
+                          </button>
                           <div className="dc-avatar-qr-actions-row">
                             <button
                               type="button"
@@ -3806,43 +4505,17 @@ export function App() {
                                 setIsAvatarMenuOpen(false);
                                 setProfileModalStep('qr-card');
                                 profileDialogRef.current?.showModal();
+                                (
+                                  document.activeElement as HTMLElement | null
+                                )?.blur?.();
                               }}
                             >
-                              <QrCode size={14} /> My QR Pass
-                            </button>
-                            <button
-                              type="button"
-                              className="dc-avatar-qr-scan-btn"
-                              onClick={() => {
-                                setIsAvatarMenuOpen(false);
-                                setSafetyModalTab('scan-qr');
-                                safetyListDialogRef.current?.showModal();
-                              }}
-                            >
-                              <Camera size={14} /> Scan QR
+                              <QrCode size={14} /> @me QR
                             </button>
                           </div>
                         </div>
 
                         <div className="dc-header-menu-divider" />
-
-                        <button
-                          type="button"
-                          className="dc-header-menu-item"
-                          role="menuitem"
-                          onClick={() => {
-                            setIsAvatarMenuOpen(false);
-                            setProfileModalStep('edit');
-                            profileDialogRef.current?.showModal();
-                          }}
-                        >
-                          <span className="dc-header-menu-icon icon-profile">
-                            <User size={15} />
-                          </span>
-                          <span className="dc-header-menu-label">
-                            Edit Profile
-                          </span>
-                        </button>
 
                         <button
                           type="button"
@@ -3857,7 +4530,7 @@ export function App() {
                             <Users size={15} />
                           </span>
                           <span className="dc-header-menu-label">
-                            Friends &amp; Groups
+                            Friends
                           </span>
                         </button>
 
@@ -3875,32 +4548,15 @@ export function App() {
                             <ShieldCheck size={15} />
                           </span>
                           <span className="dc-header-menu-label">
-                            Blocked &amp; Whitelist
+                            Safety
                           </span>
                           {(whitelistOnlyMode || blockedEmails.length > 0) && (
                             <span className="dc-header-menu-badge">
                               {whitelistOnlyMode
-                                ? 'Whitelist ON'
-                                : `${blockedEmails.length} blocked`}
+                                ? '✅ ON'
+                                : `🚫 ${blockedEmails.length}`}
                             </span>
                           )}
-                        </button>
-
-                        <button
-                          type="button"
-                          className="dc-header-menu-item"
-                          role="menuitem"
-                          onClick={() => {
-                            setIsAvatarMenuOpen(false);
-                            handleOpenPersonalVault();
-                          }}
-                        >
-                          <span className="dc-header-menu-icon icon-notes">
-                            <Bookmark size={15} />
-                          </span>
-                          <span className="dc-header-menu-label">
-                            Saved Notes (@me)
-                          </span>
                         </button>
 
                         <button
@@ -3918,7 +4574,7 @@ export function App() {
                             <Link2 size={15} />
                           </span>
                           <span className="dc-header-menu-label">
-                            Add / Connect Account
+                            Account
                           </span>
                         </button>
 
@@ -3926,39 +4582,86 @@ export function App() {
 
                         <div className="dc-avatar-theme-picker">
                           <span className="dc-avatar-section-label">
-                            Chat Bubble Color
+                            🌗 Mode
+                          </span>
+                          <div className="dc-setting-segmented">
+                            <button
+                              type="button"
+                              className={`dc-seg-btn ${
+                                colorSchemePref === 'dark'
+                                  ? 'is-active'
+                                  : ''
+                              }`}
+                              onClick={() =>
+                                handleSelectColorScheme('dark')
+                              }
+                            >
+                              🌙 Dark
+                            </button>
+                            <button
+                              type="button"
+                              className={`dc-seg-btn ${
+                                colorSchemePref === 'light'
+                                  ? 'is-active'
+                                  : ''
+                              }`}
+                              onClick={() =>
+                                handleSelectColorScheme('light')
+                              }
+                            >
+                              ☀️ Light
+                            </button>
+                            <button
+                              type="button"
+                              className={`dc-seg-btn ${
+                                colorSchemePref === 'light dark'
+                                  ? 'is-active'
+                                  : ''
+                              }`}
+                              onClick={() =>
+                                handleSelectColorScheme('light dark')
+                              }
+                            >
+                              ✨ Auto
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="dc-avatar-theme-picker">
+                          <span className="dc-avatar-section-label">
+                            🎨 Color
                           </span>
                           <div className="dc-bubble-theme-swatches">
                             {(
                               [
                                 {
                                   id: 'ocean',
-                                  label: 'Ocean Blue',
+                                  label: 'Ocean',
                                   color: '#0a84ff',
                                 },
                                 {
                                   id: 'berry',
-                                  label: 'Neon Berry',
+                                  label: 'Berry',
                                   color: '#ec4899',
                                 },
                                 {
                                   id: 'violet',
-                                  label: 'Cyber Violet',
+                                  label: 'Violet',
                                   color: '#8b5cf6',
                                 },
                                 {
                                   id: 'mint',
-                                  label: 'Emerald Mint',
+                                  label: 'Mint',
                                   color: '#10b981',
                                 },
                                 {
                                   id: 'sunset',
-                                  label: 'Sunset Coral',
+                                  label: 'Sunset',
                                   color: '#f97316',
                                 },
                                 {
                                   id: 'gold',
-                                  label: 'Electric Gold',
+                                  label: 'Gold',
                                   color: '#eab308',
                                 },
                               ] as const
@@ -3975,6 +4678,26 @@ export function App() {
                                 aria-label={t.label}
                               />
                             ))}
+
+                            <label
+                              className={`dc-custom-color-circle ${
+                                chatBubbleTheme === 'custom' ? 'active' : ''
+                              }`}
+                              title="Custom Color Wheel"
+                              aria-label="Pick custom color"
+                            >
+                              <input
+                                type="color"
+                                value={customBubbleHex}
+                                onChange={(e) =>
+                                  handleSelectCustomBubbleColor(e.target.value)
+                                }
+                              />
+                              <span
+                                className="dc-custom-color-core"
+                                style={{ background: customBubbleHex }}
+                              />
+                            </label>
                           </div>
                         </div>
 
@@ -3982,7 +4705,7 @@ export function App() {
 
                         <div className="dc-avatar-menu-switcher">
                           <label htmlFor="avatar-account-switch">
-                            Switch Account
+                            🔄 Switch
                           </label>
                           <select
                             id="avatar-account-switch"
@@ -4015,7 +4738,7 @@ export function App() {
                               setIsAppLocked(true);
                             }}
                           >
-                            <Fingerprint size={13} /> Lock App
+                            🔒 Lock
                           </button>
                           <button
                             type="button"
@@ -4025,7 +4748,7 @@ export function App() {
                               handleResetDemoState();
                             }}
                           >
-                            <RefreshCw size={13} /> Reset Demo
+                            ♻️ Reset
                           </button>
                         </div>
                       </div>
@@ -4041,7 +4764,7 @@ export function App() {
                   type="search"
                   value={contactSearchQuery}
                   onChange={(e) => setContactSearchQuery(e.target.value)}
-                  placeholder="Search friends, @handles, or messages…"
+                  placeholder="🔍 Search…"
                 />
                 {contactSearchQuery && (
                   <button
@@ -4067,10 +4790,10 @@ export function App() {
                     <UserPlus size={15} />
                     <div>
                       <strong>
-                        Message &ldquo;{contactSearchQuery.trim()}&rdquo;
+                        💬 {contactSearchQuery.trim()}
                       </strong>
                       <span>
-                        Start a chat or send an invite
+                        ✨ Start Chat
                       </span>
                     </div>
                     <ChevronRight size={15} />
@@ -4081,7 +4804,7 @@ export function App() {
               {matchingContacts.length > 0 && (
                 <div className="dc-search-contacts-results">
                   <div className="dc-search-section-label">
-                    FRIENDS &amp; CONTACTS
+                    👥 FRIENDS
                   </div>
                   {matchingContacts.map((c) => (
                     <button
@@ -4100,7 +4823,7 @@ export function App() {
                         </strong>
                         <span>
                           {c.email}
-                          {!c.hasAppInstalled ? ' • Invite to @me' : ''}
+                          {!c.hasAppInstalled ? ' • 📩 Invite' : ''}
                         </span>
                       </div>
                     </button>
@@ -4116,11 +4839,7 @@ export function App() {
                   <div className="dc-empty-threads-icon">
                     <MessageSquare size={22} />
                   </div>
-                  <strong>No chats yet, {activeUser.displayName}!</strong>
-                  <p>
-                    Search a friend&apos;s @handle or email above, or tap the +
-                    button to start chatting.
-                  </p>
+                  <strong>👋 No chats yet</strong>
                   <button
                     type="button"
                     className="dc-pill-action-btn"
@@ -4129,12 +4848,12 @@ export function App() {
                       newChannelModalRef.current?.showModal();
                     }}
                   >
-                    <Plus size={14} /> New Chat
+                    <Plus size={14} /> 💬 Chat
                   </button>
                 </div>
               ) : (
                 threadListSummaries.map(
-                  ({ channel: ch, lastText, lastTime, peerUser }) => {
+                  ({ channel: ch, lastText, lastTime, peerUser, unreadCount }) => {
                     const isActive = ch.id === activeChannel?.id;
                     const isVault = ch.type === 'vault';
                     const isGroup = ch.type !== 'dm' && !isVault;
@@ -4149,7 +4868,7 @@ export function App() {
                         type="button"
                         className={`dc-thread-card ${isActive ? 'active' : ''} ${
                           isVault ? 'vault-thread-card' : ''
-                        }`}
+                        } ${unreadCount > 0 ? 'has-unread' : ''}`}
                         onClick={() => {
                           setActiveChannelId(ch.id);
                           setReplyingToMessage(null);
@@ -4213,7 +4932,17 @@ export function App() {
                             )}
                           </div>
 
-                          <div className="dc-thread-snippet">{lastText}</div>
+                          <div className="dc-thread-card-bottom">
+                            <div className="dc-thread-snippet">{lastText}</div>
+                            {unreadCount > 0 && (
+                              <span
+                                className="dc-thread-unread-badge"
+                                aria-label={`${unreadCount} unread`}
+                              >
+                                {unreadCount}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </button>
                     );
@@ -4235,11 +4964,7 @@ export function App() {
                   <div className="dc-empty-threads-icon">
                     <MessageSquare size={28} />
                   </div>
-                  <h2>Hey, {activeUser.displayName}! 👋</h2>
-                  <p>
-                    Pick a conversation on the left or message any friend using
-                    their email or @handle — no phone number needed.
-                  </p>
+                  <h2>👋 Hey, {activeUser.displayName}!</h2>
                   <div className="dc-empty-chat-actions">
                     <button
                       type="button"
@@ -4249,14 +4974,7 @@ export function App() {
                         newChannelModalRef.current?.showModal();
                       }}
                     >
-                      <Plus size={15} /> Start a Chat
-                    </button>
-                    <button
-                      type="button"
-                      className="dc-btn-ghost"
-                      onClick={handleOpenPersonalVault}
-                    >
-                      <Bookmark size={15} /> Saved Notes
+                      <Plus size={15} /> 💬 Chat
                     </button>
                   </div>
                 </div>
@@ -4332,232 +5050,325 @@ export function App() {
                           role="menu"
                           aria-label="Conversation actions and settings"
                         >
-                          {activeChannel.type !== 'vault' && (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="dc-header-menu-item"
-                              onClick={() => {
-                                setIsHeaderMenuOpen(false);
-                                groupInfoDialogRef.current?.showModal();
-                              }}
-                            >
-                              <span className="dc-header-menu-icon icon-people">
-                                <UserPlus size={15} />
-                              </span>
-                              <span className="dc-header-menu-label">
-                                Add People
-                                {activeChannel.participants.length > 2 &&
-                                  ` (${activeChannel.participants.length})`}
-                              </span>
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="dc-header-menu-item item-danger"
-                            onClick={() => {
-                              setIsHeaderMenuOpen(false);
-                              setPendingShredOptions({
-                                shredScope: 'peer-pgp-key-and-threads',
-                              });
-                              shredConfirmDialogRef.current?.showModal();
-                            }}
+                          <div
+                            className="dc-header-menu-actions-row"
+                            role="toolbar"
+                            aria-label="Conversation actions"
                           >
-                            <span className="dc-header-menu-icon icon-burn">
-                              <Flame size={15} />
-                            </span>
-                            <span className="dc-header-menu-label">
-                              Burn Thread
-                            </span>
-                          </button>
-
-                          {activeChannel.type !== 'vault' &&
-                            activeChannel.participants.length <= 2 &&
-                            activeChannelPeerUser && (
+                            {activeChannel.type !== 'vault' && (
                               <button
                                 type="button"
                                 role="menuitem"
-                                className="dc-header-menu-item item-danger"
+                                className="dc-header-action-btn action-people"
                                 onClick={() => {
                                   setIsHeaderMenuOpen(false);
-                                  handleBlockEmail(activeChannelPeerUser.email);
+                                  groupInfoDialogRef.current?.showModal();
                                 }}
+                                title={`People${
+                                  activeChannel.participants.length > 2
+                                    ? ` (${activeChannel.participants.length})`
+                                    : ''
+                                }`}
+                                aria-label={`People${
+                                  activeChannel.participants.length > 2
+                                    ? ` (${activeChannel.participants.length})`
+                                    : ''
+                                }`}
                               >
-                                <span className="dc-header-menu-icon icon-burn">
-                                  <UserMinus size={15} />
-                                </span>
-                                <span className="dc-header-menu-label">
-                                  Block {activeChannelDisplayTitle}
-                                </span>
+                                <UserPlus size={16} />
                               </button>
                             )}
 
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="dc-header-action-btn action-clear"
+                              onClick={() => {
+                                setIsHeaderMenuOpen(false);
+                                setPendingShredOptions({
+                                  shredScope: 'peer-pgp-key-and-threads',
+                                });
+                                shredConfirmDialogRef.current?.showModal();
+                              }}
+                              title="Clear chat"
+                              aria-label="Clear chat"
+                            >
+                              <Flame size={16} />
+                            </button>
+
+                            {activeChannel.type !== 'vault' &&
+                              activeChannel.participants.length <= 2 &&
+                              activeChannelPeerUser && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="dc-header-action-btn action-block"
+                                  onClick={() => {
+                                    setIsHeaderMenuOpen(false);
+                                    handleBlockEmail(activeChannelPeerUser.email);
+                                  }}
+                                  title="Block user"
+                                  aria-label="Block user"
+                                >
+                                  <UserMinus size={16} />
+                                </button>
+                              )}
+                          </div>
+
                           <div className="dc-header-menu-divider" />
 
-                          <button
-                            type="button"
-                            className="dc-header-menu-item dc-settings-toggle-row"
-                            aria-expanded={isSettingsExpandedInMenu}
-                            onClick={() =>
-                              setIsSettingsExpandedInMenu((prev) => !prev)
-                            }
+                          <div
+                            className="dc-header-settings-panel"
+                            role="group"
+                            aria-label="Messenger Settings"
                           >
-                            <span className="dc-header-menu-icon icon-settings">
-                              <Settings size={15} />
-                            </span>
-                            <span className="dc-header-menu-label">
-                              Settings
-                            </span>
-                            <ChevronRight
-                              size={15}
-                              className={`dc-settings-chevron ${
-                                isSettingsExpandedInMenu ? 'is-expanded' : ''
-                              }`}
-                            />
-                          </button>
+                            <div className="dc-setting-group">
+                              <span className="dc-setting-label">
+                                🎨 Color
+                              </span>
+                              <div className="dc-bubble-theme-swatches">
+                                {(
+                                  [
+                                    {
+                                      id: 'ocean',
+                                      label: 'Ocean',
+                                      color: '#0a84ff',
+                                    },
+                                    {
+                                      id: 'berry',
+                                      label: 'Berry',
+                                      color: '#ec4899',
+                                    },
+                                    {
+                                      id: 'violet',
+                                      label: 'Violet',
+                                      color: '#8b5cf6',
+                                    },
+                                    {
+                                      id: 'mint',
+                                      label: 'Mint',
+                                      color: '#10b981',
+                                    },
+                                    {
+                                      id: 'sunset',
+                                      label: 'Sunset',
+                                      color: '#f97316',
+                                    },
+                                    {
+                                      id: 'gold',
+                                      label: 'Gold',
+                                      color: '#eab308',
+                                    },
+                                  ] as const
+                                ).map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    className={`dc-bubble-swatch-btn ${
+                                      chatBubbleTheme === t.id ? 'active' : ''
+                                    }`}
+                                    style={{ background: t.color }}
+                                    onClick={() =>
+                                      handleSelectBubbleTheme(t.id)
+                                    }
+                                    title={t.label}
+                                    aria-label={t.label}
+                                  />
+                                ))}
 
-                          {isSettingsExpandedInMenu && (
-                            <div
-                              className="dc-header-settings-panel"
-                              role="group"
-                              aria-label="Messenger Settings"
-                            >
-                              <div className="dc-setting-group">
-                                <span className="dc-setting-label">
-                                  Appearance (Theme)
-                                </span>
-                                <div className="dc-setting-segmented">
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      colorSchemePref === 'dark'
-                                        ? 'is-active'
-                                        : ''
-                                    }`}
-                                    onClick={() =>
-                                      handleSelectColorScheme('dark')
+                                <label
+                                  className={`dc-custom-color-circle ${
+                                    chatBubbleTheme === 'custom' ? 'active' : ''
+                                  }`}
+                                  title="Custom Color Wheel"
+                                  aria-label="Pick custom color"
+                                >
+                                  <input
+                                    type="color"
+                                    value={customBubbleHex}
+                                    onChange={(e) =>
+                                      handleSelectCustomBubbleColor(
+                                        e.target.value
+                                      )
                                     }
-                                  >
-                                    <Moon size={12} /> Dark
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      colorSchemePref === 'light'
-                                        ? 'is-active'
-                                        : ''
-                                    }`}
-                                    onClick={() =>
-                                      handleSelectColorScheme('light')
-                                    }
-                                  >
-                                    <Sun size={12} /> Light
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      colorSchemePref === 'light dark'
-                                        ? 'is-active'
-                                        : ''
-                                    }`}
-                                    onClick={() =>
-                                      handleSelectColorScheme('light dark')
-                                    }
-                                  >
-                                    Auto
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="dc-setting-group">
-                                <span className="dc-setting-label">
-                                  Chat Bubble Color
-                                </span>
-                                <div className="dc-bubble-theme-swatches">
-                                  {(
-                                    [
-                                      {
-                                        id: 'ocean',
-                                        label: 'Ocean Blue',
-                                        color: '#0a84ff',
-                                      },
-                                      {
-                                        id: 'berry',
-                                        label: 'Neon Berry',
-                                        color: '#ec4899',
-                                      },
-                                      {
-                                        id: 'violet',
-                                        label: 'Cyber Violet',
-                                        color: '#8b5cf6',
-                                      },
-                                      {
-                                        id: 'mint',
-                                        label: 'Emerald Mint',
-                                        color: '#10b981',
-                                      },
-                                      {
-                                        id: 'sunset',
-                                        label: 'Sunset Coral',
-                                        color: '#f97316',
-                                      },
-                                      {
-                                        id: 'gold',
-                                        label: 'Electric Gold',
-                                        color: '#eab308',
-                                      },
-                                    ] as const
-                                  ).map((t) => (
-                                    <button
-                                      key={t.id}
-                                      type="button"
-                                      className={`dc-bubble-swatch-btn ${
-                                        chatBubbleTheme === t.id ? 'active' : ''
-                                      }`}
-                                      style={{ background: t.color }}
-                                      onClick={() =>
-                                        handleSelectBubbleTheme(t.id)
-                                      }
-                                      title={t.label}
-                                      aria-label={t.label}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="dc-setting-group">
-                                <span className="dc-setting-label">
-                                  Message Timestamps
-                                </span>
-                                <div className="dc-setting-segmented">
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      !showMessageTimestamps ? 'is-active' : ''
-                                    }`}
-                                    onClick={() =>
-                                      setShowMessageTimestamps(false)
-                                    }
-                                  >
-                                    <EyeOff size={12} /> Hide Time
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`dc-seg-btn ${
-                                      showMessageTimestamps ? 'is-active' : ''
-                                    }`}
-                                    onClick={() =>
-                                      setShowMessageTimestamps(true)
-                                    }
-                                  >
-                                    <Clock size={12} /> Show Time
-                                  </button>
-                                </div>
+                                  />
+                                  <span
+                                    className="dc-custom-color-core"
+                                    style={{ background: customBubbleHex }}
+                                  />
+                                </label>
                               </div>
                             </div>
-                          )}
+
+                            <div className="dc-setting-group">
+                              <button
+                                type="button"
+                                className="dc-header-toggle-row-btn"
+                                onClick={() =>
+                                  setShowMessageTimestamps((prev) => !prev)
+                                }
+                                title={
+                                  showMessageTimestamps
+                                    ? 'Timestamps visible (click to hide)'
+                                    : 'Timestamps hidden (click to show)'
+                                }
+                                aria-label={`Toggle timestamps: currently ${
+                                  showMessageTimestamps ? 'visible' : 'hidden'
+                                }`}
+                              >
+                                <span className="dc-setting-label">
+                                  🕒 Time
+                                </span>
+                                <span
+                                  className={`dc-toggle-status-pill ${
+                                    showMessageTimestamps
+                                      ? 'is-visible'
+                                      : 'is-hidden'
+                                  }`}
+                                >
+                                  <span>
+                                    {showMessageTimestamps
+                                      ? 'Visible'
+                                      : 'Hidden'}
+                                  </span>
+                                  {showMessageTimestamps ? (
+                                    <Eye size={14} />
+                                  ) : (
+                                    <EyeOff size={14} />
+                                  )}
+                                </span>
+                              </button>
+                            </div>
+
+                            <div className="dc-setting-group">
+                              <button
+                                type="button"
+                                className="dc-default-emoji-trigger"
+                                aria-expanded={isDefaultEmojiMenuOpen}
+                                onClick={() => {
+                                  setIsDefaultEmojiMenuOpen((prev) => {
+                                    const next = !prev;
+                                    if (!next) {
+                                      setEditingEmojiSlotIndex(null);
+                                      setEmojiSearchQuery('');
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <span className="dc-setting-label">
+                                  😎 Default
+                                </span>
+                                <span className="dc-default-emoji-preview-strip">
+                                  {defaultQuickEmojis.map((em, idx) => (
+                                    <span key={idx}>{em}</span>
+                                  ))}
+                                  <ChevronRight
+                                    size={14}
+                                    className={`dc-settings-chevron ${
+                                      isDefaultEmojiMenuOpen
+                                        ? 'is-expanded'
+                                        : ''
+                                    }`}
+                                  />
+                                </span>
+                              </button>
+
+                              {isDefaultEmojiMenuOpen && (
+                                <div className="dc-default-emoji-customizer">
+                                  <div className="dc-top5-emoji-slots">
+                                    {defaultQuickEmojis.map((emoji, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        className={`dc-top5-emoji-slot-btn ${
+                                          editingEmojiSlotIndex === idx
+                                            ? 'is-editing'
+                                            : ''
+                                        }`}
+                                        onClick={() => {
+                                          setEditingEmojiSlotIndex((prev) =>
+                                            prev === idx ? null : idx
+                                          );
+                                          setEmojiSearchQuery('');
+                                        }}
+                                        title={`Tap to replace slot #${idx + 1} (${emoji})`}
+                                        aria-label={`Replace default emoji slot ${idx + 1}: ${emoji}`}
+                                      >
+                                        <span className="dc-slot-emoji">
+                                          {emoji}
+                                        </span>
+                                        <small>#{idx + 1}</small>
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {editingEmojiSlotIndex !== null && (
+                                    <div className="dc-all-emojis-picker-box">
+                                      <div className="dc-emoji-search-input-wrap">
+                                        <Search
+                                          size={13}
+                                          className="dc-emoji-search-icon"
+                                        />
+                                        <input
+                                          type="search"
+                                          value={emojiSearchQuery}
+                                          onChange={(e) =>
+                                            setEmojiSearchQuery(e.target.value)
+                                          }
+                                          placeholder={`🔍 Search slot #${
+                                            editingEmojiSlotIndex + 1
+                                          }…`}
+                                          aria-label="Search all emojis"
+                                          autoFocus
+                                        />
+                                      </div>
+
+                                      <div
+                                        className="dc-all-emojis-scroll-grid"
+                                        role="listbox"
+                                        aria-label="All emojis"
+                                      >
+                                        {ALL_SEARCHABLE_EMOJIS.filter((item) => {
+                                          const q = emojiSearchQuery
+                                            .trim()
+                                            .toLowerCase();
+                                          if (!q) return true;
+                                          return (
+                                            item.emoji.includes(q) ||
+                                            item.keywords
+                                              .toLowerCase()
+                                              .includes(q)
+                                          );
+                                        }).map((item, idx) => (
+                                          <button
+                                            key={`${item.emoji}-${idx}`}
+                                            type="button"
+                                            className={`dc-emoji-catalog-btn ${
+                                              defaultQuickEmojis[
+                                                editingEmojiSlotIndex
+                                              ] === item.emoji
+                                                ? 'is-current'
+                                                : ''
+                                            }`}
+                                            onClick={() =>
+                                              handleReplaceDefaultEmojiSlot(
+                                                editingEmojiSlotIndex,
+                                                item.emoji
+                                              )
+                                            }
+                                            title={item.keywords}
+                                          >
+                                            {item.emoji}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4606,9 +5417,7 @@ export function App() {
             {channelHasNonAppParticipant && (
               <div className="dc-non-app-banner">
                 <div>
-                  <strong>{activeChannelDisplayTitle} isn&apos;t on @me yet:</strong>{' '}
-                  Your message will send them an invite link so they can reply
-                  right away!
+                  <strong>📩 Invite {activeChannelDisplayTitle}</strong>
                 </div>
                 <button
                   type="button"
@@ -4617,13 +5426,17 @@ export function App() {
                     handleSimulateInstallAppForUser('jordan.taylor@yahoo.com')
                   }
                 >
-                  <UserCheck size={13} /> Simulate Friend Joining
+                  <UserCheck size={13} /> ✨ Join Demo
                 </button>
               </div>
             )}
 
             {/* Free-Flowing Message Stream */}
-            <div className="dc-freeflow-feed" ref={freeflowFeedRef}>
+            <div
+              className="dc-freeflow-feed"
+              ref={freeflowFeedRef}
+              onScroll={handleFeedScroll}
+            >
               {freeflowStream.length === 0 && (
                 <div className="dc-clean-empty-thread">
                   <div className="dc-clean-empty-avatar">
@@ -4637,21 +5450,26 @@ export function App() {
                   </div>
                   <strong>
                     {activeChannel.type === 'vault'
-                      ? 'Saved Notes (@me)'
-                      : `Chat with ${activeChannelDisplayTitle}`}
+                      ? '📌 Notes'
+                      : `👋 Say hi!`}
                   </strong>
-                  <p>
-                    {activeChannel.type === 'vault'
-                      ? 'Jot down notes, links, or files for yourself below.'
-                      : `No messages here yet. Send a message below to say hi! 👋`}
-                  </p>
                 </div>
               )}
 
-              {freeflowStream.map((msg) => {
+              {freeflowStream.map((msg, index) => {
                 const isOwn =
                   msg.packet.sender.email.toLowerCase() ===
                   activeUser.email.toLowerCase();
+                const alreadyReadByMe = msg.receipts.some(
+                  (r) =>
+                    r.senderEmail.toLowerCase() ===
+                    activeUser.email.toLowerCase()
+                );
+                const isFirstUnread = index === firstUnreadMsgIndex;
+                const isMsgUnread =
+                  !isOwn &&
+                  !alreadyReadByMe &&
+                  !readMessageIds.has(msg.packet.payload.messageId);
                 const senderIdentity = users.find(
                   (u) =>
                     u.email.toLowerCase() ===
@@ -4662,11 +5480,6 @@ export function App() {
                 const displayHandle =
                   senderIdentity?.handle || msg.packet.sender.handle;
                 const hasBeenReadByPeer = msg.receipts.length > 0;
-                const alreadyReadByMe = msg.receipts.some(
-                  (r) =>
-                    r.senderEmail.toLowerCase() ===
-                    activeUser.email.toLowerCase()
-                );
                 const effectiveBurnTtl =
                   msg.packet.payload.ephemeralTtlSeconds ||
                   activeChannel.ephemeralTimerSeconds ||
@@ -4713,6 +5526,25 @@ export function App() {
 
                 return (
                   <React.Fragment key={msg.emailId}>
+                    {isFirstUnread && (
+                      <div
+                        id="dc-first-unread-marker"
+                        className="dc-unread-divider"
+                        role="separator"
+                        aria-label="Unread messages divider"
+                      >
+                        <span className="dc-unread-divider-line" />
+                        <span className="dc-unread-divider-pill">
+                          <span className="dc-unread-dot" />
+                          {activeChannelUnreadCount} Unread{' '}
+                          {activeChannelUnreadCount === 1
+                            ? 'Message'
+                            : 'Messages'}
+                        </span>
+                        <span className="dc-unread-divider-line" />
+                      </div>
+                    )}
+
                     {showMessageTimestamps && (
                       <div className="dc-gmsg-timestamp-divider">
                         <span>
@@ -4726,11 +5558,14 @@ export function App() {
                     )}
 
                     <article
+                      id={`dc-msg-${msg.packet.payload.messageId}`}
                       className={`dc-imessage-row ${
                         isOwn ? 'outgoing' : 'incoming'
                       } ${isTwoPersonChat ? 'two-person-row' : 'group-row'} ${
                         groupedReactions.length > 0 ? 'has-reactions' : ''
-                      } ${isMsgActionOpen ? 'actions-active' : ''}`}
+                      } ${isMsgActionOpen ? 'actions-active' : ''} ${
+                        isMsgUnread ? 'is-unread' : ''
+                      }`}
                     >
                       {!isTwoPersonChat &&
                         !isOwn &&
@@ -4762,21 +5597,29 @@ export function App() {
                         )}
 
                         <div className="dc-gmsg-bubble-line">
-                          {/* Message Bubble */}
+                          {/* Message Bubble — clicking directly opens the Top 5 Emoji Reaction Bar */}
                           <div
                             className={`dc-imessage-bubble ${
                               isBurnHiddenInManualMode
                                 ? 'burn-shrouded-bubble'
                                 : ''
-                            }`}
+                            } ${isMsgUnread ? 'is-unread-bubble' : ''}`}
                             onClick={() =>
-                              setSelectedActionMsgId((prev) =>
+                              setActiveReactionPickerMsgId((prev) =>
                                 prev === msg.packet.payload.messageId
                                   ? null
                                   : msg.packet.payload.messageId
                               )
                             }
+                            title="Tap to react"
                           >
+                            {isMsgUnread && (
+                              <span
+                                className="dc-bubble-unread-pip"
+                                title="Unread"
+                                aria-label="Unread"
+                              />
+                            )}
                             {isBurnHiddenInManualMode ? (
                               <div
                                 className="dc-burn-shroud-card"
@@ -4955,6 +5798,13 @@ export function App() {
                                                   src={att.encryptedData}
                                                   alt={att.filename}
                                                   className="dc-inline-image-attachment"
+                                                  title="Tap to view full screen"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFullscreenImageUrl(
+                                                      att.encryptedData
+                                                    );
+                                                  }}
                                                 />
                                               )}
                                               {isAudio && (
@@ -5038,77 +5888,55 @@ export function App() {
                             )}
                           </div>
 
-                          {/* Subtle Hover / Tap Action Pills (React, Reply, and optional Manual Read Receipt) */}
-                          <div className="dc-subtle-bubble-actions">
-                            <button
-                              type="button"
-                              className="dc-subtle-action-icon"
-                              onClick={() =>
-                                setActiveReactionPickerMsgId(
-                                  activeReactionPickerMsgId ===
-                                    msg.packet.payload.messageId
-                                    ? null
-                                    : msg.packet.payload.messageId
-                                )
-                              }
-                              title="React with emoji"
-                              aria-label="React to message"
-                            >
-                              <Smile size={14} />
-                            </button>
+                          {/* Optional Manual Read Receipt & Preserved Hidden Controls */}
+                          {((!isOwn &&
+                            readReceiptMode === 'manual' &&
+                            !alreadyReadByMe) ||
+                            showPinAndPacketControls) && (
+                            <div className="dc-subtle-bubble-actions">
+                              {!isOwn &&
+                                readReceiptMode === 'manual' &&
+                                !alreadyReadByMe && (
+                                  <button
+                                    type="button"
+                                    className="dc-subtle-action-icon"
+                                    onClick={() =>
+                                      handleSendReadReceipt(
+                                        msg.packet.payload.messageId
+                                      )
+                                    }
+                                    title="Send encrypted Read Receipt"
+                                    aria-label="Send read receipt"
+                                  >
+                                    <CheckCheck size={14} />
+                                  </button>
+                                )}
 
-                            <button
-                              type="button"
-                              className="dc-subtle-action-icon"
-                              onClick={() => setReplyingToMessage(msg)}
-                              title="Reply to message"
-                              aria-label="Reply to message"
-                            >
-                              <CornerDownLeft size={14} />
-                            </button>
-
-                            {!isOwn &&
-                              readReceiptMode === 'manual' &&
-                              !alreadyReadByMe && (
-                                <button
-                                  type="button"
-                                  className="dc-subtle-action-icon"
-                                  onClick={() =>
-                                    handleSendReadReceipt(
-                                      msg.packet.payload.messageId
-                                    )
-                                  }
-                                  title="Send encrypted Read Receipt"
-                                  aria-label="Send read receipt"
-                                >
-                                  <CheckCheck size={14} />
-                                </button>
+                              {/* Pin and Email Packet preserved in code, hidden while showPinAndPacketControls is false */}
+                              {showPinAndPacketControls && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="dc-subtle-action-icon"
+                                    onClick={() => handleTogglePinMessage(msg)}
+                                    title="Pin or unpin message"
+                                  >
+                                    <Pin size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dc-subtle-action-icon"
+                                    onClick={() =>
+                                      handleOpenPacketModal(msg.emailId)
+                                    }
+                                    title="Inspect Email Packet"
+                                  >
+                                    <Code2 size={13} />
+                                  </button>
+                                </>
                               )}
-
-                            {/* Pin and Email Packet preserved in code, hidden while showPinAndPacketControls is false */}
-                            {showPinAndPacketControls && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="dc-subtle-action-icon"
-                                  onClick={() => handleTogglePinMessage(msg)}
-                                  title="Pin or unpin message"
-                                >
-                                  <Pin size={13} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="dc-subtle-action-icon"
-                                  onClick={() =>
-                                    handleOpenPacketModal(msg.emailId)
-                                  }
-                                  title="Inspect Email Packet"
-                                >
-                                  <Code2 size={13} />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Subtle Status Footnote (Whisper-quiet Checkmarks & Burn Countdown when applicable) */}
@@ -5179,22 +6007,20 @@ export function App() {
                         {activeReactionPickerMsgId ===
                           msg.packet.payload.messageId && (
                           <div className="dc-quick-reaction-bar">
-                            {['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥'].map(
-                              (emoji) => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() =>
-                                    handleSendQuickReaction(
-                                      msg.packet.payload.messageId,
-                                      emoji
-                                    )
-                                  }
-                                >
-                                  {emoji}
-                                </button>
-                              )
-                            )}
+                            {defaultQuickEmojis.map((emoji, idx) => (
+                              <button
+                                key={`${emoji}-${idx}`}
+                                type="button"
+                                onClick={() =>
+                                  handleSendQuickReaction(
+                                    msg.packet.payload.messageId,
+                                    emoji
+                                  )
+                                }
+                              >
+                                {emoji}
+                              </button>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -5204,20 +6030,39 @@ export function App() {
               })}
             </div>
 
+            {/* Floating Skip to Latest Button */}
+            {!isAtBottom && (
+              <button
+                type="button"
+                className="dc-skip-to-bottom-btn"
+                onClick={handleSkipToLatest}
+                aria-label="Skip to latest"
+                title="Skip to latest"
+              >
+                <ArrowDown size={14} />
+                <span>Skip to latest</span>
+                {activeChannelUnreadCount > 0 && (
+                  <span className="dc-skip-count-badge">
+                    {activeChannelUnreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Bottom iMessage / Android Pill Composer with Real File, Photo & Voice Note Recording */}
             <form className="dc-imessage-composer" onSubmit={handleMessengerSend}>
               {/* Vault Category Bar when inside Personal Encrypted Vault (@me) */}
               {activeChannel.type === 'vault' && (
                 <div className="dc-vault-composer-bar">
                   <span className="dc-vault-bar-label">
-                    <Bookmark size={12} /> Vault Category:
+                    <Bookmark size={12} /> 📌
                   </span>
                   {(
                     [
-                      { id: 'note', label: 'Encrypted Note' },
-                      { id: 'credential', label: 'Key / Credential' },
-                      { id: 'snippet', label: 'Code Snippet' },
-                      { id: 'file', label: 'File Drop' },
+                      { id: 'note', label: '📝 Note' },
+                      { id: 'credential', label: '🔑 Key' },
+                      { id: 'snippet', label: '💻 Code' },
+                      { id: 'file', label: '📁 File' },
                     ] as const
                   ).map((cat) => (
                     <button
@@ -5237,7 +6082,7 @@ export function App() {
               {replyingToMessage && (
                 <div className="dc-composer-reply-banner">
                   <div>
-                    <CornerDownLeft size={13} /> Replying to{' '}
+                    <CornerDownLeft size={13} /> ↩️{' '}
                     <strong>
                       {replyingToMessage.packet.sender.displayName}
                     </strong>
@@ -5264,9 +6109,7 @@ export function App() {
                   {pendingAttachments.map((att) => (
                     <div key={att.id} className="dc-pending-attachment-bar">
                       <span>
-                        <Lock size={12} /> Encrypted Ready:{' '}
-                        <strong>{att.filename}</strong> (
-                        {(att.sizeBytes / 1024).toFixed(1)} KB)
+                        📎 <strong>{att.filename}</strong>
                       </span>
                       <button
                         type="button"
@@ -5286,23 +6129,26 @@ export function App() {
               {composerBurnSeconds > 0 && (
                 <div className="dc-composer-active-burn-bar">
                   <span>
-                    <Flame size={13} /> Burn-after-reading timer armed:{' '}
+                    <Flame size={13} /> ⏱️{' '}
                     <strong>
-                      {composerBurnSeconds === 15
-                        ? '15s'
+                      {composerBurnSeconds === 20
+                        ? '20s'
                         : composerBurnSeconds === 60
                         ? '1m'
+                        : composerBurnSeconds === 300
+                        ? '5m'
+                        : composerBurnSeconds === 15
+                        ? '15s'
                         : composerBurnSeconds === 3600
                         ? '1h'
                         : '24h'}
-                    </strong>{' '}
-                    (countdown starts on recipient Read Receipt)
+                    </strong>
                   </span>
                   <button
                     type="button"
                     onClick={() => setComposerBurnSeconds(0)}
                     aria-label="Clear burn timer"
-                    title="Turn off burn-after-reading timer"
+                    title="Turn off timer"
                   >
                     <X size={13} />
                   </button>
@@ -5326,9 +6172,9 @@ export function App() {
                     aria-label={
                       isPlusMenuOpen
                         ? 'Close composer actions menu'
-                        : 'Open composer actions menu (Upload, Time Burn, Voice, Poll Group)'
+                        : 'Open composer actions menu'
                     }
-                    title="Upload, Time Burn, Voice Note, or Poll Group"
+                    title="Actions"
                   >
                     <Plus size={18} className="dc-plus-glyph" />
                     {composerBurnSeconds > 0 && !isPlusMenuOpen && (
@@ -5345,46 +6191,91 @@ export function App() {
                       role="menu"
                       aria-label="Composer actions"
                     >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="dc-action-menu-item"
-                        onClick={() => {
-                          setIsPlusMenuOpen(false);
-                          fileAttachmentInputRef.current?.click();
-                        }}
-                      >
-                        <span className="dc-action-menu-icon icon-upload">
-                          <Paperclip size={16} />
-                        </span>
-                        <span className="dc-action-menu-copy">
-                          <strong>Upload Photo or File</strong>
-                          <small>Encrypted on-device before send</small>
-                        </span>
-                      </button>
+                      <div className="dc-action-menu-icons-row">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="dc-action-icon-btn action-camera"
+                          onClick={() => {
+                            setIsPlusMenuOpen(false);
+                            void handleOpenCameraModal();
+                          }}
+                          title="Camera"
+                          aria-label="Camera"
+                        >
+                          <Camera size={19} />
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="dc-action-icon-btn action-upload"
+                          onClick={() => {
+                            setIsPlusMenuOpen(false);
+                            fileAttachmentInputRef.current?.click();
+                          }}
+                          title="Photo / File"
+                          aria-label="Photo / File"
+                        >
+                          <Paperclip size={19} />
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={`dc-action-icon-btn action-voice ${
+                            isRecordingVoice ? 'is-recording' : ''
+                          }`}
+                          onClick={() => {
+                            setIsPlusMenuOpen(false);
+                            void handleToggleVoiceRecording();
+                          }}
+                          title={isRecordingVoice ? 'Stop recording' : 'Voice'}
+                          aria-label={
+                            isRecordingVoice ? 'Stop recording' : 'Voice'
+                          }
+                        >
+                          {isRecordingVoice ? (
+                            <Square size={16} />
+                          ) : (
+                            <Mic size={19} />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="dc-action-icon-btn action-poll"
+                          onClick={() => {
+                            setIsPlusMenuOpen(false);
+                            pollCreatorDialogRef.current?.showModal();
+                          }}
+                          title="Poll"
+                          aria-label="Poll"
+                        >
+                          <BarChart3 size={19} />
+                        </button>
+                      </div>
 
                       <div
-                        className="dc-action-menu-item dc-action-menu-burn-block"
+                        className="dc-action-menu-burn-row"
                         role="group"
-                        aria-label="Time Burn self-destruct timer"
+                        aria-label="Self-destruct timer"
                       >
-                        <div className="dc-action-menu-burn-head">
-                          <span className="dc-action-menu-icon icon-burn">
-                            <Timer size={16} />
-                          </span>
-                          <span className="dc-action-menu-copy">
-                            <strong>Time Burn</strong>
-                            <small>Self-destructs after recipient reads</small>
-                          </span>
-                        </div>
+                        <span
+                          className="dc-action-timer-icon"
+                          title="Timer"
+                          aria-label="Timer"
+                        >
+                          <Timer size={16} />
+                        </span>
                         <div className="dc-action-menu-burn-pills">
                           {(
                             [
                               { value: 0, label: 'Off' },
-                              { value: 15, label: '15s' },
+                              { value: 20, label: '20s' },
                               { value: 60, label: '1m' },
-                              { value: 3600, label: '1h' },
-                              { value: 86400, label: '24h' },
+                              { value: 300, label: '5m' },
                             ] as const
                           ).map((opt) => (
                             <button
@@ -5395,6 +6286,11 @@ export function App() {
                                   ? 'is-selected'
                                   : ''
                               }`}
+                              title={
+                                opt.value === 0
+                                  ? 'Timer Off'
+                                  : `Self-destruct: ${opt.label}`
+                              }
                               onClick={() => {
                                 setComposerBurnSeconds(
                                   opt.value as EphemeralTimerSeconds
@@ -5407,54 +6303,6 @@ export function App() {
                           ))}
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="dc-action-menu-item"
-                        onClick={() => {
-                          setIsPlusMenuOpen(false);
-                          void handleToggleVoiceRecording();
-                        }}
-                      >
-                        <span
-                          className={`dc-action-menu-icon icon-voice ${
-                            isRecordingVoice ? 'is-recording' : ''
-                          }`}
-                        >
-                          {isRecordingVoice ? (
-                            <Square size={15} />
-                          ) : (
-                            <Mic size={16} />
-                          )}
-                        </span>
-                        <span className="dc-action-menu-copy">
-                          <strong>
-                            {isRecordingVoice
-                              ? 'Stop & Attach Voice Note'
-                              : 'Voice Note'}
-                          </strong>
-                          <small>Record encrypted audio clip</small>
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="dc-action-menu-item"
-                        onClick={() => {
-                          setIsPlusMenuOpen(false);
-                          pollCreatorDialogRef.current?.showModal();
-                        }}
-                      >
-                        <span className="dc-action-menu-icon icon-poll">
-                          <BarChart3 size={16} />
-                        </span>
-                        <span className="dc-action-menu-copy">
-                          <strong>Poll Group</strong>
-                          <small>Create encrypted group or 1:1 poll</small>
-                        </span>
-                      </button>
                     </div>
                   )}
                 </div>
@@ -5462,15 +6310,14 @@ export function App() {
                 {isRecordingVoice ? (
                   <>
                     <div className="dc-recording-pill">
-                      <span className="dc-rec-dot" /> Recording Encrypted Voice
-                      Note ({recordingSeconds}s)…
+                      <span className="dc-rec-dot" /> 🎤 {recordingSeconds}s…
                     </div>
                     <button
                       type="button"
                       className="dc-circle-icon-btn recording-active"
                       onClick={handleToggleVoiceRecording}
-                      title="Stop & Attach Encrypted Voice Note"
-                      aria-label="Stop and attach voice note"
+                      title="Stop"
+                      aria-label="Stop"
                     >
                       <Square size={15} />
                     </button>
@@ -5513,8 +6360,8 @@ export function App() {
                       }}
                       placeholder={
                         activeChannel.type === 'vault'
-                          ? `Save a ${vaultCategoryInput} to Notes (@me)…`
-                          : `Message ${activeChannelDisplayTitle}…`
+                          ? 'Note…'
+                          : 'Message…'
                       }
                     />
 
@@ -5543,38 +6390,57 @@ export function App() {
                           role="menu"
                           aria-label="Quick emojis"
                         >
-                          {[
-                            '👍',
-                            '❤️',
-                            '😂',
-                            '🔥',
-                            '🎉',
-                            '🙌',
-                            '😮',
-                            '😢',
-                            '🙏',
-                            '💯',
-                            '👀',
-                            '✨',
-                            '🚀',
-                            '🔒',
-                            '✅',
-                            '🤝',
-                          ].map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              role="menuitem"
-                              className="dc-emoji-grid-btn"
-                              onClick={() => {
-                                setComposerText((prev) => prev + emoji);
-                                setIsComposerEmojiOpen(false);
-                                composerTextareaRef.current?.focus();
-                              }}
-                            >
-                              {emoji}
-                            </button>
-                          ))}
+                          <div className="dc-composer-top5-row">
+                            {defaultQuickEmojis.map((emoji, idx) => (
+                              <button
+                                key={`top5-${emoji}-${idx}`}
+                                type="button"
+                                role="menuitem"
+                                className="dc-emoji-grid-btn dc-emoji-top5-btn"
+                                onClick={() => {
+                                  setComposerText((prev) => prev + emoji);
+                                  setIsComposerEmojiOpen(false);
+                                  composerTextareaRef.current?.focus();
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="dc-composer-emoji-grid-divider" />
+                          <div className="dc-composer-emoji-subgrid">
+                            {[
+                              '👍',
+                              '🎉',
+                              '🙌',
+                              '😮',
+                              '🙏',
+                              '💯',
+                              '👀',
+                              '✨',
+                              '🚀',
+                              '🫶',
+                              '🥳',
+                              '😎',
+                              '👑',
+                              '🐐',
+                              '⚡',
+                            ].map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                role="menuitem"
+                                className="dc-emoji-grid-btn"
+                                onClick={() => {
+                                  setComposerText((prev) => prev + emoji);
+                                  setIsComposerEmojiOpen(false);
+                                  composerTextareaRef.current?.focus();
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -6053,11 +6919,11 @@ export function App() {
             <h2 id={profileDialogTitleId}>
               {profileModalStep === 'edit' ? (
                 <>
-                  <Sparkles size={17} /> Welcome to @me! 👋
+                  <Sparkles size={17} /> 👋 You
                 </>
               ) : (
                 <>
-                  <QrCode size={17} /> Your @me Friend Pass 🎉
+                  <QrCode size={17} /> @me QR
                 </>
               )}
             </h2>
@@ -6069,7 +6935,7 @@ export function App() {
                 }`}
                 onClick={() => setProfileModalStep('edit')}
               >
-                1. Your Look
+                😎 Look
               </button>
               <button
                 type="button"
@@ -6078,7 +6944,7 @@ export function App() {
                 }`}
                 onClick={() => setProfileModalStep('qr-card')}
               >
-                2. QR Pass
+                <QrCode size={13} /> QR
               </button>
               <form method="dialog">
                 <button
@@ -6094,12 +6960,6 @@ export function App() {
 
           {profileModalStep === 'edit' ? (
             <form className="dc-profile-form" onSubmit={handleSaveUserProfile}>
-              <p className="dc-profile-step-subtitle">
-                No phone number needed! Pick a fun avatar, choose your{' '}
-                <code>@handle</code>, and pick your chat bubble color to create
-                your shareable <strong>@me QR Pass</strong>.
-              </p>
-
               <div className="dc-profile-avatar-editor">
                 <div className="dc-profile-avatar-preview-wrap">
                   {profileAvatarInput ? (
@@ -6116,7 +6976,7 @@ export function App() {
                 </div>
                 <div className="dc-profile-avatar-buttons">
                   <span className="dc-avatar-section-label">
-                    Tap an Avatar or Upload a Photo
+                    😎 Avatar
                   </span>
                   <div className="dc-preset-avatars-row">
                     {[
@@ -6143,7 +7003,7 @@ export function App() {
                             preset.bg2
                           )
                         }
-                        title={`Use ${preset.emoji} avatar`}
+                        title={preset.emoji}
                       >
                         {preset.emoji}
                       </button>
@@ -6154,70 +7014,70 @@ export function App() {
                     className="dc-pill-action-btn"
                     onClick={() => avatarUploadInputRef.current?.click()}
                   >
-                    <Camera size={14} /> Upload Custom Photo
+                    📷 Photo
                   </button>
                 </div>
               </div>
 
               <div className="dc-form-row">
                 <div className="dc-form-group">
-                  <label htmlFor="profile-name-input">Your Name</label>
+                  <label htmlFor="profile-name-input">🏷️ Name</label>
                   <input
                     id="profile-name-input"
                     type="text"
                     value={profileNameInput}
                     onChange={(e) => setProfileNameInput(e.target.value)}
-                    placeholder="Kenny Betz"
+                    placeholder="Alex"
                     required
                   />
                 </div>
 
                 <div className="dc-form-group">
-                  <label htmlFor="profile-handle-input">Your @handle</label>
+                  <label htmlFor="profile-handle-input">⚡ @handle</label>
                   <input
                     id="profile-handle-input"
                     type="text"
                     value={profileHandleInput}
                     onChange={(e) => setProfileHandleInput(e.target.value)}
-                    placeholder="@kenny"
+                    placeholder="@alex"
                     required
                   />
                 </div>
               </div>
 
               <div className="dc-form-group">
-                <label>Pick Your Chat Bubble Color 🎨</label>
+                <label>🎨 Color</label>
                 <div className="dc-onboarding-theme-grid">
                   {(
                     [
                       {
                         id: 'ocean',
-                        label: 'Ocean Blue',
+                        label: 'Ocean',
                         color: '#0a84ff',
                       },
                       {
                         id: 'berry',
-                        label: 'Neon Berry',
+                        label: 'Berry',
                         color: '#ec4899',
                       },
                       {
                         id: 'violet',
-                        label: 'Cyber Violet',
+                        label: 'Violet',
                         color: '#8b5cf6',
                       },
                       {
                         id: 'mint',
-                        label: 'Emerald Mint',
+                        label: 'Mint',
                         color: '#10b981',
                       },
                       {
                         id: 'sunset',
-                        label: 'Sunset Coral',
+                        label: 'Sunset',
                         color: '#f97316',
                       },
                       {
                         id: 'gold',
-                        label: 'Electric Gold',
+                        label: 'Gold',
                         color: '#eab308',
                       },
                     ] as const
@@ -6237,27 +7097,40 @@ export function App() {
                       <span>{t.label}</span>
                     </button>
                   ))}
+
+                  <label
+                    className={`dc-theme-pill-option dc-custom-theme-pill-option ${
+                      chatBubbleTheme === 'custom' ? 'active' : ''
+                    }`}
+                    title="Pick any custom color"
+                  >
+                    <input
+                      type="color"
+                      value={customBubbleHex}
+                      onChange={(e) =>
+                        handleSelectCustomBubbleColor(e.target.value)
+                      }
+                    />
+                    <span className="dc-custom-color-circle dc-onboarding-color-circle">
+                      <span
+                        className="dc-custom-color-core"
+                        style={{ background: customBubbleHex }}
+                      />
+                    </span>
+                    <span>Custom</span>
+                  </label>
                 </div>
               </div>
 
               <div className="dc-modal-actions">
                 <button type="submit" className="dc-btn-send dc-btn-full">
-                  <QrCode size={15} /> Create My @me QR Pass 🎉
+                  <QrCode size={15} /> @me QR
                 </button>
               </div>
             </form>
           ) : (
             <div className="dc-qr-card-step">
               <div className="dc-qr-share-card">
-                <div className="dc-qr-card-badge">
-                  <img
-                    src="/atme-app-icon.png"
-                    alt="@me"
-                    className="dc-qr-badge-icon"
-                  />
-                  <span>@me FRIEND PASS</span>
-                </div>
-
                 <div className="dc-qr-card-identity">
                   {profileAvatarInput || activeUser.avatarDataUrl ? (
                     <img
@@ -6303,11 +7176,6 @@ export function App() {
                     )}
                   </svg>
                 </div>
-
-                <span className="dc-qr-scan-caption">
-                  Have a friend scan your QR pass to chat — scanning a QR code
-                  automatically adds them to your Approved Whitelist!
-                </span>
               </div>
 
               <div className="dc-qr-card-actions">
@@ -6332,15 +7200,7 @@ export function App() {
                     setTimeout(() => setQrLinkCopied(false), 2400);
                   }}
                 >
-                  {qrLinkCopied ? (
-                    <>
-                      <Check size={15} /> Invite Link Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={15} /> Copy Invite Link
-                    </>
-                  )}
+                  {qrLinkCopied ? '✅ Copied' : '🔗 Link'}
                 </button>
 
                 <button
@@ -6352,15 +7212,7 @@ export function App() {
                     safetyListDialogRef.current?.showModal();
                   }}
                 >
-                  <Camera size={15} /> Scan a Friend&apos;s QR
-                </button>
-
-                <button
-                  type="button"
-                  className="dc-btn-send"
-                  onClick={() => profileDialogRef.current?.close()}
-                >
-                  Let&apos;s Chat! 🚀
+                  📷 Scan
                 </button>
               </div>
             </div>
@@ -6380,8 +7232,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={safetyDialogTitleId}>
-              <ShieldCheck size={17} /> Safety: QR Scan, Whitelist &amp; Blocked
-              Users
+              🛡️ Safety
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -6398,7 +7249,7 @@ export function App() {
               }`}
               onClick={() => setSafetyModalTab('scan-qr')}
             >
-              <QrCode size={13} /> Scan Friend QR
+              📷 Scan
             </button>
             <button
               type="button"
@@ -6407,8 +7258,7 @@ export function App() {
               }`}
               onClick={() => setSafetyModalTab('whitelist')}
             >
-              <CheckCircle2 size={13} /> Approved Whitelist (
-              {whitelistedEmails.length})
+              ✅ Approved ({whitelistedEmails.length})
             </button>
             <button
               type="button"
@@ -6417,7 +7267,7 @@ export function App() {
               }`}
               onClick={() => setSafetyModalTab('blocked')}
             >
-              <UserMinus size={13} /> Blocked ({blockedEmails.length})
+              🚫 Blocked ({blockedEmails.length})
             </button>
           </div>
 
@@ -6426,17 +7276,13 @@ export function App() {
               <div className="dc-qr-scanner-hero">
                 <div className="dc-qr-viewfinder">
                   <QrCode size={42} />
-                  <span>Scan a Friend&apos;s @me QR Pass</span>
-                  <small>
-                    Scanning a friend&apos;s QR code automatically adds their
-                    email to your <strong>Approved Whitelist</strong> and starts
-                    your chat!
-                  </small>
+                  <span>📷 Scan Friend QR</span>
+                  <small>✨ Auto-approves friend</small>
                 </div>
 
                 <div className="dc-qr-instant-demo-scans">
                   <span className="dc-avatar-section-label">
-                    Tap a Friend&apos;s QR Pass to Simulate Scanning
+                    ⚡ Quick Scan
                   </span>
                   <div className="dc-qr-demo-friends-grid">
                     {[
@@ -6476,7 +7322,7 @@ export function App() {
                           <strong>
                             {friend.name} ({friend.handle})
                           </strong>
-                          <span>Scan QR → Auto-Whitelist &amp; Chat</span>
+                          <span>📷 Scan</span>
                         </div>
                       </button>
                     ))}
@@ -6491,11 +7337,11 @@ export function App() {
                     type="text"
                     value={qrScanPasteInput}
                     onChange={(e) => setQrScanPasteInput(e.target.value)}
-                    placeholder="Or paste a friend's @me QR invite link or email…"
+                    placeholder="🔗 Link or email…"
                     aria-label="Paste QR invite link or email"
                   />
                   <button type="submit" className="dc-btn-send">
-                    <Check size={14} /> Scan &amp; Approve
+                    ✅ Add
                   </button>
                 </form>
               </div>
@@ -6505,26 +7351,27 @@ export function App() {
           {safetyModalTab === 'whitelist' && (
             <div className="dc-safety-tab-panel">
               <div className="dc-whitelist-toggle-card">
-                <label className="dc-burner-toggle-row">
+                <label className="dc-burner-toggle-row dc-pill-switch-row">
+                  <div>
+                    <strong>
+                      🛡️ Approved Only
+                    </strong>
+                    <span>
+                      🔒 Block everyone else
+                    </span>
+                  </div>
                   <input
                     type="checkbox"
+                    role="switch"
+                    {...({
+                      switch: '',
+                    } as React.InputHTMLAttributes<HTMLInputElement>)}
+                    className="dc-pill-switch"
                     checked={whitelistOnlyMode}
                     onChange={(e) =>
                       handleToggleWhitelistOnlyMode(e.target.checked)
                     }
                   />
-                  <div>
-                    <strong>
-                      <ShieldCheck size={14} /> Only Allow Approved Emails
-                      (Whitelist Mode)
-                    </strong>
-                    <span>
-                      When turned ON, <strong>only</strong> people on your
-                      Approved Whitelist below can message you — everyone else
-                      is automatically blocked. Scanning a friend&apos;s QR code
-                      automatically adds them to this list!
-                    </span>
-                  </div>
                 </label>
               </div>
 
@@ -6539,19 +7386,18 @@ export function App() {
                   type="email"
                   value={whitelistInputEmail}
                   onChange={(e) => setWhitelistInputEmail(e.target.value)}
-                  placeholder="Add approved friend email (e.g. friend@gmail.com)"
+                  placeholder="✉️ friend@email.com"
                   required
                 />
                 <button type="submit" className="dc-btn-send">
-                  <Plus size={14} /> Add to Whitelist
+                  ➕ Add
                 </button>
               </form>
 
               <div className="dc-participants-list">
                 {whitelistedEmails.length === 0 ? (
                   <p className="dc-form-hint">
-                    No approved emails yet. Scan a friend&apos;s QR code or add
-                    an email above!
+                    👋 None yet
                   </p>
                 ) : (
                   whitelistedEmails.map((email) => {
@@ -6574,7 +7420,7 @@ export function App() {
                                 </small>
                               )}
                             </strong>
-                            <span>{email} • Approved ✓</span>
+                            <span>{email} • ✅</span>
                           </div>
                         </div>
                         <div className="dc-participant-actions">
@@ -6585,7 +7431,7 @@ export function App() {
                               className="dc-btn-ghost"
                               onClick={() => handleRemoveWhitelistEmail(email)}
                             >
-                              Remove
+                              ✕
                             </button>
                           )}
                         </div>
@@ -6599,11 +7445,6 @@ export function App() {
 
           {safetyModalTab === 'blocked' && (
             <div className="dc-safety-tab-panel">
-              <p className="dc-profile-step-subtitle">
-                Blocked users cannot message you and their conversations are
-                hidden from your Messages list.
-              </p>
-
               <form
                 className="dc-inline-input-btn"
                 onSubmit={(e) => {
@@ -6617,19 +7458,18 @@ export function App() {
                   type="email"
                   value={blockInputEmail}
                   onChange={(e) => setBlockInputEmail(e.target.value)}
-                  placeholder="Block an email address (e.g. spammer@example.com)"
+                  placeholder="🚫 email@domain.com"
                   required
                 />
                 <button type="submit" className="dc-btn-danger-confirm">
-                  <UserMinus size={14} /> Block User
+                  🚫 Block
                 </button>
               </form>
 
               <div className="dc-participants-list">
                 {blockedEmails.length === 0 ? (
                   <p className="dc-form-hint">
-                    You haven&apos;t blocked anyone. You can block a user here
-                    or from the top-right menu inside any chat.
+                    ✨ Zero blocked
                   </p>
                 ) : (
                   blockedEmails.map((email) => {
@@ -6645,7 +7485,7 @@ export function App() {
                           )}
                           <div>
                             <strong>{knownUser?.displayName || email}</strong>
-                            <span>{email} • Blocked 🚫</span>
+                            <span>{email} • 🚫</span>
                           </div>
                         </div>
                         <div className="dc-participant-actions">
@@ -6654,7 +7494,7 @@ export function App() {
                             className="dc-btn-secondary-action"
                             onClick={() => handleUnblockEmail(email)}
                           >
-                            Unblock
+                            🔓 Unblock
                           </button>
                         </div>
                       </div>
@@ -6679,10 +7519,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={connectWizardTitleId}>
-              <Link2 size={17} />{' '}
-              {connectModalMode === 'easy'
-                ? 'Connect Your Email Account'
-                : 'Advanced Email & OAuth Configuration'}
+              <Link2 size={17} /> ➕ Account
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -6699,7 +7536,7 @@ export function App() {
               >
                 <div className="dc-form-group">
                   <label htmlFor="easy-email-input">
-                    Enter your email address to get started
+                    ✉️ Email
                   </label>
                   <div className="dc-inline-input-btn">
                     <input
@@ -6711,7 +7548,7 @@ export function App() {
                         setEasyDiscoveryResult(null);
                         setSimulatedOAuthProvider(null);
                       }}
-                      placeholder="you@gmail.com, name@outlook.com, or you@yourcompany.com"
+                      placeholder="you@email.com"
                       required
                       autoFocus
                     />
@@ -6720,14 +7557,9 @@ export function App() {
                       className="dc-btn-send"
                       disabled={isEasyDiscovering || !easyEmailInput.trim()}
                     >
-                      {isEasyDiscovering ? 'Detecting…' : 'Next Step →'}
+                      {isEasyDiscovering ? '⏳' : 'Next →'}
                     </button>
                   </div>
-                  <small className="dc-form-hint">
-                    Works with Gmail, Outlook, Proton Mail, Yahoo, iCloud, or any
-                    custom domain. We&apos;ll automatically detect the right
-                    sign-in method for your address.
-                  </small>
                 </div>
               </form>
 
@@ -7305,7 +8137,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={menuDialogTitleId}>
-              <Users size={17} /> Friends &amp; Groups
+              👥 Friends
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -7318,7 +8150,7 @@ export function App() {
             {/* Section 1: Channels & Groups */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>Group Chats</h3>
+                <h3>💬 Groups</h3>
                 <button
                   type="button"
                   className="dc-pill-action-btn"
@@ -7327,7 +8159,7 @@ export function App() {
                     newChannelModalRef.current?.showModal();
                   }}
                 >
-                  <Plus size={13} /> New Group
+                  ➕ Group
                 </button>
               </div>
 
@@ -7348,14 +8180,14 @@ export function App() {
                         <div>
                           <strong>#{ch.name}</strong>
                           <span>
+                            👥{' '}
                             {
                               ch.participants.filter(
                                 (p) =>
                                   p.toLowerCase() !==
                                   activeUser.email.toLowerCase()
                               ).length
-                            }{' '}
-                            friends in group
+                            }
                           </span>
                         </div>
                       </div>
@@ -7367,7 +8199,7 @@ export function App() {
                           menuDirectoryDialogRef.current?.close();
                           groupInfoDialogRef.current?.showModal();
                         }}
-                        title="Manage group members"
+                        title="People"
                       >
                         <UserPlus size={13} />
                         {ch.participants.length > 2 && (
@@ -7382,7 +8214,7 @@ export function App() {
             {/* Section 2: Friends & Contacts */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>Friends</h3>
+                <h3>👋 Friends</h3>
                 <button
                   type="button"
                   className="dc-pill-action-btn"
@@ -7391,7 +8223,7 @@ export function App() {
                     newChannelModalRef.current?.showModal();
                   }}
                 >
-                  <UserPlus size={13} /> Add Friend
+                  ➕ Friend
                 </button>
               </div>
 
@@ -7418,7 +8250,7 @@ export function App() {
                           </strong>
                           <span>
                             {contact.email}
-                            {!contact.hasAppInstalled ? ' • Invite to @me' : ''}
+                            {!contact.hasAppInstalled ? ' • 📩' : ''}
                           </span>
                         </div>
                       </div>
@@ -7429,7 +8261,7 @@ export function App() {
                           handleStartOrOpenContactChat(contact.email)
                         }
                       >
-                        Chat
+                        💬
                       </button>
                     </div>
                   ))}
@@ -7451,7 +8283,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={groupInfoTitleId}>
-              <Users size={17} /> People in {activeChannelDisplayTitle}
+              <Users size={17} /> 👥 People
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -7470,17 +8302,17 @@ export function App() {
                   type="email"
                   value={newMemberEmailInput}
                   onChange={(e) => setNewMemberEmailInput(e.target.value)}
-                  placeholder="Add friend's email (e.g. jordan.taylor@yahoo.com)"
+                  placeholder="✉️ friend@email.com"
                   required
                 />
                 <input
                   type="text"
                   value={newMemberNameInput}
                   onChange={(e) => setNewMemberNameInput(e.target.value)}
-                  placeholder="Name (optional)"
+                  placeholder="🏷️ Name"
                 />
                 <button type="submit" className="dc-btn-send">
-                  <UserPlus size={14} /> Add
+                  <UserPlus size={14} /> ➕ Add
                 </button>
               </form>
 
@@ -7510,7 +8342,7 @@ export function App() {
                             </strong>
                             <span>
                               {email}
-                              {!u?.hasAppInstalled ? ' • Invite sent' : ''}
+                              {!u?.hasAppInstalled ? ' • 📩' : ''}
                             </span>
                           </div>
                         </div>
@@ -7523,12 +8355,8 @@ export function App() {
                               onClick={() =>
                                 handleRemoveMemberFromChannel(email)
                               }
-                              title={`Remove ${
-                                u?.displayName || email
-                              } from group`}
-                              aria-label={`Remove ${
-                                u?.displayName || email
-                              } from group`}
+                              title="Remove"
+                              aria-label="Remove"
                             >
                               <UserMinus size={14} />
                             </button>
@@ -7555,7 +8383,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={shredConfirmDialogTitleId} className="dc-shred-modal-title">
-              <Flame size={18} /> Burn &amp; Clear Chat?
+              🔥 Clear Chat?
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -7566,12 +8394,7 @@ export function App() {
 
           <div className="dc-shred-warning-body">
             <div className="dc-shred-warning-banner">
-              <strong>This action cannot be undone.</strong>
-              <p>
-                Burning this thread permanently deletes all messages in{' '}
-                <strong>{activeChannelDisplayTitle}</strong> for both of you and
-                resets the chat to a clean slate.
-              </p>
+              <strong>🗑️ Deletes for everyone.</strong>
             </div>
 
             <div className="dc-modal-actions">
@@ -7597,7 +8420,7 @@ export function App() {
                   await handleRemoteKeyShredAndScrub(opts);
                 }}
               >
-                <Flame size={15} /> Burn Chat
+                🔥 Clear
               </button>
             </div>
           </div>
@@ -7676,8 +8499,8 @@ export function App() {
           <div className="dc-modal-header">
             <h2 id={newChannelDialogTitleId}>
               {newChatType === 'workspace-channel'
-                ? 'New Encrypted Group / Channel'
-                : 'New Text Message to Any Email'}
+                ? '👥 New Group'
+                : '💬 New Chat'}
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -7692,115 +8515,37 @@ export function App() {
           >
             {newChatType === 'workspace-channel' ? (
               <div className="dc-form-group">
-                <label htmlFor="new-channel-name">Group / Channel Name</label>
+                <label htmlFor="new-channel-name">🏷️ Group Name</label>
                 <input
                   id="new-channel-name"
                   type="text"
                   value={newChatName}
                   onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder="e.g. family-chat or launch-team"
+                  placeholder="squad-chat"
                   required
                 />
               </div>
             ) : (
-              <>
-                <div className="dc-form-group">
-                  <label htmlFor="new-dm-email">
-                    Recipient Email (Gmail, Outlook, Yahoo, or Proton Mail)
-                  </label>
-                  <input
-                    id="new-dm-email"
-                    type="email"
-                    value={newChatRecipientEmail}
-                    onChange={(e) => setNewChatRecipientEmail(e.target.value)}
-                    placeholder="friend@gmail.com"
-                    required
-                  />
-                  <small className="dc-form-hint">
-                    Your first message will automatically include your encrypted
-                    Profile Card (Avatar + Handle) and an App Store download
-                    invite if they don&apos;t have the app yet!
-                  </small>
-                </div>
-
-                {/* Feature 3: Shielded Burner Email Alias Toggle */}
-                <div className="dc-burner-alias-box">
-                  <label className="dc-burner-toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={useShieldedAliasInNewChat}
-                      onChange={(e) =>
-                        setUseShieldedAliasInNewChat(e.target.checked)
-                      }
-                    />
-                    <div>
-                      <strong>
-                        <EyeOff size={13} /> Use Shielded Burner Alias
-                      </strong>
-                      <span>
-                        Masks your primary email (<code>{activeUser.email}</code>
-                        ) and generates an isolated Curve25519 PGP keypair you
-                        can shred independently.
-                      </span>
-                    </div>
-                  </label>
-
-                  {useShieldedAliasInNewChat && (
-                    <div className="dc-burner-config-grid">
-                      <div className="dc-form-group">
-                        <label htmlFor="burner-strategy-select">
-                          Alias Routing Strategy
-                        </label>
-                        <select
-                          id="burner-strategy-select"
-                          value={newChatAliasStrategy}
-                          onChange={(e) =>
-                            setNewChatAliasStrategy(
-                              e.target
-                                .value as ShieldedBurnerAlias['strategy']
-                            )
-                          }
-                        >
-                          <option value="duck-privacy">
-                            DuckDuckGo Relay (@duck.com)
-                          </option>
-                          <option value="simplelogin-relay">
-                            SimpleLogin / Proton Relay (@simplelogin.com)
-                          </option>
-                          <option value="plus-subaddress">
-                            Subaddress (+private-token@
-                            {activeUser.email.split('@')[1]})
-                          </option>
-                        </select>
-                      </div>
-                      <div className="dc-form-group">
-                        <label htmlFor="burner-label-input">
-                          Alias Tag / Context Label
-                        </label>
-                        <input
-                          id="burner-label-input"
-                          type="text"
-                          value={newChatAliasLabel}
-                          onChange={(e) =>
-                            setNewChatAliasLabel(e.target.value)
-                          }
-                          placeholder="marketplace-buyer"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
+              <div className="dc-form-group">
+                <label htmlFor="new-dm-email">
+                  ✉️ Friend&apos;s Email
+                </label>
+                <input
+                  id="new-dm-email"
+                  type="email"
+                  value={newChatRecipientEmail}
+                  onChange={(e) => setNewChatRecipientEmail(e.target.value)}
+                  placeholder="friend@email.com"
+                  required
+                />
+              </div>
             )}
 
             <div className="dc-modal-actions">
               <button type="submit" className="dc-btn-send">
-                <Lock size={14} />{' '}
                 {newChatType === 'workspace-channel'
-                  ? 'Create Encrypted Group'
-                  : useShieldedAliasInNewChat
-                  ? 'Generate Burner Alias & Start Text'
-                  : 'Start Encrypted Text'}
+                  ? '🚀 Create Group'
+                  : '🚀 Start Chat'}
               </button>
             </div>
           </form>
@@ -7949,8 +8694,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={pollCreatorDialogTitleId}>
-              <BarChart3 size={17} /> Create Encrypted Poll in{' '}
-              {activeChannelDisplayTitle}
+              📊 Poll
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -7964,19 +8708,19 @@ export function App() {
             onSubmit={handleCreateEncryptedPoll}
           >
             <div className="dc-form-group">
-              <label htmlFor="poll-question-input">Poll Question</label>
+              <label htmlFor="poll-question-input">❓ Question</label>
               <input
                 id="poll-question-input"
                 type="text"
                 value={pollQuestionInput}
                 onChange={(e) => setPollQuestionInput(e.target.value)}
-                placeholder="e.g. When should we ship the @me v2 release?"
+                placeholder="Where to meet?"
                 required
               />
             </div>
 
             <div className="dc-form-group">
-              <label>Poll Options (Encrypted in DCP/1.0 JSON)</label>
+              <label>🗳️ Choices</label>
               <div className="dc-poll-creator-options">
                 {pollOptionsInput.map((opt, idx) => (
                   <input
@@ -7990,7 +8734,7 @@ export function App() {
                         )
                       )
                     }
-                    placeholder={`Option ${idx + 1}`}
+                    placeholder={`Choice ${idx + 1}`}
                     required={idx < 2}
                   />
                 ))}
@@ -8003,7 +8747,7 @@ export function App() {
                     setPollOptionsInput((prev) => [...prev, ''])
                   }
                 >
-                  <Plus size={12} /> Add Another Option
+                  ➕ Choice
                 </button>
               )}
             </div>
@@ -8017,12 +8761,146 @@ export function App() {
                 Cancel
               </button>
               <button type="submit" className="dc-btn-send">
-                <Lock size={14} /> Encrypt &amp; Send Poll
+                🚀 Send
               </button>
             </div>
           </form>
         </div>
       </dialog>
+
+      {/* =====================================================================
+          MODAL 9: IN-APP EPHEMERAL CAMERA CAPTURE (Encrypted in LocalDB only; never saved to device camera roll)
+         ===================================================================== */}
+      <dialog
+        ref={cameraCaptureDialogRef}
+        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
+        aria-labelledby={cameraDialogTitleId}
+        onClose={handleCloseCameraModal}
+        className="dc-modal-dialog dc-modal-sm"
+      >
+        <div className="dc-modal-inner">
+          <div className="dc-modal-header">
+            <h2 id={cameraDialogTitleId}>
+              📷 Camera
+            </h2>
+            <form method="dialog">
+              <button type="submit" className="dc-icon-btn" aria-label="Close">
+                <X size={16} />
+              </button>
+            </form>
+          </div>
+
+          <div className="dc-camera-modal-body">
+            <div className="dc-camera-viewport">
+              {capturedPhotoDataUrl ? (
+                <img
+                  src={capturedPhotoDataUrl}
+                  alt="Captured preview"
+                  className="dc-camera-preview-img"
+                />
+              ) : (
+                <>
+                  <video
+                    ref={cameraVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`dc-camera-video ${
+                      cameraFacingMode === 'user' ? 'is-mirrored' : ''
+                    } ${!isCameraStreaming ? 'is-fallback-hidden' : ''}`}
+                  />
+                  {!isCameraStreaming && (
+                    <div className="dc-camera-fallback-viewfinder">
+                      <Camera size={38} />
+                      <strong>📸 Ready</strong>
+                      <span>🔒 App-only (not saved to phone)</span>
+                    </div>
+                  )}
+                </>
+              )}
+              <span className="dc-camera-privacy-pill">
+                🔒 Encrypted in app only
+              </span>
+            </div>
+
+            <div className="dc-camera-controls-row">
+              {!capturedPhotoDataUrl ? (
+                <>
+                  <button
+                    type="button"
+                    className="dc-btn-secondary-action"
+                    onClick={() => void handleFlipCamera()}
+                    title="Flip camera"
+                  >
+                    🔄 Flip
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-camera-shutter-btn"
+                    onClick={handleSnapCameraPhoto}
+                    aria-label="Take photo"
+                    title="Snap photo"
+                  >
+                    <span className="dc-camera-shutter-inner" />
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-btn-ghost"
+                    onClick={() => cameraCaptureDialogRef.current?.close()}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="dc-btn-secondary-action"
+                    onClick={() => {
+                      setCapturedPhotoDataUrl(null);
+                      void startCameraStream(cameraFacingMode);
+                    }}
+                  >
+                    🔄 Retake
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-btn-send"
+                    disabled={isSending}
+                    onClick={() => void handleSendCapturedCameraPhoto()}
+                  >
+                    🚀 Send
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </dialog>
+
+      {/* =====================================================================
+          FULL-SCREEN PHOTO EXPAND OVERLAY (Tap photo in chat -> Full screen; tap anywhere -> Back to chat)
+         ===================================================================== */}
+      {fullscreenImageUrl && (
+        <div
+          className="dc-fullscreen-image-overlay"
+          onClick={() => setFullscreenImageUrl(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+              setFullscreenImageUrl(null);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Tap anywhere to return to chat"
+        >
+          <img
+            src={fullscreenImageUrl}
+            alt="Full screen photo"
+            className="dc-fullscreen-image-el"
+          />
+        </div>
+      )}
     </div>
   );
 }
