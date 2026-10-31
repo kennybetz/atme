@@ -4328,6 +4328,39 @@ dialog.dc-modal-dialog::backdrop {
 }
 
 /* =====================================================================
+   CUSTOM CHAT BUBBLE COLOR THEMES (Ocean, Berry, Violet, Mint, Sunset, Gold)
+   ===================================================================== */
+.dc-root-viewport[data-bubble-theme='ocean'] {
+  --imessage-blue: #0a84ff;
+  --imessage-blue-dark: #0066cc;
+}
+
+.dc-root-viewport[data-bubble-theme='berry'] {
+  --imessage-blue: #ec4899;
+  --imessage-blue-dark: #be185d;
+}
+
+.dc-root-viewport[data-bubble-theme='violet'] {
+  --imessage-blue: #8b5cf6;
+  --imessage-blue-dark: #6d28d9;
+}
+
+.dc-root-viewport[data-bubble-theme='mint'] {
+  --imessage-blue: #10b981;
+  --imessage-blue-dark: #047857;
+}
+
+.dc-root-viewport[data-bubble-theme='sunset'] {
+  --imessage-blue: #f97316;
+  --imessage-blue-dark: #e11d48;
+}
+
+.dc-root-viewport[data-bubble-theme='gold'] {
+  --imessage-blue: #eab308;
+  --imessage-blue-dark: #ca8a04;
+}
+
+/* =====================================================================
    SINGLE AVATAR MENU & 2-STEP PROFILE BUILDER + @ME QR FRIEND CARD
    ===================================================================== */
 .dc-threads-brand {
@@ -4356,7 +4389,7 @@ dialog.dc-modal-dialog::backdrop {
   height: 36px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(88, 166, 255, 0.45);
+  border: 2px solid var(--imessage-blue);
   background: var(--bg-card);
   cursor: pointer;
   display: inline-flex;
@@ -4368,14 +4401,15 @@ dialog.dc-modal-dialog::backdrop {
 .dc-avatar-menu-trigger:hover,
 .dc-avatar-menu-trigger.active {
   transform: scale(1.05);
-  border-color: #58a6ff;
-  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.25);
 }
 
-.dc-header-user-avatar {
+.dc-header-user-avatar,
+.dc-header-user-avatar.dc-avatar-img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  border: none;
   object-fit: cover;
   font-size: 0.82rem;
   font-weight: 700;
@@ -4386,10 +4420,10 @@ dialog.dc-modal-dialog::backdrop {
 
 .dc-avatar-online-dot {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: #30d158;
   border: 2px solid var(--bg-panel);
@@ -4397,39 +4431,44 @@ dialog.dc-modal-dialog::backdrop {
 
 .dc-avatar-dropdown-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
-  width: 268px;
+  width: 276px;
+  max-width: calc(100vw - 24px);
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 10px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52);
-  z-index: 250;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.56);
+  z-index: 400;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  animation: dcHeaderMenuSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dc-avatar-menu-header {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: 8px 8px 6px;
-  border-radius: 12px;
-  background: rgba(88, 166, 255, 0.06);
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(88, 166, 255, 0.07);
+  border: 1px solid rgba(88, 166, 255, 0.16);
 }
 
 .dc-avatar-menu-user {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
 }
 
-.dc-avatar-menu-pic {
-  width: 40px;
-  height: 40px;
+.dc-avatar-menu-pic,
+.dc-avatar-menu-pic.dc-avatar-img {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
+  border: none;
   object-fit: cover;
   flex-shrink: 0;
   display: flex;
@@ -4447,7 +4486,7 @@ dialog.dc-modal-dialog::backdrop {
 }
 
 .dc-avatar-menu-meta strong {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
@@ -4455,50 +4494,106 @@ dialog.dc-modal-dialog::backdrop {
 }
 
 .dc-avatar-menu-meta span {
-  font-size: 0.74rem;
-  color: #58a6ff;
-  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--imessage-blue);
+  font-weight: 700;
 }
 
-.dc-avatar-menu-vibe {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.dc-avatar-qr-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
-.dc-avatar-qr-quick-btn {
-  width: 100%;
+.dc-avatar-qr-quick-btn,
+.dc-avatar-qr-scan-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 5px;
+  padding: 7px 8px;
   border-radius: 10px;
-  border: 1px solid rgba(88, 166, 255, 0.4);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(124, 58, 237, 0.25));
-  color: var(--text-main);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.14s ease, border-color 0.14s ease;
 }
 
-.dc-avatar-qr-quick-btn:hover {
+.dc-avatar-qr-quick-btn {
+  border: 1px solid rgba(88, 166, 255, 0.45);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(124, 58, 237, 0.28));
+  color: var(--text-main);
+}
+
+.dc-avatar-qr-scan-btn {
+  border: 1px solid rgba(48, 209, 88, 0.45);
+  background: rgba(48, 209, 88, 0.14);
+  color: #30d158;
+}
+
+.dc-avatar-qr-quick-btn:hover,
+.dc-avatar-qr-scan-btn:hover {
   transform: translateY(-1px);
-  border-color: #58a6ff;
 }
 
-.dc-menu-icon-badge.badge-profile {
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  color: #ffffff;
+/* Colorful circular icons for Avatar Menu items matching Chat Header menu */
+.dc-header-menu-icon.icon-profile {
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.48);
+  color: #c084fc;
 }
 
-.dc-menu-icon-badge.badge-notes {
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: #ffffff;
+.dc-header-menu-icon.icon-safety {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.48);
+  color: #34d399;
+}
+
+.dc-header-menu-icon.icon-notes {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  color: #fbbf24;
+}
+
+.dc-avatar-theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 5px 8px;
+}
+
+.dc-avatar-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.dc-bubble-theme-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-bubble-swatch-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.dc-bubble-swatch-btn:hover {
+  transform: scale(1.12);
+}
+
+.dc-bubble-swatch-btn.active {
+  border-color: #ffffff;
+  transform: scale(1.14);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
 }
 
 .dc-avatar-menu-switcher {
@@ -4556,7 +4651,7 @@ dialog.dc-modal-dialog::backdrop {
   color: var(--text-main);
 }
 
-/* 2-Step Profile Builder & Shareable @me QR Friend Pass */
+/* 2-Step Playful Profile Builder & Shareable @me QR Friend Pass */
 .dc-profile-modal-tabs {
   display: flex;
   align-items: center;
@@ -4564,12 +4659,15 @@ dialog.dc-modal-dialog::backdrop {
 }
 
 .dc-profile-step-tab {
-  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
   border-radius: 999px;
   border: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.73rem;
+  font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -4595,11 +4693,11 @@ dialog.dc-modal-dialog::backdrop {
 }
 
 .dc-preset-avatar-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4612,29 +4710,37 @@ dialog.dc-modal-dialog::backdrop {
   border-color: #ffffff;
 }
 
-.dc-vibe-chips-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 7px;
+.dc-onboarding-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
 }
 
-.dc-vibe-chip {
-  padding: 4px 10px;
-  border-radius: 999px;
+.dc-theme-pill-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
-  color: var(--text-muted);
-  font-size: 0.73rem;
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.14s ease;
+  transition: border-color 0.14s ease, background 0.14s ease;
 }
 
-.dc-vibe-chip:hover,
-.dc-vibe-chip.active {
-  border-color: #58a6ff;
-  background: rgba(88, 166, 255, 0.15);
-  color: var(--text-main);
+.dc-theme-pill-option.active {
+  border-color: var(--imessage-blue);
+  background: rgba(88, 166, 255, 0.12);
+}
+
+.dc-theme-pill-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .dc-btn-full {
@@ -4696,7 +4802,7 @@ dialog.dc-modal-dialog::backdrop {
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #58a6ff;
+  border: 3px solid var(--imessage-blue);
   margin-bottom: 4px;
   display: flex;
   align-items: center;
@@ -4715,12 +4821,6 @@ dialog.dc-modal-dialog::backdrop {
   font-size: 0.84rem;
   font-weight: 700;
   color: #58a6ff;
-}
-
-.dc-qr-card-vibe {
-  margin: 4px 0 0;
-  font-size: 0.76rem;
-  color: rgba(255, 255, 255, 0.78);
 }
 
 .dc-qr-code-box {
@@ -4751,6 +4851,135 @@ dialog.dc-modal-dialog::backdrop {
   gap: 8px;
   width: 100%;
 }
+
+/* =====================================================================
+   SAFETY MODAL: QR SCANNER (AUTO-WHITELIST), WHITELIST & BLOCKED USERS
+   ===================================================================== */
+.dc-safety-toast-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 16px;
+  background: rgba(48, 209, 88, 0.16);
+  border-bottom: 1px solid rgba(48, 209, 88, 0.45);
+  color: #d1fae5;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dc-safety-tabs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.dc-safety-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-qr-scanner-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-qr-viewfinder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 22px 18px;
+  border-radius: 18px;
+  border: 2px dashed rgba(88, 166, 255, 0.45);
+  background: rgba(88, 166, 255, 0.06);
+  color: #58a6ff;
+}
+
+.dc-qr-viewfinder span {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.dc-qr-viewfinder small {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  max-width: 380px;
+  line-height: 1.45;
+}
+
+.dc-qr-instant-demo-scans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dc-qr-demo-friends-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.dc-qr-demo-friend-btn {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+
+.dc-qr-demo-friend-btn:hover {
+  border-color: #30d158;
+  transform: translateY(-1px);
+}
+
+.dc-qr-demo-emoji {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(88, 166, 255, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.dc-qr-demo-friend-btn div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dc-qr-demo-friend-btn strong {
+  font-size: 0.84rem;
+}
+
+.dc-qr-demo-friend-btn span {
+  font-size: 0.73rem;
+  color: #30d158;
+  font-weight: 600;
+}
+
+.dc-whitelist-toggle-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
 
 
 

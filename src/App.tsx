@@ -417,6 +417,7 @@ export function App() {
   const safetyNumberDialogRef = useRef<HTMLDialogElement | null>(null);
   const pollCreatorDialogRef = useRef<HTMLDialogElement | null>(null);
   const appLockConfigDialogRef = useRef<HTMLDialogElement | null>(null);
+  const safetyListDialogRef = useRef<HTMLDialogElement | null>(null);
 
   // Pending Shred & Purge Confirmation State
   const [pendingShredOptions, setPendingShredOptions] = useState<{
@@ -453,6 +454,71 @@ export function App() {
     }
     return 'dark';
   });
+
+  // Custom Chat Bubble Color Theme
+  const [chatBubbleTheme, setChatBubbleTheme] = useState<
+    'ocean' | 'berry' | 'violet' | 'mint' | 'sunset' | 'gold'
+  >(() => {
+    try {
+      const saved = localStorage.getItem('atme_bubble_theme');
+      if (
+        saved === 'ocean' ||
+        saved === 'berry' ||
+        saved === 'violet' ||
+        saved === 'mint' ||
+        saved === 'sunset' ||
+        saved === 'gold'
+      ) {
+        return saved;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+    return 'ocean';
+  });
+
+  // Blocked Users List & Whitelist Only ("Approved Friends") Mode
+  const [blockedEmails, setBlockedEmails] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('atme_blocked_emails');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return [];
+  });
+
+  const [whitelistedEmails, setWhitelistedEmails] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('atme_whitelisted_emails');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return INITIAL_USERS.map((u) => u.email.toLowerCase());
+  });
+
+  const [whitelistOnlyMode, setWhitelistOnlyMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('atme_whitelist_only') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const [safetyModalTab, setSafetyModalTab] = useState<
+    'scan-qr' | 'whitelist' | 'blocked'
+  >('scan-qr');
+  const [whitelistInputEmail, setWhitelistInputEmail] = useState<string>('');
+  const [blockInputEmail, setBlockInputEmail] = useState<string>('');
+  const [qrScanPasteInput, setQrScanPasteInput] = useState<string>('');
+  const [safetyBannerNotice, setSafetyBannerNotice] = useState<string>('');
   const [selectedActionMsgId, setSelectedActionMsgId] = useState<string | null>(
     null
   );
@@ -539,6 +605,7 @@ export function App() {
   const safetyNumberDialogTitleId = useId();
   const pollCreatorDialogTitleId = useId();
   const appLockDialogTitleId = useId();
+  const safetyDialogTitleId = useId();
 
   // New Group / Channel or DM Creation Form State
   const [newChatName, setNewChatName] = useState<string>('');
@@ -553,15 +620,47 @@ export function App() {
     [users, activeUserEmail]
   );
 
+  // Helper: check if an email is allowed (not on Blocked list, and on Whitelist if Whitelist Only mode is active)
+  const isEmailAllowed = React.useCallback(
+    (email: string) => {
+      const normalized = email.trim().toLowerCase();
+      if (!normalized) return false;
+      if (normalized === activeUser.email.toLowerCase()) return true;
+      if (blockedEmails.some((b) => b.toLowerCase() === normalized)) {
+        return false;
+      }
+      if (
+        whitelistOnlyMode &&
+        !whitelistedEmails.some((w) => w.toLowerCase() === normalized)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    [activeUser.email, blockedEmails, whitelistOnlyMode, whitelistedEmails]
+  );
+
   // Scope channels strictly to conversations where `activeUser.email` is a participant
+  // and filter out 1:1 DMs with blocked (or non-whitelisted when Whitelist Only is on) peers
   const userScopedChannels = useMemo(
     () =>
-      channels.filter((c) =>
-        c.participants.some(
+      channels.filter((c) => {
+        const isParticipant = c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-      ),
-    [channels, activeUser.email]
+        );
+        if (!isParticipant) return false;
+        if (c.type === 'vault') return true;
+        if (c.type === 'dm' || c.participants.length <= 2) {
+          const peer = c.participants.find(
+            (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
+          );
+          if (peer && !isEmailAllowed(peer)) {
+            return false;
+          }
+        }
+        return true;
+      }),
+    [channels, activeUser.email, isEmailAllowed]
   );
 
   const activeChannel = useMemo<DcpChannelMeta | null>(
@@ -801,7 +900,7 @@ export function App() {
     setProfileAvatarInput(activeUser.avatarDataUrl);
   }, [activeUser]);
 
-  // Support URL query params for deep-linking or mobile preview states (e.g. ?modal=shred or ?channel=ch_product_launch)
+  // Support URL query params for deep-linking, QR code scans (?add=email&handle=...), or mobile preview states
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -809,6 +908,51 @@ export function App() {
     if (chParam) {
       setActiveChannelId(chParam);
     }
+
+    // If opened from scanning a friend's @me QR code (?add=email or ?email=...), automatically whitelist & open chat!
+    const qrEmailParam = (
+      params.get('add') ||
+      params.get('email') ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+    const qrHandleParam = params.get('handle') || params.get('invite') || '';
+    const qrNameParam = params.get('name') || '';
+
+    if (qrEmailParam && qrEmailParam.includes('@')) {
+      setWhitelistedEmails((prev) => {
+        const next = Array.from(
+          new Set([...prev.map((e) => e.toLowerCase()), qrEmailParam])
+        );
+        try {
+          localStorage.setItem('atme_whitelisted_emails', JSON.stringify(next));
+        } catch {
+          // Ignore storage errors
+        }
+        return next;
+      });
+      setBlockedEmails((prev) => {
+        const next = prev.filter((e) => e.toLowerCase() !== qrEmailParam);
+        try {
+          localStorage.setItem('atme_blocked_emails', JSON.stringify(next));
+        } catch {
+          // Ignore storage errors
+        }
+        return next;
+      });
+      const label = qrHandleParam
+        ? qrHandleParam.startsWith('@')
+          ? qrHandleParam
+          : `@${qrHandleParam}`
+        : qrNameParam || qrEmailParam;
+      setSafetyBannerNotice(
+        `✨ QR Scanned! Added ${label} (${qrEmailParam}) to your Approved Whitelist.`
+      );
+      setTimeout(() => setSafetyBannerNotice(''), 6000);
+      return;
+    }
+
     const modalParam = params.get('modal');
     if (modalParam === 'shred' && shredConfirmDialogRef.current && !shredConfirmDialogRef.current.open) {
       setPendingShredOptions({ shredScope: 'peer-pgp-key-and-threads' });
@@ -852,6 +996,7 @@ export function App() {
       safetyNumberDialogRef.current,
       pollCreatorDialogRef.current,
       appLockConfigDialogRef.current,
+      safetyListDialogRef.current,
     ].filter(Boolean) as HTMLDialogElement[];
 
     if ('closedBy' in HTMLDialogElement.prototype) return;
@@ -1401,8 +1546,14 @@ export function App() {
   }, [selectedEmail]);
 
   const acceptedPackets = useMemo(
-    () => inspections.filter((i) => i.accepted && i.decryptedPacket),
-    [inspections]
+    () =>
+      inspections.filter(
+        (i) =>
+          i.accepted &&
+          i.decryptedPacket &&
+          isEmailAllowed(i.decryptedPacket.sender.email)
+      ),
+    [inspections, isEmailAllowed]
   );
 
   const ignoredRegularEmails = useMemo(
@@ -1987,7 +2138,239 @@ export function App() {
     setProfileAvatarInput(dataUrl);
   }
 
-  // Save User Profile (Avatar, Display Name, Handle, Bio) to Local IndexedDB
+  function handleSelectBubbleTheme(
+    theme: 'ocean' | 'berry' | 'violet' | 'mint' | 'sunset' | 'gold'
+  ) {
+    setChatBubbleTheme(theme);
+    try {
+      localStorage.setItem('atme_bubble_theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  function handleBlockEmail(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
+    if (!email || email === activeUser.email.toLowerCase()) return;
+    setBlockedEmails((prev) => {
+      if (prev.some((b) => b.toLowerCase() === email)) return prev;
+      const next = [...prev, email];
+      try {
+        localStorage.setItem('atme_blocked_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+    setSafetyBannerNotice(`🚫 Blocked ${email}. Their messages are now hidden.`);
+    setTimeout(() => setSafetyBannerNotice(''), 4000);
+  }
+
+  function handleUnblockEmail(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
+    setBlockedEmails((prev) => {
+      const next = prev.filter((b) => b.toLowerCase() !== email);
+      try {
+        localStorage.setItem('atme_blocked_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+    setSafetyBannerNotice(`✅ Unblocked ${email}.`);
+    setTimeout(() => setSafetyBannerNotice(''), 3500);
+  }
+
+  function handleAddWhitelistEmail(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) return;
+    setWhitelistedEmails((prev) => {
+      if (prev.some((w) => w.toLowerCase() === email)) return prev;
+      const next = [...prev, email];
+      try {
+        localStorage.setItem('atme_whitelisted_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+    // Also remove from blocked list if present
+    setBlockedEmails((prev) => {
+      if (!prev.some((b) => b.toLowerCase() === email)) return prev;
+      const next = prev.filter((b) => b.toLowerCase() !== email);
+      try {
+        localStorage.setItem('atme_blocked_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+    setWhitelistInputEmail('');
+    setSafetyBannerNotice(`✨ Added ${email} to your Approved Whitelist.`);
+    setTimeout(() => setSafetyBannerNotice(''), 4000);
+  }
+
+  function handleRemoveWhitelistEmail(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
+    setWhitelistedEmails((prev) => {
+      const next = prev.filter((w) => w.toLowerCase() !== email);
+      try {
+        localStorage.setItem('atme_whitelisted_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  }
+
+  function handleToggleWhitelistOnlyMode(enabled: boolean) {
+    setWhitelistOnlyMode(enabled);
+    try {
+      localStorage.setItem('atme_whitelist_only', enabled ? '1' : '0');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  // When someone scans a friend's QR code (or pastes an @me QR link),
+  // automatically add them to the Whitelist, unblock if needed, and start/open their chat!
+  function handleQrScanApproveAndChat(params: {
+    email: string;
+    handle?: string;
+    displayName?: string;
+  }) {
+    const cleanEmail = params.email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) return;
+
+    // 1. Automatically add to Whitelist
+    setWhitelistedEmails((prev) => {
+      const next = Array.from(
+        new Set([...prev.map((w) => w.toLowerCase()), cleanEmail])
+      );
+      try {
+        localStorage.setItem('atme_whitelisted_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+
+    // 2. Remove from Blocked list if present
+    setBlockedEmails((prev) => {
+      const next = prev.filter((b) => b.toLowerCase() !== cleanEmail);
+      try {
+        localStorage.setItem('atme_blocked_emails', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+
+    // 3. Ensure user exists with handle/displayName if new
+    const formattedHandle = params.handle
+      ? params.handle.startsWith('@')
+        ? params.handle
+        : `@${params.handle}`
+      : `@${cleanEmail.split('@')[0].replace(/[^a-z0-9]/gi, '')}`;
+    const resolvedName =
+      params.displayName ||
+      cleanEmail
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.email.toLowerCase() === cleanEmail);
+      if (exists) {
+        return prev.map((u) =>
+          u.email.toLowerCase() === cleanEmail
+            ? {
+                ...u,
+                handle: u.handle || formattedHandle,
+                displayName: u.displayName || resolvedName,
+              }
+            : u
+        );
+      }
+      return [
+        ...prev,
+        {
+          email: cleanEmail,
+          displayName: resolvedName,
+          handle: formattedHandle,
+          provider: cleanEmail.includes('proton')
+            ? 'proton'
+            : cleanEmail.includes('outlook')
+            ? 'outlook'
+            : cleanEmail.includes('gmail')
+            ? 'gmail'
+            : 'yahoo',
+          hasAppInstalled: true,
+        },
+      ];
+    });
+
+    // 4. Open or create their 1-on-1 DM
+    const existingDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        c.participants.some((p) => p.toLowerCase() === cleanEmail) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+    if (existingDm) {
+      setActiveChannelId(existingDm.id);
+    } else {
+      const dmCh: DcpChannelMeta = {
+        id: `dm_${Date.now().toString(36)}`,
+        type: 'dm',
+        name: resolvedName,
+        participants: [activeUser.email, cleanEmail],
+      };
+      setChannels((prev) => [dmCh, ...prev]);
+      setActiveChannelId(dmCh.id);
+    }
+
+    safetyListDialogRef.current?.close();
+    profileDialogRef.current?.close();
+    setMobileShowChatPane(true);
+    setSafetyBannerNotice(
+      `🎉 Scanned ${formattedHandle}'s QR! Automatically added ${cleanEmail} to your Approved Whitelist.`
+    );
+    setTimeout(() => setSafetyBannerNotice(''), 5500);
+  }
+
+  function handleParseAndScanQrInput(e: React.FormEvent) {
+    e.preventDefault();
+    const raw = qrScanPasteInput.trim();
+    if (!raw) return;
+
+    // Support full @me QR URLs (?add=email&handle=... or ?invite=handle&email=...) or direct email/@handle
+    try {
+      if (raw.startsWith('http://') || raw.startsWith('https://') || raw.includes('?')) {
+        const queryString = raw.includes('?') ? raw.split('?')[1] : raw;
+        const params = new URLSearchParams(queryString);
+        const email = params.get('add') || params.get('email') || '';
+        const handle = params.get('handle') || params.get('invite') || undefined;
+        const name = params.get('name') || undefined;
+        if (email && email.includes('@')) {
+          setQrScanPasteInput('');
+          handleQrScanApproveAndChat({ email, handle, displayName: name });
+          return;
+        }
+      }
+    } catch {
+      // Fallback to direct email parsing
+    }
+
+    if (raw.includes('@') && !raw.startsWith('@')) {
+      setQrScanPasteInput('');
+      handleQrScanApproveAndChat({ email: raw });
+    }
+  }
+
+  // Save User Profile (Avatar, Display Name, Handle) to Local IndexedDB
   // and transition to the generated @me Friend QR Code Card!
   async function handleSaveUserProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -2002,7 +2385,7 @@ export function App() {
             ...u,
             displayName: profileNameInput.trim() || u.displayName,
             handle: formattedHandle,
-            bio: profileBioInput.trim(),
+            bio: '',
             avatarDataUrl: profileAvatarInput,
             profileUpdatedAt: nowIso,
           }
@@ -3197,6 +3580,9 @@ export function App() {
   async function handleResetDemoState() {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('atme_profile_onboarded');
+      window.localStorage.removeItem('atme_blocked_emails');
+      window.localStorage.removeItem('atme_whitelisted_emails');
+      window.localStorage.removeItem('atme_whitelist_only');
     }
     await clearIdbDatabase();
     window.location.reload();
@@ -3208,6 +3594,7 @@ export function App() {
 
   return (
     <div
+      data-bubble-theme={chatBubbleTheme}
       className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''} ${
         surfaceMode === 'messenger-ui' ? 'messenger-viewport' : ''
       }`}
@@ -3228,6 +3615,23 @@ export function App() {
         style={{ display: 'none' }}
         onChange={handleAvatarFileSelected}
       />
+
+      {/* =====================================================================
+          QR AUTO-WHITELIST / BLOCK / SAFETY TOAST BANNER
+         ===================================================================== */}
+      {safetyBannerNotice && (
+        <div className="dc-safety-toast-banner" role="status">
+          <span>{safetyBannerNotice}</span>
+          <button
+            type="button"
+            className="dc-icon-btn"
+            onClick={() => setSafetyBannerNotice('')}
+            aria-label="Dismiss notice"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* =====================================================================
           DURESS / PANIC WIPE ALERT BANNER (When unlocked via Duress PIN 9999)
@@ -3392,31 +3796,39 @@ export function App() {
                             <div className="dc-avatar-menu-meta">
                               <strong>{activeUser.displayName}</strong>
                               <span>{activeUser.handle || '@user'}</span>
-                              {activeUser.bio && (
-                                <small className="dc-avatar-menu-vibe">
-                                  {activeUser.bio}
-                                </small>
-                              )}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            className="dc-avatar-qr-quick-btn"
-                            onClick={() => {
-                              setIsAvatarMenuOpen(false);
-                              setProfileModalStep('qr-card');
-                              profileDialogRef.current?.showModal();
-                            }}
-                          >
-                            <QrCode size={14} /> My @me QR Card
-                          </button>
+                          <div className="dc-avatar-qr-actions-row">
+                            <button
+                              type="button"
+                              className="dc-avatar-qr-quick-btn"
+                              onClick={() => {
+                                setIsAvatarMenuOpen(false);
+                                setProfileModalStep('qr-card');
+                                profileDialogRef.current?.showModal();
+                              }}
+                            >
+                              <QrCode size={14} /> My QR Pass
+                            </button>
+                            <button
+                              type="button"
+                              className="dc-avatar-qr-scan-btn"
+                              onClick={() => {
+                                setIsAvatarMenuOpen(false);
+                                setSafetyModalTab('scan-qr');
+                                safetyListDialogRef.current?.showModal();
+                              }}
+                            >
+                              <Camera size={14} /> Scan QR
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="dc-header-dropdown-divider" />
+                        <div className="dc-header-menu-divider" />
 
                         <button
                           type="button"
-                          className="dc-header-dropdown-item"
+                          className="dc-header-menu-item"
                           role="menuitem"
                           onClick={() => {
                             setIsAvatarMenuOpen(false);
@@ -3424,45 +3836,76 @@ export function App() {
                             profileDialogRef.current?.showModal();
                           }}
                         >
-                          <span className="dc-menu-icon-badge badge-profile">
+                          <span className="dc-header-menu-icon icon-profile">
                             <User size={15} />
                           </span>
-                          <span>Edit Profile &amp; Vibe</span>
+                          <span className="dc-header-menu-label">
+                            Edit Profile
+                          </span>
                         </button>
 
                         <button
                           type="button"
-                          className="dc-header-dropdown-item"
+                          className="dc-header-menu-item"
                           role="menuitem"
                           onClick={() => {
                             setIsAvatarMenuOpen(false);
                             menuDirectoryDialogRef.current?.showModal();
                           }}
                         >
-                          <span className="dc-menu-icon-badge badge-add-people">
+                          <span className="dc-header-menu-icon icon-people">
                             <Users size={15} />
                           </span>
-                          <span>Friends &amp; Groups</span>
+                          <span className="dc-header-menu-label">
+                            Friends &amp; Groups
+                          </span>
                         </button>
 
                         <button
                           type="button"
-                          className="dc-header-dropdown-item"
+                          className="dc-header-menu-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            setSafetyModalTab('whitelist');
+                            safetyListDialogRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-header-menu-icon icon-safety">
+                            <ShieldCheck size={15} />
+                          </span>
+                          <span className="dc-header-menu-label">
+                            Blocked &amp; Whitelist
+                          </span>
+                          {(whitelistOnlyMode || blockedEmails.length > 0) && (
+                            <span className="dc-header-menu-badge">
+                              {whitelistOnlyMode
+                                ? 'Whitelist ON'
+                                : `${blockedEmails.length} blocked`}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-header-menu-item"
                           role="menuitem"
                           onClick={() => {
                             setIsAvatarMenuOpen(false);
                             handleOpenPersonalVault();
                           }}
                         >
-                          <span className="dc-menu-icon-badge badge-notes">
+                          <span className="dc-header-menu-icon icon-notes">
                             <Bookmark size={15} />
                           </span>
-                          <span>Saved Notes (@me)</span>
+                          <span className="dc-header-menu-label">
+                            Saved Notes (@me)
+                          </span>
                         </button>
 
                         <button
                           type="button"
-                          className="dc-header-dropdown-item"
+                          className="dc-header-menu-item"
                           role="menuitem"
                           onClick={() => {
                             setIsAvatarMenuOpen(false);
@@ -3471,13 +3914,71 @@ export function App() {
                             connectWizardDialogRef.current?.showModal();
                           }}
                         >
-                          <span className="dc-menu-icon-badge badge-settings">
+                          <span className="dc-header-menu-icon icon-settings">
                             <Link2 size={15} />
                           </span>
-                          <span>Add / Connect Account</span>
+                          <span className="dc-header-menu-label">
+                            Add / Connect Account
+                          </span>
                         </button>
 
-                        <div className="dc-header-dropdown-divider" />
+                        <div className="dc-header-menu-divider" />
+
+                        <div className="dc-avatar-theme-picker">
+                          <span className="dc-avatar-section-label">
+                            Chat Bubble Color
+                          </span>
+                          <div className="dc-bubble-theme-swatches">
+                            {(
+                              [
+                                {
+                                  id: 'ocean',
+                                  label: 'Ocean Blue',
+                                  color: '#0a84ff',
+                                },
+                                {
+                                  id: 'berry',
+                                  label: 'Neon Berry',
+                                  color: '#ec4899',
+                                },
+                                {
+                                  id: 'violet',
+                                  label: 'Cyber Violet',
+                                  color: '#8b5cf6',
+                                },
+                                {
+                                  id: 'mint',
+                                  label: 'Emerald Mint',
+                                  color: '#10b981',
+                                },
+                                {
+                                  id: 'sunset',
+                                  label: 'Sunset Coral',
+                                  color: '#f97316',
+                                },
+                                {
+                                  id: 'gold',
+                                  label: 'Electric Gold',
+                                  color: '#eab308',
+                                },
+                              ] as const
+                            ).map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                className={`dc-bubble-swatch-btn ${
+                                  chatBubbleTheme === t.id ? 'active' : ''
+                                }`}
+                                style={{ background: t.color }}
+                                onClick={() => handleSelectBubbleTheme(t.id)}
+                                title={t.label}
+                                aria-label={t.label}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="dc-header-menu-divider" />
 
                         <div className="dc-avatar-menu-switcher">
                           <label htmlFor="avatar-account-switch">
@@ -3501,7 +4002,7 @@ export function App() {
                           </select>
                         </div>
 
-                        <div className="dc-header-dropdown-divider" />
+                        <div className="dc-header-menu-divider" />
 
                         <div className="dc-avatar-menu-footer">
                           <button
@@ -3872,6 +4373,27 @@ export function App() {
                             </span>
                           </button>
 
+                          {activeChannel.type !== 'vault' &&
+                            activeChannel.participants.length <= 2 &&
+                            activeChannelPeerUser && (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="dc-header-menu-item item-danger"
+                                onClick={() => {
+                                  setIsHeaderMenuOpen(false);
+                                  handleBlockEmail(activeChannelPeerUser.email);
+                                }}
+                              >
+                                <span className="dc-header-menu-icon icon-burn">
+                                  <UserMinus size={15} />
+                                </span>
+                                <span className="dc-header-menu-label">
+                                  Block {activeChannelDisplayTitle}
+                                </span>
+                              </button>
+                            )}
+
                           <div className="dc-header-menu-divider" />
 
                           <button
@@ -3946,6 +4468,62 @@ export function App() {
                                   >
                                     Auto
                                   </button>
+                                </div>
+                              </div>
+
+                              <div className="dc-setting-group">
+                                <span className="dc-setting-label">
+                                  Chat Bubble Color
+                                </span>
+                                <div className="dc-bubble-theme-swatches">
+                                  {(
+                                    [
+                                      {
+                                        id: 'ocean',
+                                        label: 'Ocean Blue',
+                                        color: '#0a84ff',
+                                      },
+                                      {
+                                        id: 'berry',
+                                        label: 'Neon Berry',
+                                        color: '#ec4899',
+                                      },
+                                      {
+                                        id: 'violet',
+                                        label: 'Cyber Violet',
+                                        color: '#8b5cf6',
+                                      },
+                                      {
+                                        id: 'mint',
+                                        label: 'Emerald Mint',
+                                        color: '#10b981',
+                                      },
+                                      {
+                                        id: 'sunset',
+                                        label: 'Sunset Coral',
+                                        color: '#f97316',
+                                      },
+                                      {
+                                        id: 'gold',
+                                        label: 'Electric Gold',
+                                        color: '#eab308',
+                                      },
+                                    ] as const
+                                  ).map((t) => (
+                                    <button
+                                      key={t.id}
+                                      type="button"
+                                      className={`dc-bubble-swatch-btn ${
+                                        chatBubbleTheme === t.id ? 'active' : ''
+                                      }`}
+                                      style={{ background: t.color }}
+                                      onClick={() =>
+                                        handleSelectBubbleTheme(t.id)
+                                      }
+                                      title={t.label}
+                                      aria-label={t.label}
+                                    />
+                                  ))}
                                 </div>
                               </div>
 
@@ -5462,7 +6040,7 @@ export function App() {
       )}
 
       {/* =====================================================================
-          MODAL 1: BUILD YOUR @ME PROFILE -> GENERATES SHAREABLE @ME QR CARD
+          MODAL 1: PLAYFUL ONBOARDING & PROFILE BUILDER -> SHAREABLE @ME QR PASS
          ===================================================================== */}
       <dialog
         ref={profileDialogRef}
@@ -5475,11 +6053,11 @@ export function App() {
             <h2 id={profileDialogTitleId}>
               {profileModalStep === 'edit' ? (
                 <>
-                  <Sparkles size={17} /> Build Your @me Profile
+                  <Sparkles size={17} /> Welcome to @me! 👋
                 </>
               ) : (
                 <>
-                  <QrCode size={17} /> Your @me Friend Card
+                  <QrCode size={17} /> Your @me Friend Pass 🎉
                 </>
               )}
             </h2>
@@ -5491,7 +6069,7 @@ export function App() {
                 }`}
                 onClick={() => setProfileModalStep('edit')}
               >
-                1. Profile
+                1. Your Look
               </button>
               <button
                 type="button"
@@ -5500,7 +6078,7 @@ export function App() {
                 }`}
                 onClick={() => setProfileModalStep('qr-card')}
               >
-                2. My QR Card
+                2. QR Pass
               </button>
               <form method="dialog">
                 <button
@@ -5517,9 +6095,9 @@ export function App() {
           {profileModalStep === 'edit' ? (
             <form className="dc-profile-form" onSubmit={handleSaveUserProfile}>
               <p className="dc-profile-step-subtitle">
-                Pick an avatar, choose your display name &amp;{' '}
-                <code>@handle</code>, and set your vibe to generate your
-                shareable <strong>@me QR Card</strong>.
+                No phone number needed! Pick a fun avatar, choose your{' '}
+                <code>@handle</code>, and pick your chat bubble color to create
+                your shareable <strong>@me QR Pass</strong>.
               </p>
 
               <div className="dc-profile-avatar-editor">
@@ -5537,14 +6115,19 @@ export function App() {
                   )}
                 </div>
                 <div className="dc-profile-avatar-buttons">
+                  <span className="dc-avatar-section-label">
+                    Tap an Avatar or Upload a Photo
+                  </span>
                   <div className="dc-preset-avatars-row">
                     {[
-                      { emoji: '⚡', bg1: '#6366f1', bg2: '#a855f7' },
                       { emoji: '🎮', bg1: '#2563eb', bg2: '#06b6d4' },
+                      { emoji: '⚡', bg1: '#6366f1', bg2: '#a855f7' },
                       { emoji: '🎧', bg1: '#ec4899', bg2: '#8b5cf6' },
                       { emoji: '🛹', bg1: '#10b981', bg2: '#059669' },
                       { emoji: '✨', bg1: '#f59e0b', bg2: '#ef4444' },
                       { emoji: '🚀', bg1: '#3b82f6', bg2: '#1d4ed8' },
+                      { emoji: '🐱', bg1: '#f97316', bg2: '#db2777' },
+                      { emoji: '🌈', bg1: '#8b5cf6', bg2: '#06b6d4' },
                     ].map((preset) => (
                       <button
                         key={preset.emoji}
@@ -5571,7 +6154,7 @@ export function App() {
                     className="dc-pill-action-btn"
                     onClick={() => avatarUploadInputRef.current?.click()}
                   >
-                    <Camera size={14} /> Or Upload Photo
+                    <Camera size={14} /> Upload Custom Photo
                   </button>
                 </div>
               </div>
@@ -5584,7 +6167,7 @@ export function App() {
                     type="text"
                     value={profileNameInput}
                     onChange={(e) => setProfileNameInput(e.target.value)}
-                    placeholder="Alex Rivera"
+                    placeholder="Kenny Betz"
                     required
                   />
                 </div>
@@ -5596,38 +6179,62 @@ export function App() {
                     type="text"
                     value={profileHandleInput}
                     onChange={(e) => setProfileHandleInput(e.target.value)}
-                    placeholder="@alexrivera"
+                    placeholder="@kenny"
                     required
                   />
                 </div>
               </div>
 
               <div className="dc-form-group">
-                <label htmlFor="profile-bio-input">Current Vibe / Status</label>
-                <input
-                  id="profile-bio-input"
-                  type="text"
-                  value={profileBioInput}
-                  onChange={(e) => setProfileBioInput(e.target.value)}
-                  placeholder="🎮 Down to game • Tap my QR to chat"
-                />
-                <div className="dc-vibe-chips-row">
-                  {[
-                    '🎮 Down to game',
-                    '🎧 Listening to music',
-                    '📚 Studying rn',
-                    '🏀 At practice',
-                    '✨ Free to chat',
-                  ].map((vibe) => (
+                <label>Pick Your Chat Bubble Color 🎨</label>
+                <div className="dc-onboarding-theme-grid">
+                  {(
+                    [
+                      {
+                        id: 'ocean',
+                        label: 'Ocean Blue',
+                        color: '#0a84ff',
+                      },
+                      {
+                        id: 'berry',
+                        label: 'Neon Berry',
+                        color: '#ec4899',
+                      },
+                      {
+                        id: 'violet',
+                        label: 'Cyber Violet',
+                        color: '#8b5cf6',
+                      },
+                      {
+                        id: 'mint',
+                        label: 'Emerald Mint',
+                        color: '#10b981',
+                      },
+                      {
+                        id: 'sunset',
+                        label: 'Sunset Coral',
+                        color: '#f97316',
+                      },
+                      {
+                        id: 'gold',
+                        label: 'Electric Gold',
+                        color: '#eab308',
+                      },
+                    ] as const
+                  ).map((t) => (
                     <button
-                      key={vibe}
+                      key={t.id}
                       type="button"
-                      className={`dc-vibe-chip ${
-                        profileBioInput === vibe ? 'active' : ''
+                      className={`dc-theme-pill-option ${
+                        chatBubbleTheme === t.id ? 'active' : ''
                       }`}
-                      onClick={() => setProfileBioInput(vibe)}
+                      onClick={() => handleSelectBubbleTheme(t.id)}
                     >
-                      {vibe}
+                      <span
+                        className="dc-theme-pill-dot"
+                        style={{ background: t.color }}
+                      />
+                      <span>{t.label}</span>
                     </button>
                   ))}
                 </div>
@@ -5635,8 +6242,7 @@ export function App() {
 
               <div className="dc-modal-actions">
                 <button type="submit" className="dc-btn-send dc-btn-full">
-                  <QrCode size={15} /> Save Profile &amp; Generate My @me QR
-                  Card →
+                  <QrCode size={15} /> Create My @me QR Pass 🎉
                 </button>
               </div>
             </form>
@@ -5670,11 +6276,6 @@ export function App() {
                   <span className="dc-qr-card-handle">
                     {profileHandleInput || activeUser.handle || '@user'}
                   </span>
-                  {(profileBioInput || activeUser.bio) && (
-                    <p className="dc-qr-card-vibe">
-                      {profileBioInput || activeUser.bio}
-                    </p>
-                  )}
                 </div>
 
                 <div
@@ -5704,8 +6305,8 @@ export function App() {
                 </div>
 
                 <span className="dc-qr-scan-caption">
-                  Point a friend&apos;s camera here or share your invite link to
-                  chat instantly — no phone number needed.
+                  Have a friend scan your QR pass to chat — scanning a QR code
+                  automatically adds them to your Approved Whitelist!
                 </span>
               </div>
 
@@ -5737,7 +6338,7 @@ export function App() {
                     </>
                   ) : (
                     <>
-                      <Copy size={15} /> Copy My Invite Link
+                      <Copy size={15} /> Copy Invite Link
                     </>
                   )}
                 </button>
@@ -5745,9 +6346,13 @@ export function App() {
                 <button
                   type="button"
                   className="dc-btn-secondary-action"
-                  onClick={() => setProfileModalStep('edit')}
+                  onClick={() => {
+                    profileDialogRef.current?.close();
+                    setSafetyModalTab('scan-qr');
+                    safetyListDialogRef.current?.showModal();
+                  }}
                 >
-                  <User size={15} /> Edit Profile
+                  <Camera size={15} /> Scan a Friend&apos;s QR
                 </button>
 
                 <button
@@ -5755,8 +6360,307 @@ export function App() {
                   className="dc-btn-send"
                   onClick={() => profileDialogRef.current?.close()}
                 >
-                  Start Messaging →
+                  Let&apos;s Chat! 🚀
                 </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </dialog>
+
+      {/* =====================================================================
+          MODAL 1B: SAFETY, WHITELIST ("APPROVED ONLY") & BLOCKED USERS + QR SCANNER
+         ===================================================================== */}
+      <dialog
+        ref={safetyListDialogRef}
+        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
+        aria-labelledby={safetyDialogTitleId}
+        className="dc-modal-dialog dc-modal-md"
+      >
+        <div className="dc-modal-inner">
+          <div className="dc-modal-header">
+            <h2 id={safetyDialogTitleId}>
+              <ShieldCheck size={17} /> Safety: QR Scan, Whitelist &amp; Blocked
+              Users
+            </h2>
+            <form method="dialog">
+              <button type="submit" className="dc-icon-btn" aria-label="Close">
+                <X size={16} />
+              </button>
+            </form>
+          </div>
+
+          <div className="dc-safety-tabs-bar">
+            <button
+              type="button"
+              className={`dc-profile-step-tab ${
+                safetyModalTab === 'scan-qr' ? 'active' : ''
+              }`}
+              onClick={() => setSafetyModalTab('scan-qr')}
+            >
+              <QrCode size={13} /> Scan Friend QR
+            </button>
+            <button
+              type="button"
+              className={`dc-profile-step-tab ${
+                safetyModalTab === 'whitelist' ? 'active' : ''
+              }`}
+              onClick={() => setSafetyModalTab('whitelist')}
+            >
+              <CheckCircle2 size={13} /> Approved Whitelist (
+              {whitelistedEmails.length})
+            </button>
+            <button
+              type="button"
+              className={`dc-profile-step-tab ${
+                safetyModalTab === 'blocked' ? 'active' : ''
+              }`}
+              onClick={() => setSafetyModalTab('blocked')}
+            >
+              <UserMinus size={13} /> Blocked ({blockedEmails.length})
+            </button>
+          </div>
+
+          {safetyModalTab === 'scan-qr' && (
+            <div className="dc-safety-tab-panel">
+              <div className="dc-qr-scanner-hero">
+                <div className="dc-qr-viewfinder">
+                  <QrCode size={42} />
+                  <span>Scan a Friend&apos;s @me QR Pass</span>
+                  <small>
+                    Scanning a friend&apos;s QR code automatically adds their
+                    email to your <strong>Approved Whitelist</strong> and starts
+                    your chat!
+                  </small>
+                </div>
+
+                <div className="dc-qr-instant-demo-scans">
+                  <span className="dc-avatar-section-label">
+                    Tap a Friend&apos;s QR Pass to Simulate Scanning
+                  </span>
+                  <div className="dc-qr-demo-friends-grid">
+                    {[
+                      {
+                        name: 'Maya Lin',
+                        handle: '@mayalin',
+                        email: 'maya.lin@gmail.com',
+                        emoji: '🎧',
+                      },
+                      {
+                        name: 'Leo Vance',
+                        handle: '@leovance',
+                        email: 'leo.vance@icloud.com',
+                        emoji: '🛹',
+                      },
+                      {
+                        name: 'Zoe Park',
+                        handle: '@zoepark',
+                        email: 'zoe.park@outlook.com',
+                        emoji: '✨',
+                      },
+                    ].map((friend) => (
+                      <button
+                        key={friend.email}
+                        type="button"
+                        className="dc-qr-demo-friend-btn"
+                        onClick={() =>
+                          handleQrScanApproveAndChat({
+                            email: friend.email,
+                            handle: friend.handle,
+                            displayName: friend.name,
+                          })
+                        }
+                      >
+                        <span className="dc-qr-demo-emoji">{friend.emoji}</span>
+                        <div>
+                          <strong>
+                            {friend.name} ({friend.handle})
+                          </strong>
+                          <span>Scan QR → Auto-Whitelist &amp; Chat</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <form
+                  className="dc-inline-input-btn"
+                  onSubmit={handleParseAndScanQrInput}
+                >
+                  <input
+                    type="text"
+                    value={qrScanPasteInput}
+                    onChange={(e) => setQrScanPasteInput(e.target.value)}
+                    placeholder="Or paste a friend's @me QR invite link or email…"
+                    aria-label="Paste QR invite link or email"
+                  />
+                  <button type="submit" className="dc-btn-send">
+                    <Check size={14} /> Scan &amp; Approve
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {safetyModalTab === 'whitelist' && (
+            <div className="dc-safety-tab-panel">
+              <div className="dc-whitelist-toggle-card">
+                <label className="dc-burner-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={whitelistOnlyMode}
+                    onChange={(e) =>
+                      handleToggleWhitelistOnlyMode(e.target.checked)
+                    }
+                  />
+                  <div>
+                    <strong>
+                      <ShieldCheck size={14} /> Only Allow Approved Emails
+                      (Whitelist Mode)
+                    </strong>
+                    <span>
+                      When turned ON, <strong>only</strong> people on your
+                      Approved Whitelist below can message you — everyone else
+                      is automatically blocked. Scanning a friend&apos;s QR code
+                      automatically adds them to this list!
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <form
+                className="dc-inline-input-btn"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddWhitelistEmail(whitelistInputEmail);
+                }}
+              >
+                <input
+                  type="email"
+                  value={whitelistInputEmail}
+                  onChange={(e) => setWhitelistInputEmail(e.target.value)}
+                  placeholder="Add approved friend email (e.g. friend@gmail.com)"
+                  required
+                />
+                <button type="submit" className="dc-btn-send">
+                  <Plus size={14} /> Add to Whitelist
+                </button>
+              </form>
+
+              <div className="dc-participants-list">
+                {whitelistedEmails.length === 0 ? (
+                  <p className="dc-form-hint">
+                    No approved emails yet. Scan a friend&apos;s QR code or add
+                    an email above!
+                  </p>
+                ) : (
+                  whitelistedEmails.map((email) => {
+                    const knownUser = users.find(
+                      (u) => u.email.toLowerCase() === email.toLowerCase()
+                    );
+                    return (
+                      <div key={email} className="dc-participant-row">
+                        <div className="dc-participant-info">
+                          {renderUserAvatar(
+                            knownUser || email,
+                            knownUser?.displayName || email
+                          )}
+                          <div>
+                            <strong>
+                              {knownUser?.displayName || email}{' '}
+                              {knownUser?.handle && (
+                                <small className="dc-handle-tag">
+                                  {knownUser.handle}
+                                </small>
+                              )}
+                            </strong>
+                            <span>{email} • Approved ✓</span>
+                          </div>
+                        </div>
+                        <div className="dc-participant-actions">
+                          {email.toLowerCase() !==
+                            activeUser.email.toLowerCase() && (
+                            <button
+                              type="button"
+                              className="dc-btn-ghost"
+                              onClick={() => handleRemoveWhitelistEmail(email)}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {safetyModalTab === 'blocked' && (
+            <div className="dc-safety-tab-panel">
+              <p className="dc-profile-step-subtitle">
+                Blocked users cannot message you and their conversations are
+                hidden from your Messages list.
+              </p>
+
+              <form
+                className="dc-inline-input-btn"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!blockInputEmail.trim()) return;
+                  handleBlockEmail(blockInputEmail);
+                  setBlockInputEmail('');
+                }}
+              >
+                <input
+                  type="email"
+                  value={blockInputEmail}
+                  onChange={(e) => setBlockInputEmail(e.target.value)}
+                  placeholder="Block an email address (e.g. spammer@example.com)"
+                  required
+                />
+                <button type="submit" className="dc-btn-danger-confirm">
+                  <UserMinus size={14} /> Block User
+                </button>
+              </form>
+
+              <div className="dc-participants-list">
+                {blockedEmails.length === 0 ? (
+                  <p className="dc-form-hint">
+                    You haven&apos;t blocked anyone. You can block a user here
+                    or from the top-right menu inside any chat.
+                  </p>
+                ) : (
+                  blockedEmails.map((email) => {
+                    const knownUser = users.find(
+                      (u) => u.email.toLowerCase() === email.toLowerCase()
+                    );
+                    return (
+                      <div key={email} className="dc-participant-row">
+                        <div className="dc-participant-info">
+                          {renderUserAvatar(
+                            knownUser || email,
+                            knownUser?.displayName || email
+                          )}
+                          <div>
+                            <strong>{knownUser?.displayName || email}</strong>
+                            <span>{email} • Blocked 🚫</span>
+                          </div>
+                        </div>
+                        <div className="dc-participant-actions">
+                          <button
+                            type="button"
+                            className="dc-btn-secondary-action"
+                            onClick={() => handleUnblockEmail(email)}
+                          >
+                            Unblock
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
