@@ -386,11 +386,265 @@ export function App() {
   const [activeChannelId, setActiveChannelId] = useState<string>(
     INITIAL_CHANNELS[2].id
   );
+  const isIphoneFrame =
+    typeof window !== 'undefined' &&
+    window.location.search.includes('iphone=1');
   const [mobileShowChatPane, setMobileShowChatPane] = useState<boolean>(
     () =>
       typeof window !== 'undefined' &&
       window.location.search.includes('mobileView=chat')
   );
+
+  // Swiping right to go back from chats to the main page on mobile/touch devices
+  const [swipeOffsetX, setSwipeOffsetX] = useState<number>(0);
+  const [isSwipingBack, setIsSwipingBack] = useState<boolean>(false);
+  const [isAnimatingOut, setIsAnimatingOut] = useState<boolean>(false);
+
+  const freeflowChatPaneRef = useRef<HTMLElement | null>(null);
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+  const touchStartTimeRef = useRef<number>(0);
+  const isSwipingRightRef = useRef<boolean>(false);
+  const lastDeltaXRef = useRef<number>(0);
+
+  const openMobileChat = useCallback(
+    (channelId?: string) => {
+      if (channelId) {
+        setActiveChannelId(channelId);
+        setReplyingToMessage(null);
+      }
+      setMobileShowChatPane(true);
+      if (
+        typeof window !== 'undefined' &&
+        window.history.state?.atmeView !== 'chat'
+      ) {
+        window.history.pushState(
+          { atmeView: 'chat', channelId: channelId || activeChannelId },
+          ''
+        );
+      }
+    },
+    [activeChannelId]
+  );
+
+  const closeMobileChat = useCallback(() => {
+    setMobileShowChatPane(false);
+    if (
+      typeof window !== 'undefined' &&
+      window.history.state?.atmeView === 'chat'
+    ) {
+      window.history.back();
+    }
+  }, []);
+
+  // Synchronize browser history so pressing OS/browser back or gestures returns to main page rather than exiting app
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (mobileShowChatPane && !window.history.state?.atmeView) {
+      window.history.replaceState({ atmeView: 'threads' }, '');
+      window.history.pushState({ atmeView: 'chat' }, '');
+    } else if (!window.history.state?.atmeView) {
+      window.history.replaceState({ atmeView: 'threads' }, '');
+    }
+
+    const handlePopState = () => {
+      if (mobileShowChatPane) {
+        setMobileShowChatPane(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [mobileShowChatPane]);
+
+  // Touch gesture listener on chat pane to swipe right back to main page
+  useEffect(() => {
+    const pane = freeflowChatPaneRef.current;
+    if (!pane) return;
+
+    if (!mobileShowChatPane) {
+      setSwipeOffsetX(0);
+      setIsSwipingBack(false);
+      setIsAnimatingOut(false);
+      isSwipingRightRef.current = false;
+      return;
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      if (document.querySelector('dialog[open]')) return;
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')
+      ) {
+        return;
+      }
+
+      const touch = e.touches[0];
+      touchStartXRef.current = touch.clientX;
+      touchStartYRef.current = touch.clientY;
+      touchStartTimeRef.current = Date.now();
+      isSwipingRightRef.current = false;
+      lastDeltaXRef.current = 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchStartXRef.current;
+      const deltaY = touch.clientY - touchStartYRef.current;
+      lastDeltaXRef.current = deltaX;
+
+      if (!isSwipingRightRef.current) {
+        const isNearLeftEdge =
+          touchStartXRef.current <= Math.max(90, window.innerWidth * 0.28);
+        const isHorizontal =
+          deltaX > 8 && deltaX > Math.abs(deltaY) * (isNearLeftEdge ? 1.0 : 1.7);
+
+        if (isHorizontal) {
+          isSwipingRightRef.current = true;
+          setIsSwipingBack(true);
+        } else if (Math.abs(deltaY) > 8 || deltaX < -8) {
+          return;
+        }
+      }
+
+      if (isSwipingRightRef.current) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        const offset = Math.max(0, deltaX);
+        setSwipeOffsetX(offset);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!isSwipingRightRef.current) return;
+
+      const deltaX = lastDeltaXRef.current;
+      const elapsed = Date.now() - touchStartTimeRef.current;
+      const velocity = deltaX / Math.max(1, elapsed);
+      const isQuickFlick = deltaX > 40 && velocity > 0.35;
+      const isOverDistance = deltaX > Math.min(100, window.innerWidth * 0.28);
+
+      if (isOverDistance || isQuickFlick) {
+        setIsAnimatingOut(true);
+        setTimeout(() => {
+          closeMobileChat();
+          setIsAnimatingOut(false);
+          setSwipeOffsetX(0);
+          setIsSwipingBack(false);
+          isSwipingRightRef.current = false;
+        }, 180);
+      } else {
+        setSwipeOffsetX(0);
+        setIsSwipingBack(false);
+        isSwipingRightRef.current = false;
+      }
+    };
+
+    const onTouchCancel = () => {
+      setSwipeOffsetX(0);
+      setIsSwipingBack(false);
+      isSwipingRightRef.current = false;
+    };
+
+    pane.addEventListener('touchstart', onTouchStart, { passive: true });
+    pane.addEventListener('touchmove', onTouchMove, { passive: false });
+    pane.addEventListener('touchend', onTouchEnd, { passive: true });
+    pane.addEventListener('touchcancel', onTouchCancel, { passive: true });
+
+    return () => {
+      pane.removeEventListener('touchstart', onTouchStart);
+      pane.removeEventListener('touchmove', onTouchMove);
+      pane.removeEventListener('touchend', onTouchEnd);
+      pane.removeEventListener('touchcancel', onTouchCancel);
+    };
+  }, [mobileShowChatPane, closeMobileChat]);
+
+  // Mouse gesture listener in iPhone preview frame for desktop testing
+  useEffect(() => {
+    const pane = freeflowChatPaneRef.current;
+    if (!pane || !isIphoneFrame || !mobileShowChatPane) return;
+
+    let isMouseDown = false;
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let isSwiping = false;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      if (document.querySelector('dialog[open]')) return;
+      const rect = pane.getBoundingClientRect();
+      const relativeX = e.clientX - rect.left;
+      if (relativeX > 90) return;
+
+      isMouseDown = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startTime = Date.now();
+      isSwiping = false;
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isMouseDown) return;
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      if (!isSwiping) {
+        if (deltaX > 8 && deltaX > Math.abs(deltaY) * 1.2) {
+          isSwiping = true;
+          setIsSwipingBack(true);
+        } else if (Math.abs(deltaY) > 8 || deltaX < -8) {
+          isMouseDown = false;
+          return;
+        }
+      }
+
+      if (isSwiping) {
+        e.preventDefault();
+        setSwipeOffsetX(Math.max(0, deltaX));
+      }
+    };
+
+    const onMouseUp = (e: MouseEvent) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      if (!isSwiping) return;
+
+      const deltaX = e.clientX - startX;
+      const elapsed = Date.now() - startTime;
+      const velocity = deltaX / Math.max(1, elapsed);
+      const isQuickFlick = deltaX > 40 && velocity > 0.35;
+      const isOverDistance = deltaX > 90;
+
+      if (isOverDistance || isQuickFlick) {
+        setIsAnimatingOut(true);
+        setTimeout(() => {
+          closeMobileChat();
+          setIsAnimatingOut(false);
+          setSwipeOffsetX(0);
+          setIsSwipingBack(false);
+        }, 180);
+      } else {
+        setSwipeOffsetX(0);
+        setIsSwipingBack(false);
+      }
+    };
+
+    pane.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      pane.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isIphoneFrame, mobileShowChatPane, closeMobileChat]);
 
   // Track which channel IDs the active user has already sent their profileCard to
   // (Sent automatically on the FIRST message to any user/group, or after updating profile)
@@ -694,7 +948,14 @@ export function App() {
   const avatarMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const freeflowFeedRef = useRef<HTMLDivElement | null>(null);
+  const [activeUnseenMarkerMsgId, setActiveUnseenMarkerMsgId] = useState<
+    string | null
+  >(null);
+  const unseenTimerRef = useRef<number | null>(null);
   const prevChannelIdRef = useRef<string | null>(null);
+  const prevStreamLengthRef = useRef<number>(0);
+  const userJustSentMessageRef = useRef<boolean>(false);
+  const prevMobileShowChatPaneRef = useRef<boolean>(mobileShowChatPane);
   const [burnReadStartedAtMs, setBurnReadStartedAtMs] = useState<
     Record<string, number>
   >({});
@@ -2126,70 +2387,140 @@ export function App() {
   useEffect(() => {
     setReadMessageIds(new Set());
     prevChannelIdRef.current = null;
+    prevStreamLengthRef.current = 0;
+    userJustSentMessageRef.current = false;
+    setActiveUnseenMarkerMsgId(null);
+    if (unseenTimerRef.current) {
+      window.clearTimeout(unseenTimerRef.current);
+      unseenTimerRef.current = null;
+    }
     setIsAtBottom(true);
     isScrolledToBottomRef.current = true;
   }, [activeUser.email]);
 
   // Handle scroll positioning on channel change and incoming messages:
-  // - When entering a chat with unread messages, start at the last unread message at the top
-  // - When in an active chat, only auto-scroll if already scrolled to the bottom
+  // - When entering a chat with unread messages, start at the first unread message in the center of the view
+  // - Show a dotted transparent line above the latest unseen message, that fades away in 5 seconds
+  // - When in an active chat, ONLY auto-scroll new messages if scrolled to the bottom (or user just sent message)
+  // - Prevent kick-down when scrolling up to read messages or when message is taller than the viewport
   useEffect(() => {
     const feedEl = freeflowFeedRef.current;
-    if (!feedEl) return;
+    if (!feedEl || !activeChannel) return;
 
-    const currentChId = activeChannel?.id ?? null;
-    const isChannelSwitch = prevChannelIdRef.current !== currentChId;
+    const currentChId = activeChannel.id;
+    const isChannelSwitch =
+      prevChannelIdRef.current !== currentChId ||
+      (!prevMobileShowChatPaneRef.current && mobileShowChatPane);
     prevChannelIdRef.current = currentChId;
+    prevMobileShowChatPaneRef.current = mobileShowChatPane;
+
+    const currentStreamLength = freeflowStream.length;
+    const prevStreamLen = prevStreamLengthRef.current;
 
     if (isChannelSwitch) {
+      prevStreamLengthRef.current = currentStreamLength;
+
       const unreadCount = currentChId
         ? channelUnreadCountMap[currentChId] || 0
         : 0;
 
       if (unreadCount > 0) {
-        requestAnimationFrame(() => {
-          const target =
-            document.getElementById('dc-first-unread-marker') ||
-            feedEl.querySelector('.dc-imessage-row.is-unread');
-          if (target) {
-            target.scrollIntoView({ block: 'start', behavior: 'auto' });
-            setIsAtBottom(false);
-            isScrolledToBottomRef.current = false;
-            return;
+        // Find the first unread incoming message
+        const firstUnreadMsg = freeflowStream.find((m) => {
+          if (
+            m.packet.type !== 'chat.message' &&
+            m.packet.type !== 'chat.poll'
+          ) {
+            return false;
           }
-          feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
-          setIsAtBottom(true);
-          isScrolledToBottomRef.current = true;
-          void markActiveChannelAsRead();
+          const isOwn =
+            m.packet.sender.email.toLowerCase() ===
+            activeUser.email.toLowerCase();
+          if (isOwn) return false;
+          const alreadyReceipted = m.receipts.some(
+            (r) =>
+              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
+          );
+          if (alreadyReceipted) return false;
+          const dedupKey = `${activeUser.email.toLowerCase()}:${m.packet.payload.messageId}`;
+          return (
+            !autoReadSentKeysRef.current.has(dedupKey) &&
+            !readMessageIds.has(m.packet.payload.messageId)
+          );
+        });
+
+        const markerId = firstUnreadMsg?.packet.payload.messageId || null;
+        if (markerId) {
+          setActiveUnseenMarkerMsgId(markerId);
+          if (unseenTimerRef.current) {
+            window.clearTimeout(unseenTimerRef.current);
+          }
+          unseenTimerRef.current = window.setTimeout(() => {
+            setActiveUnseenMarkerMsgId(null);
+          }, 5500);
+        } else {
+          setActiveUnseenMarkerMsgId(null);
+        }
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const target =
+              document.getElementById('dc-first-unread-marker') ||
+              (markerId
+                ? document.getElementById(`dc-msg-${markerId}`)
+                : null) ||
+              feedEl.querySelector('.dc-imessage-row.is-unread');
+            if (target) {
+              target.scrollIntoView({ block: 'center', behavior: 'auto' });
+              setIsAtBottom(false);
+              isScrolledToBottomRef.current = false;
+              return;
+            }
+            feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
+            setIsAtBottom(true);
+            isScrolledToBottomRef.current = true;
+          });
         });
         return;
       }
 
+      // No unread messages: scroll to bottom
+      setActiveUnseenMarkerMsgId(null);
+      if (unseenTimerRef.current) {
+        window.clearTimeout(unseenTimerRef.current);
+        unseenTimerRef.current = null;
+      }
+
       requestAnimationFrame(() => {
-        feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
-        setIsAtBottom(true);
-        isScrolledToBottomRef.current = true;
-        void markActiveChannelAsRead();
+        requestAnimationFrame(() => {
+          feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
+          setIsAtBottom(true);
+          isScrolledToBottomRef.current = true;
+        });
       });
       return;
     }
 
-    // Inside active chat: ONLY auto-scroll new messages if scrolled to the bottom!
-    const lastMsg =
-      freeflowStream.length > 0
-        ? freeflowStream[freeflowStream.length - 1]
-        : null;
-    const isOwnLastMessage =
-      lastMsg &&
-      lastMsg.packet.sender.email.toLowerCase() ===
-        activeUser.email.toLowerCase();
+    // Inside active chat: ONLY auto-scroll if a brand-new message was appended to the stream!
+    const isNewMessageAppended = currentStreamLength > prevStreamLen;
+    prevStreamLengthRef.current = currentStreamLength;
 
-    if (isOwnLastMessage || isScrolledToBottomRef.current) {
+    if (!isNewMessageAppended) {
+      // No new message added (re-render, unread map update, reaction, burn timer ticker, etc.)
+      // DO NOT touch scroll position! Preserves reading position on tall messages & scrolling up.
+      return;
+    }
+
+    // A brand new message arrived
+    const userJustSent = userJustSentMessageRef.current;
+    userJustSentMessageRef.current = false;
+
+    // Scroll to bottom ONLY if the user just sent the message OR was already scrolled to the bottom
+    if (userJustSent || isScrolledToBottomRef.current) {
       requestAnimationFrame(() => {
         feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'smooth' });
         setIsAtBottom(true);
         isScrolledToBottomRef.current = true;
-        void markActiveChannelAsRead();
       });
     } else {
       setIsAtBottom(false);
@@ -2197,11 +2528,7 @@ export function App() {
   }, [
     activeChannel?.id,
     freeflowStream.length,
-    lastMessageEmailId,
-    surfaceMode,
     mobileShowChatPane,
-    channelUnreadCountMap,
-    markActiveChannelAsRead,
     activeUser.email,
   ]);
 
@@ -2350,6 +2677,9 @@ export function App() {
     shredAck?: DcpShredAckPayload;
   }) {
     if (!activeUser.pgpKeyPair) return;
+    if (params.type === 'chat.message' || params.type === 'chat.poll') {
+      userJustSentMessageRef.current = true;
+    }
     setIsSending(true);
     try {
       const packetId = `pkt_${Date.now().toString(36)}_${Math.random()
@@ -2797,6 +3127,7 @@ export function App() {
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
         )
     );
+    let targetChannelId = existingDm?.id;
     if (existingDm) {
       setActiveChannelId(existingDm.id);
     } else {
@@ -2808,11 +3139,12 @@ export function App() {
       };
       setChannels((prev) => [dmCh, ...prev]);
       setActiveChannelId(dmCh.id);
+      targetChannelId = dmCh.id;
     }
 
     safetyListDialogRef.current?.close();
     profileDialogRef.current?.close();
-    setMobileShowChatPane(true);
+    openMobileChat(targetChannelId);
     setSafetyBannerNotice(
       `🎉 Scanned ${formattedHandle}'s QR! Automatically added ${cleanEmail} to your Approved Whitelist.`
     );
@@ -3621,10 +3953,9 @@ export function App() {
     );
 
     if (existingDm) {
-      setActiveChannelId(existingDm.id);
       setContactSearchQuery('');
       menuDirectoryDialogRef.current?.close();
-      setMobileShowChatPane(true);
+      openMobileChat(existingDm.id);
       return;
     }
 
@@ -3656,10 +3987,9 @@ export function App() {
       participants: [activeUser.email, existingUser.email],
     };
     setChannels((prev) => [dmCh, ...prev]);
-    setActiveChannelId(dmCh.id);
     setContactSearchQuery('');
     menuDirectoryDialogRef.current?.close();
-    setMobileShowChatPane(true);
+    openMobileChat(dmCh.id);
   }
 
   // Send message from the Free-Flowing Messenger Composer
@@ -3803,8 +4133,7 @@ export function App() {
       };
       setChannels((prev) => [newVault, ...prev]);
     }
-    setActiveChannelId(vaultId);
-    setMobileShowChatPane(true);
+    openMobileChat(vaultId);
   }
 
   // Unlock App Lock via PIN or Duress/Panic PIN
@@ -3908,11 +4237,10 @@ export function App() {
         shieldedAliasEmail: createdAliasEmail,
       };
       setChannels((prev) => [newCh, ...prev]);
-      setActiveChannelId(newCh.id);
       setNewChatName('');
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
-      setMobileShowChatPane(true);
+      openMobileChat(newCh.id);
     } else {
       const targetEmail = newChatRecipientEmail.trim().toLowerCase();
       if (!targetEmail) return;
@@ -3946,11 +4274,10 @@ export function App() {
         shieldedAliasEmail: createdAliasEmail,
       };
       setChannels((prev) => [dmCh, ...prev]);
-      setActiveChannelId(dmCh.id);
       setNewChatRecipientEmail('');
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
-      setMobileShowChatPane(true);
+      openMobileChat(dmCh.id);
     }
   }
 
@@ -4265,10 +4592,6 @@ export function App() {
     window.location.reload();
   }
 
-  const isIphoneFrame =
-    typeof window !== 'undefined' &&
-    window.location.search.includes('iphone=1');
-
   return (
     <div
       data-bubble-theme={chatBubbleTheme}
@@ -4406,8 +4729,41 @@ export function App() {
           {/* Left Pane: Recent Text Threads + Instant Contact Search */}
           <aside
             className={`dc-threads-pane ${
-              mobileShowChatPane ? 'mobile-hidden' : ''
+              mobileShowChatPane && !isSwipingBack && !isAnimatingOut
+                ? 'mobile-hidden'
+                : ''
             }`}
+            inert={
+              mobileShowChatPane && !isSwipingBack && !isAnimatingOut
+                ? true
+                : undefined
+            }
+            style={
+              isSwipingBack || isAnimatingOut
+                ? {
+                    transform: `translateX(${
+                      -24 +
+                      Math.min(
+                        24,
+                        (swipeOffsetX /
+                          Math.max(1, window.innerWidth || 360)) *
+                          24
+                      )
+                    }px)`,
+                    opacity:
+                      0.85 +
+                      Math.min(
+                        0.15,
+                        (swipeOffsetX /
+                          Math.max(1, window.innerWidth || 360)) *
+                          0.15
+                      ),
+                    transition: isAnimatingOut
+                      ? 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
+                      : 'none',
+                  }
+                : undefined
+            }
           >
             <div className="dc-threads-pane-top">
               <div className="dc-threads-title-row">
@@ -4870,9 +5226,7 @@ export function App() {
                           isVault ? 'vault-thread-card' : ''
                         } ${unreadCount > 0 ? 'has-unread' : ''}`}
                         onClick={() => {
-                          setActiveChannelId(ch.id);
-                          setReplyingToMessage(null);
-                          setMobileShowChatPane(true);
+                          openMobileChat(ch.id);
                         }}
                       >
                         {!isGroup && !isVault && peerUser?.avatarDataUrl ? (
@@ -4954,10 +5308,39 @@ export function App() {
 
           {/* Right Pane: Free-Flowing iMessage / Android Text Stream */}
           <section
+            ref={freeflowChatPaneRef}
             className={`dc-freeflow-chat-pane ${
               !mobileShowChatPane ? 'mobile-hidden' : ''
             }`}
+            inert={!mobileShowChatPane ? true : undefined}
+            style={
+              mobileShowChatPane && (swipeOffsetX > 0 || isAnimatingOut)
+                ? {
+                    transform: `translateX(${
+                      isAnimatingOut ? '100%' : `${swipeOffsetX}px`
+                    })`,
+                    transition: isAnimatingOut
+                      ? 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
+                      : swipeOffsetX === 0
+                      ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                      : 'none',
+                  }
+                : undefined
+            }
           >
+            {/* Visual swipe-back indicator pill when swiping right */}
+            {isSwipingBack && swipeOffsetX > 12 && (
+              <div
+                className="dc-swipe-back-pill"
+                style={{
+                  opacity: Math.min(1, (swipeOffsetX - 12) / 45),
+                }}
+              >
+                <ArrowLeft size={16} />
+                <span>Back</span>
+              </div>
+            )}
+
             {!activeChannel ? (
               <div className="dc-empty-chat-pane">
                 <div className="dc-empty-chat-card">
@@ -4987,7 +5370,7 @@ export function App() {
                     <button
                       type="button"
                       className="dc-mobile-back-btn"
-                      onClick={() => setMobileShowChatPane(false)}
+                      onClick={closeMobileChat}
                       aria-label="Back to conversations"
                     >
                       <ArrowLeft size={18} />
@@ -5526,23 +5909,15 @@ export function App() {
 
                 return (
                   <React.Fragment key={msg.emailId}>
-                    {isFirstUnread && (
+                    {activeUnseenMarkerMsgId ===
+                      msg.packet.payload.messageId && (
                       <div
                         id="dc-first-unread-marker"
-                        className="dc-unread-divider"
+                        key={`unseen-dotted-${activeChannel.id}-${msg.packet.payload.messageId}`}
+                        className="dc-unseen-dotted-line"
                         role="separator"
-                        aria-label="Unread messages divider"
-                      >
-                        <span className="dc-unread-divider-line" />
-                        <span className="dc-unread-divider-pill">
-                          <span className="dc-unread-dot" />
-                          {activeChannelUnreadCount} Unread{' '}
-                          {activeChannelUnreadCount === 1
-                            ? 'Message'
-                            : 'Messages'}
-                        </span>
-                        <span className="dc-unread-divider-line" />
-                      </div>
+                        aria-label="Unseen messages"
+                      />
                     )}
 
                     {showMessageTimestamps && (
@@ -8171,9 +8546,8 @@ export function App() {
                       <div
                         className="dc-menu-item-main"
                         onClick={() => {
-                          setActiveChannelId(ch.id);
                           menuDirectoryDialogRef.current?.close();
-                          setMobileShowChatPane(true);
+                          openMobileChat(ch.id);
                         }}
                       >
                         <Hash size={16} />
