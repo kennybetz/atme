@@ -867,6 +867,8 @@ pre,
 }
 
 .dc-thread-snippet {
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   color: var(--text-muted);
   overflow: hidden;
@@ -901,6 +903,7 @@ pre,
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-left: auto;
   box-shadow: 0 2px 6px rgba(10, 132, 255, 0.35);
 }
 

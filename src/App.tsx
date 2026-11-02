@@ -1506,16 +1506,35 @@ export function App() {
     async function bootEngine() {
       setIsInitializingKeys(true);
 
-      const cachedUsers = await loadUserIdentitiesFromIdb();
-      const cachedEmails = await loadTransportEmailsFromIdb();
+      const seedVersion =
+        typeof localStorage !== 'undefined'
+          ? localStorage.getItem('dontcall_seed_v4')
+          : 'true';
+      const shouldReseed = seedVersion !== 'true';
 
-      if (cachedUsers && cachedEmails && cachedEmails.length > 0) {
+      const cachedUsers = shouldReseed
+        ? null
+        : await loadUserIdentitiesFromIdb();
+      const cachedEmails = shouldReseed
+        ? null
+        : await loadTransportEmailsFromIdb();
+
+      if (
+        !shouldReseed &&
+        cachedUsers &&
+        cachedEmails &&
+        cachedEmails.length > 0
+      ) {
         if (!mounted) return;
         setUsers(cachedUsers);
         setTransportEmails(cachedEmails);
         setSelectedEmailId(cachedEmails[0].id);
         setIsInitializingKeys(false);
         return;
+      }
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dontcall_seed_v4', 'true');
       }
 
       const hydratedUsers: UserIdentity[] = [];
@@ -1872,6 +1891,118 @@ export function App() {
           buildDcpMimeEmail({
             packet: pktDmAlexReply,
             encryptedPacketArmored: encDmAlexReply,
+          })
+        );
+
+        // 9. Elena (Proton Mail) -> Alex (Gmail) Unread Message 1
+        const pktDmElenaUnread1: DcpPacket = {
+          protocol: DCP_PROTOCOL_VERSION,
+          packetId: 'pkt_seed_dm_elena_unread_01',
+          type: 'chat.message',
+          encryptionMode: 'openpgp-asymmetric',
+          channel: INITIAL_CHANNELS[2],
+          sender: {
+            email: elena.email,
+            displayName: elena.displayName,
+            handle: elena.handle,
+            provider: elena.provider,
+            pgpFingerprint: elena.pgpKeyPair.fingerprint,
+            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
+          },
+          complianceAttestation: elenaAttest,
+          payload: {
+            messageId: 'msg_seed_dm_elena_unread_01',
+            text: 'Can you bring your portable speaker? 🔊',
+            formatting: 'markdown',
+          },
+          sentAt: new Date(Date.now() - 1000 * 25).toISOString(),
+        };
+        const encDmElenaUnread1 = await encryptDcpPayloadAsymmetric({
+          cleartextJson: JSON.stringify(pktDmElenaUnread1),
+          recipientPublicKeysArmored: allAppKeys,
+          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
+          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
+        });
+        seedDcpEmails.push(
+          buildDcpMimeEmail({
+            packet: pktDmElenaUnread1,
+            encryptedPacketArmored: encDmElenaUnread1,
+          })
+        );
+
+        // 10. Elena (Proton Mail) -> Alex (Gmail) Unread Message 2
+        const pktDmElenaUnread2: DcpPacket = {
+          protocol: DCP_PROTOCOL_VERSION,
+          packetId: 'pkt_seed_dm_elena_unread_02',
+          type: 'chat.message',
+          encryptionMode: 'openpgp-asymmetric',
+          channel: INITIAL_CHANNELS[2],
+          sender: {
+            email: elena.email,
+            displayName: elena.displayName,
+            handle: elena.handle,
+            provider: elena.provider,
+            pgpFingerprint: elena.pgpKeyPair.fingerprint,
+            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
+          },
+          complianceAttestation: elenaAttest,
+          payload: {
+            messageId: 'msg_seed_dm_elena_unread_02',
+            text: 'Are you still coming to the game room? 🎮',
+            formatting: 'markdown',
+          },
+          sentAt: new Date(Date.now() - 1000 * 8).toISOString(),
+        };
+        const encDmElenaUnread2 = await encryptDcpPayloadAsymmetric({
+          cleartextJson: JSON.stringify(pktDmElenaUnread2),
+          recipientPublicKeysArmored: allAppKeys,
+          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
+          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
+        });
+        seedDcpEmails.push(
+          buildDcpMimeEmail({
+            packet: pktDmElenaUnread2,
+            encryptedPacketArmored: encDmElenaUnread2,
+          })
+        );
+
+        // 11. Sam (Outlook) -> Alex (Gmail) 1-on-1 DM Unread Message
+        const samAttest = await createSignedComplianceAttestation({
+          senderEmail: sam.email,
+          senderPgpFingerprint: sam.pgpKeyPair.fingerprint,
+        });
+        const pktDmSamUnread: DcpPacket = {
+          protocol: DCP_PROTOCOL_VERSION,
+          packetId: 'pkt_seed_dm_sam_unread_01',
+          type: 'chat.message',
+          encryptionMode: 'openpgp-asymmetric',
+          channel: INITIAL_CHANNELS[3],
+          sender: {
+            email: sam.email,
+            displayName: sam.displayName,
+            handle: sam.handle,
+            provider: sam.provider,
+            pgpFingerprint: sam.pgpKeyPair.fingerprint,
+            publicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
+          },
+          complianceAttestation: samAttest,
+          payload: {
+            messageId: 'msg_seed_dm_sam_unread_01',
+            text: 'Security audit passed with zero errors! 🛡️',
+            formatting: 'markdown',
+          },
+          sentAt: new Date(Date.now() - 1000 * 15).toISOString(),
+        };
+        const encDmSamUnread = await encryptDcpPayloadAsymmetric({
+          cleartextJson: JSON.stringify(pktDmSamUnread),
+          recipientPublicKeysArmored: allAppKeys,
+          senderPublicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
+          senderPrivateKeyArmored: sam.pgpKeyPair.privateKeyArmored,
+        });
+        seedDcpEmails.push(
+          buildDcpMimeEmail({
+            packet: pktDmSamUnread,
+            encryptedPacketArmored: encDmSamUnread,
           })
         );
       }
@@ -2287,6 +2418,13 @@ export function App() {
   ]);
 
   const markActiveChannelAsRead = useCallback(async () => {
+    const isMobileDeviceView =
+      isIphoneFrame ||
+      (typeof window !== 'undefined' && window.innerWidth <= 860);
+    if (isMobileDeviceView && !mobileShowChatPane) {
+      return;
+    }
+
     if (
       isAppLocked ||
       isInitializingKeys ||
@@ -2358,6 +2496,8 @@ export function App() {
     activeUser.email,
     readReceiptMode,
     readMessageIds,
+    isIphoneFrame,
+    mobileShowChatPane,
   ]);
 
   const handleFeedScroll = useCallback(() => {
@@ -3558,6 +3698,13 @@ export function App() {
   // When Auto mode is active and the conversation is visible & unlocked, automatically emit
   // encrypted `chat.receipt` packets for any unread incoming messages in `activeChannel`.
   useEffect(() => {
+    const isMobileDeviceView =
+      isIphoneFrame ||
+      (typeof window !== 'undefined' && window.innerWidth <= 860);
+    if (isMobileDeviceView && !mobileShowChatPane) {
+      return;
+    }
+
     if (
       !isAtBottom ||
       readReceiptMode !== 'auto' ||
