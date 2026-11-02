@@ -374,6 +374,42 @@ const ALL_SEARCHABLE_EMOJIS: Array<{ emoji: string; keywords: string }> = [
   { emoji: '❗', keywords: 'exclamation mark alert' },
 ];
 
+/**
+ * Evaluates whether any chat messages extend below the visible viewport of the feed container.
+ * Returns false if:
+ * 1. The container does not have scrollable content (scrollHeight <= clientHeight).
+ * 2. The scroll position is already at or near the bottom (distanceFromBottom <= 36).
+ * 3. The latest message element's bottom is within or above the viewport's bottom.
+ */
+function checkHasChatsBelowViewport(feedEl: HTMLElement | null): boolean {
+  if (!feedEl) return false;
+
+  const scrollableDistance = feedEl.scrollHeight - feedEl.clientHeight;
+  if (scrollableDistance <= 8) {
+    return false;
+  }
+
+  const distanceFromBottom = scrollableDistance - feedEl.scrollTop;
+  const threshold = 36;
+  if (distanceFromBottom <= threshold) {
+    return false;
+  }
+
+  const feedRect = feedEl.getBoundingClientRect();
+  const messageElements = feedEl.querySelectorAll(
+    '.dc-imessage-row, .dc-system-event-pill'
+  );
+  if (messageElements.length > 0) {
+    const lastMessageEl = messageElements[messageElements.length - 1];
+    const msgRect = lastMessageEl.getBoundingClientRect();
+    if (msgRect.bottom <= feedRect.bottom + 20) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function App() {
   const [surfaceMode, setSurfaceMode] =
     useState<AppSurfaceMode>('messenger-ui');
@@ -966,6 +1002,10 @@ export function App() {
   const autoReadSentKeysRef = useRef<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
   const isScrolledToBottomRef = useRef<boolean>(true);
+  const isProgrammaticScrollingRef = useRef<boolean>(false);
+  const programmaticScrollTimerRef = useRef<number | null>(null);
+  const [hasChatsBelowViewport, setHasChatsBelowViewport] =
+    useState<boolean>(false);
   const [readMessageIds, setReadMessageIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -2503,11 +2543,17 @@ export function App() {
   const handleFeedScroll = useCallback(() => {
     const feedEl = freeflowFeedRef.current;
     if (!feedEl) return;
-    const threshold = 48;
-    const atBottom =
-      feedEl.scrollHeight - feedEl.scrollTop - feedEl.clientHeight <= threshold;
-    setIsAtBottom(atBottom);
-    isScrolledToBottomRef.current = atBottom;
+    const threshold = 36;
+    const scrollableDistance = feedEl.scrollHeight - feedEl.clientHeight;
+    const distanceFromBottom = scrollableDistance - feedEl.scrollTop;
+    const atBottom = scrollableDistance <= 8 || distanceFromBottom <= threshold;
+
+    if (!isProgrammaticScrollingRef.current) {
+      setIsAtBottom(atBottom);
+      isScrolledToBottomRef.current = atBottom;
+      const hasChatsBelow = checkHasChatsBelowViewport(feedEl);
+      setHasChatsBelowViewport(hasChatsBelow);
+    }
 
     if (atBottom) {
       void markActiveChannelAsRead();
@@ -2517,9 +2563,23 @@ export function App() {
   const handleSkipToLatest = useCallback(() => {
     const feedEl = freeflowFeedRef.current;
     if (!feedEl) return;
+    isProgrammaticScrollingRef.current = true;
     feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'smooth' });
     setIsAtBottom(true);
     isScrolledToBottomRef.current = true;
+    setHasChatsBelowViewport(false);
+    if (programmaticScrollTimerRef.current) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    }
+    programmaticScrollTimerRef.current = window.setTimeout(() => {
+      isProgrammaticScrollingRef.current = false;
+      if (freeflowFeedRef.current) {
+        const hasChatsBelow = checkHasChatsBelowViewport(freeflowFeedRef.current);
+        setHasChatsBelowViewport(hasChatsBelow);
+        setIsAtBottom(!hasChatsBelow);
+        isScrolledToBottomRef.current = !hasChatsBelow;
+      }
+    }, 350);
     void markActiveChannelAsRead();
   }, [markActiveChannelAsRead]);
 
@@ -2536,6 +2596,7 @@ export function App() {
     }
     setIsAtBottom(true);
     isScrolledToBottomRef.current = true;
+    setHasChatsBelowViewport(false);
   }, [activeUser.email]);
 
   // Handle scroll positioning on channel change and incoming messages:
@@ -2612,13 +2673,18 @@ export function App() {
               feedEl.querySelector('.dc-imessage-row.is-unread');
             if (target) {
               target.scrollIntoView({ block: 'center', behavior: 'auto' });
-              setIsAtBottom(false);
-              isScrolledToBottomRef.current = false;
+              requestAnimationFrame(() => {
+                const hasChatsBelow = checkHasChatsBelowViewport(feedEl);
+                setHasChatsBelowViewport(hasChatsBelow);
+                setIsAtBottom(!hasChatsBelow);
+                isScrolledToBottomRef.current = !hasChatsBelow;
+              });
               return;
             }
             feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
             setIsAtBottom(true);
             isScrolledToBottomRef.current = true;
+            setHasChatsBelowViewport(false);
           });
         });
         return;
@@ -2636,6 +2702,7 @@ export function App() {
           feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
           setIsAtBottom(true);
           isScrolledToBottomRef.current = true;
+          setHasChatsBelowViewport(false);
         });
       });
       return;
@@ -2657,13 +2724,28 @@ export function App() {
 
     // Scroll to bottom ONLY if the user just sent the message OR was already scrolled to the bottom
     if (userJustSent || isScrolledToBottomRef.current) {
+      isProgrammaticScrollingRef.current = true;
       requestAnimationFrame(() => {
-        feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'smooth' });
+        feedEl.scrollTo({ top: feedEl.scrollHeight, behavior: 'auto' });
         setIsAtBottom(true);
         isScrolledToBottomRef.current = true;
+        setHasChatsBelowViewport(false);
+        if (programmaticScrollTimerRef.current) {
+          window.clearTimeout(programmaticScrollTimerRef.current);
+        }
+        programmaticScrollTimerRef.current = window.setTimeout(() => {
+          isProgrammaticScrollingRef.current = false;
+        }, 120);
       });
     } else {
-      setIsAtBottom(false);
+      // The user was scrolled up reading earlier messages
+      // Only show skip button if there actually ARE chats below the visible viewport!
+      requestAnimationFrame(() => {
+        const hasChatsBelow = checkHasChatsBelowViewport(feedEl);
+        setHasChatsBelowViewport(hasChatsBelow);
+        setIsAtBottom(!hasChatsBelow);
+        isScrolledToBottomRef.current = !hasChatsBelow;
+      });
     }
   }, [
     activeChannel?.id,
@@ -2671,6 +2753,32 @@ export function App() {
     mobileShowChatPane,
     activeUser.email,
   ]);
+
+  // Keep `hasChatsBelowViewport` and `isAtBottom` accurately synced on feed container resize
+  useEffect(() => {
+    const feedEl = freeflowFeedRef.current;
+    if (!feedEl) return;
+
+    const updateScrollState = () => {
+      if (isProgrammaticScrollingRef.current) return;
+      const hasChatsBelow = checkHasChatsBelowViewport(feedEl);
+      setHasChatsBelowViewport(hasChatsBelow);
+      const scrollableDistance = feedEl.scrollHeight - feedEl.clientHeight;
+      const distanceFromBottom = scrollableDistance - feedEl.scrollTop;
+      const atBottom = scrollableDistance <= 8 || distanceFromBottom <= 36;
+      setIsAtBottom(atBottom);
+      isScrolledToBottomRef.current = atBottom;
+    };
+
+    const resizeObserver = new ResizeObserver(updateScrollState);
+    resizeObserver.observe(feedEl);
+    window.addEventListener('resize', updateScrollState);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [activeChannel?.id]);
 
   // Compute last message preview & timestamp for each conversation in the thread list
   // Strictly scoped to `userScopedChannels` (only conversations `activeUser` is in!)
@@ -6553,7 +6661,7 @@ export function App() {
             </div>
 
             {/* Floating Skip to Latest Button */}
-            {!isAtBottom && (
+            {hasChatsBelowViewport && (
               <button
                 type="button"
                 className="dc-skip-to-bottom-btn"
