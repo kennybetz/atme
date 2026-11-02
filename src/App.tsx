@@ -80,6 +80,8 @@ import {
   RawTransportEmail,
   ShieldedBurnerAlias,
   UserIdentity,
+  computeBurnerCascadeTimings,
+  BurnerCascadeItem,
 } from './protocol/types';
 import {
   encryptDcpPayloadAsymmetric,
@@ -158,6 +160,12 @@ interface FreeflowChatMessage {
     messageId: string;
     senderName: string;
     textSnippet: string;
+  };
+  burnerStatus?: {
+    isBurner: boolean;
+    isActive: boolean;
+    isQueued: boolean;
+    remainingSeconds: number;
   };
 }
 
@@ -415,7 +423,32 @@ export function App() {
     useState<AppSurfaceMode>('messenger-ui');
 
   const [users, setUsers] = useState<UserIdentity[]>(INITIAL_USERS);
-  const [channels, setChannels] = useState<DcpChannelMeta[]>(INITIAL_CHANNELS);
+  const [channels, setChannels] = useState<DcpChannelMeta[]>(() => {
+    try {
+      const raw = localStorage.getItem('dc_channels_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((c: DcpChannelMeta) => c.id));
+          const missing = INITIAL_CHANNELS.filter(
+            (c) => !existingIds.has(c.id)
+          );
+          return [...parsed, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_CHANNELS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dc_channels_v1', JSON.stringify(channels));
+    } catch {
+      // ignore
+    }
+  }, [channels]);
   const [activeUserEmail, setActiveUserEmail] = useState<string>(
     INITIAL_USERS[0].email
   );
@@ -1005,6 +1038,9 @@ export function App() {
   // Preserves Pin & Email Packet inspection features in codebase while hiding them in UI by default
   const showPinAndPacketControls = false;
   const [isComposerMultiline, setIsComposerMultiline] = useState<boolean>(false);
+  const [isNewChatBurner, setIsNewChatBurner] = useState<boolean>(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState<boolean>(false);
+  const addMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const actionMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const composerEmojiContainerRef = useRef<HTMLDivElement | null>(null);
   const headerMenuContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1021,7 +1057,14 @@ export function App() {
   const prevMobileShowChatPaneRef = useRef<boolean>(mobileShowChatPane);
   const [burnReadStartedAtMs, setBurnReadStartedAtMs] = useState<
     Record<string, number>
-  >({});
+  >(() => {
+    try {
+      const raw = localStorage.getItem('dc_burn_read_started');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [burnTickNowMs, setBurnTickNowMs] = useState<number>(() => Date.now());
   const [readReceiptMode, setReadReceiptMode] = useState<'auto' | 'manual'>(
     'auto'
@@ -1250,18 +1293,26 @@ export function App() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Dismiss composer '+' menu, quick emoji picker, top-right header menu, or left avatar menu on outside click/touch or Escape key
+  // Dismiss composer '+' menu, quick emoji picker, top-right header menu, main menu '+' add menu, or left avatar menu on outside click/touch or Escape key
   useEffect(() => {
     if (
       !isPlusMenuOpen &&
       !isComposerEmojiOpen &&
       !isHeaderMenuOpen &&
-      !isAvatarMenuOpen
+      !isAvatarMenuOpen &&
+      !isAddMenuOpen
     ) {
       return;
     }
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
+      if (
+        isAddMenuOpen &&
+        addMenuContainerRef.current &&
+        !addMenuContainerRef.current.contains(target)
+      ) {
+        setIsAddMenuOpen(false);
+      }
       if (
         isPlusMenuOpen &&
         actionMenuContainerRef.current &&
@@ -1293,6 +1344,7 @@ export function App() {
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        setIsAddMenuOpen(false);
         setIsPlusMenuOpen(false);
         setIsComposerEmojiOpen(false);
         setIsHeaderMenuOpen(false);
@@ -2333,6 +2385,30 @@ export function App() {
     const messages: FreeflowChatMessage[] = [];
     if (!activeChannel) return messages;
 
+    const isBurnerChat = Boolean(activeChannel.isBurner);
+
+    // If burner chat, precompute cascade timings across chronologically sorted channel messages
+    let burnerTimingMap = new Map<string, BurnerCascadeItem>();
+    if (isBurnerChat) {
+      const channelMessages = chronologicallySorted
+        .map((i) => i.decryptedPacket!)
+        .filter(
+          (pkt) =>
+            pkt &&
+            pkt.channel.id === activeChannel.id &&
+            (pkt.type === 'chat.message' || pkt.type === 'chat.poll')
+        );
+
+      burnerTimingMap = computeBurnerCascadeTimings(
+        channelMessages.map((p) => ({
+          messageId: p.payload.messageId,
+          viewedAtMs: burnReadStartedAtMs[p.payload.messageId],
+        })),
+        burnTickNowMs,
+        20
+      );
+    }
+
     for (const item of chronologicallySorted) {
       const pkt = item.decryptedPacket!;
       if (pkt.channel.id !== activeChannel.id) continue;
@@ -2349,20 +2425,47 @@ export function App() {
         : undefined;
 
       const msgReceipts = receiptsByTargetId.get(pkt.payload.messageId) || [];
-      const ttlSec =
-        pkt.payload.ephemeralTtlSeconds ||
-        activeChannel.ephemeralTimerSeconds ||
-        0;
+      const msgId = pkt.payload.messageId;
 
-      // Filter out Burn-After-Reading messages whose TTL has expired after being read
-      if (ttlSec > 0) {
-        const startMs =
-          burnReadStartedAtMs[pkt.payload.messageId] ||
-          (msgReceipts.length > 0
-            ? new Date(msgReceipts[0].readAtIso || pkt.sentAt).getTime()
-            : 0);
-        if (startMs > 0 && burnTickNowMs - startMs >= ttlSec * 1000) {
-          continue;
+      let burnerStatus: FreeflowChatMessage['burnerStatus'] = undefined;
+
+      if (isBurnerChat) {
+        const timing = burnerTimingMap.get(msgId);
+        if (timing) {
+          if (timing.isExpired) {
+            // Cascade deleted after 20 seconds!
+            continue;
+          }
+          burnerStatus = {
+            isBurner: true,
+            isActive: timing.isActive,
+            isQueued: timing.isQueued,
+            remainingSeconds: timing.remainingSeconds,
+          };
+        } else {
+          burnerStatus = {
+            isBurner: true,
+            isActive: false,
+            isQueued: true,
+            remainingSeconds: 20,
+          };
+        }
+      } else {
+        const ttlSec =
+          pkt.payload.ephemeralTtlSeconds ||
+          activeChannel.ephemeralTimerSeconds ||
+          0;
+
+        // Filter out Burn-After-Reading messages whose TTL has expired after being read
+        if (ttlSec > 0) {
+          const startMs =
+            burnReadStartedAtMs[msgId] ||
+            (msgReceipts.length > 0
+              ? new Date(msgReceipts[0].readAtIso || pkt.sentAt).getTime()
+              : 0);
+          if (startMs > 0 && burnTickNowMs - startMs >= ttlSec * 1000) {
+            continue;
+          }
         }
       }
 
@@ -2378,6 +2481,7 @@ export function App() {
         reactions: reactionsByTargetId.get(pkt.payload.messageId) || [],
         receipts: msgReceipts,
         pollVotes,
+        burnerStatus,
         quotedMessage:
           quoted && pkt.payload.replyToMessageId
             ? {
@@ -2826,7 +2930,24 @@ export function App() {
               new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
           );
 
-        const lastPacket = matchingPackets[0];
+        let validPackets = matchingPackets;
+        if (ch.isBurner) {
+          const chron = [...matchingPackets].reverse();
+          const cascadeMap = computeBurnerCascadeTimings(
+            chron.map((p) => ({
+              messageId: p.payload.messageId,
+              viewedAtMs: burnReadStartedAtMs[p.payload.messageId],
+            })),
+            burnTickNowMs,
+            20
+          );
+          validPackets = matchingPackets.filter((p) => {
+            const timing = cascadeMap.get(p.payload.messageId);
+            return timing ? !timing.isExpired : true;
+          });
+        }
+
+        const lastPacket = validPackets[0];
         const peerEmail =
           ch.participants.find(
             (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
@@ -2840,7 +2961,9 @@ export function App() {
           channel: ch,
           lastText:
             lastPacket?.payload.text ||
-            (ch.type === 'vault'
+            (ch.isBurner
+              ? '🔥 Burner Chat (20s cascade)'
+              : ch.type === 'vault'
               ? '📌 Notes'
               : ch.type === 'dm'
               ? '💬 Chat'
@@ -2873,6 +2996,8 @@ export function App() {
     activeUser,
     users,
     channelUnreadCountMap,
+    burnReadStartedAtMs,
+    burnTickNowMs,
   ]);
 
   // Contacts matching the search input
@@ -2958,6 +3083,18 @@ export function App() {
         .toString(36)
         .slice(2, 6)}`;
       const msgId = `msg_${Date.now().toString(36)}`;
+
+      if (params.channel.isBurner) {
+        setBurnReadStartedAtMs((prev) => {
+          const next = { ...prev, [msgId]: Date.now() };
+          try {
+            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
+          } catch {
+            // ignore
+          }
+          return next;
+        });
+      }
 
       const hasUnregisteredParticipant = params.channel.participants.some(
         (email) => {
@@ -3905,6 +4042,66 @@ export function App() {
     activeUser.email,
   ]);
 
+  // Burner Chat Active Auto-View: when active channel is a burner chat, immediately
+  // record viewing timestamp for all unread messages in the active channel to begin their sequential cascade.
+  useEffect(() => {
+    if (!activeChannel || !activeChannel.isBurner) return;
+    if (isMobileDeviceView && !mobileShowChatPane) return;
+    if (isAppLocked || isInitializingKeys || surfaceMode !== 'messenger-ui') return;
+
+    const channelPackets = acceptedPackets
+      .map((i) => i.decryptedPacket!)
+      .filter(
+        (pkt) =>
+          pkt &&
+          pkt.channel.id === activeChannel.id &&
+          (pkt.type === 'chat.message' || pkt.type === 'chat.poll')
+      );
+
+    if (channelPackets.length === 0) return;
+
+    const now = Date.now();
+    const missing: Record<string, number> = {};
+    let hasMissing = false;
+
+    for (const pkt of channelPackets) {
+      const msgId = pkt.payload.messageId;
+      if (!burnReadStartedAtMs[msgId]) {
+        missing[msgId] = now;
+        hasMissing = true;
+      }
+    }
+
+    if (hasMissing) {
+      setBurnReadStartedAtMs((prev) => {
+        const next = { ...prev, ...missing };
+        try {
+          localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    }
+  }, [
+    activeChannel?.id,
+    activeChannel?.isBurner,
+    acceptedPackets,
+    isMobileDeviceView,
+    mobileShowChatPane,
+    isAppLocked,
+    isInitializingKeys,
+    surfaceMode,
+    burnReadStartedAtMs,
+  ]);
+
+  // Lock ephemeral countdown timer to 20s whenever activeChannel is a permanent Burner Chat
+  useEffect(() => {
+    if (activeChannel?.isBurner) {
+      setComposerBurnSeconds(20);
+    }
+  }, [activeChannel?.id, activeChannel?.isBurner]);
+
   /**
    * Remote Cryptographic Key Shredding & IndexedDB Scrub (`chat.shred-request` + `chat.shred-ack`)
    *
@@ -4214,7 +4411,7 @@ export function App() {
     });
   }
 
-  // Start or jump to a 1-on-1 DM with any Contact
+  // Start or jump to a regular 1-on-1 DM with any Contact
   function handleStartOrOpenContactChat(email: string) {
     const targetEmail = email.trim().toLowerCase();
     if (!targetEmail) return;
@@ -4222,6 +4419,7 @@ export function App() {
     const existingDm = channels.find(
       (c) =>
         c.type === 'dm' &&
+        !c.isBurner &&
         c.participants.some((p) => p.toLowerCase() === targetEmail) &&
         c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
@@ -4268,6 +4466,102 @@ export function App() {
     openMobileChat(dmCh.id);
   }
 
+  // Start or jump to a 1-on-1 Burner Chat with any Contact (20s sequential cascade delete)
+  function handleStartOrOpenBurnerContactChat(email: string) {
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail) return;
+
+    const existingBurnerDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        c.isBurner &&
+        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+
+    if (existingBurnerDm) {
+      setContactSearchQuery('');
+      menuDirectoryDialogRef.current?.close();
+      openMobileChat(existingBurnerDm.id);
+      return;
+    }
+
+    let existingUser = users.find(
+      (u) => u.email.toLowerCase() === targetEmail
+    );
+    if (!existingUser) {
+      const displayName = targetEmail.split('@')[0];
+      existingUser = {
+        email: targetEmail,
+        displayName: `${displayName} (No App Yet)`,
+        handle: `@${displayName.replace(/[^a-z0-9]/gi, '')}`,
+        provider: targetEmail.includes('proton')
+          ? 'proton'
+          : targetEmail.includes('outlook')
+          ? 'outlook'
+          : targetEmail.includes('gmail')
+          ? 'gmail'
+          : 'yahoo',
+        hasAppInstalled: false,
+      };
+      setUsers((prev) => [...prev, existingUser!]);
+    }
+
+    const burnerDmCh: DcpChannelMeta = {
+      id: `burner_dm_${Date.now().toString(36)}`,
+      type: 'dm',
+      name: `${existingUser.displayName.replace(' (No App Yet)', '')} (Burner)`,
+      participants: [activeUser.email, existingUser.email],
+      isBurner: true,
+      ephemeralTimerSeconds: 20,
+    };
+    setChannels((prev) => [burnerDmCh, ...prev]);
+    setContactSearchQuery('');
+    menuDirectoryDialogRef.current?.close();
+    openMobileChat(burnerDmCh.id);
+  }
+
+  // Start or jump to a Burner Group Chat for an existing group (20s sequential cascade delete)
+  function handleStartOrOpenBurnerGroupChat(sourceGroup: DcpChannelMeta) {
+    if (sourceGroup.isBurner) {
+      menuDirectoryDialogRef.current?.close();
+      openMobileChat(sourceGroup.id);
+      return;
+    }
+
+    const burnerName = sourceGroup.name.endsWith('-burner')
+      ? sourceGroup.name
+      : `${sourceGroup.name}-burner`;
+
+    const existingBurnerGroup = channels.find(
+      (c) =>
+        c.type === 'workspace-channel' &&
+        c.isBurner &&
+        (c.name.toLowerCase() === burnerName.toLowerCase() ||
+          c.id === `burner_${sourceGroup.id}`)
+    );
+
+    if (existingBurnerGroup) {
+      menuDirectoryDialogRef.current?.close();
+      openMobileChat(existingBurnerGroup.id);
+      return;
+    }
+
+    const burnerGroupCh: DcpChannelMeta = {
+      id: `burner_${sourceGroup.id}_${Date.now().toString(36)}`,
+      type: 'workspace-channel',
+      name: burnerName,
+      participants: [...sourceGroup.participants],
+      isBurner: true,
+      ephemeralTimerSeconds: 20,
+    };
+    setChannels((prev) => [burnerGroupCh, ...prev]);
+    menuDirectoryDialogRef.current?.close();
+    openMobileChat(burnerGroupCh.id);
+  }
+
   // Send message from the Free-Flowing Messenger Composer
   async function handleMessengerSend(
     e?: React.FormEvent | React.KeyboardEvent
@@ -4280,8 +4574,9 @@ export function App() {
       composerText.trim() ||
       `Sent ${pendingAttachments.length} encrypted attachment(s)`;
     const linkPreview = extractClientSideLinkPreview(cleanText);
-    const effectiveBurnSec =
-      composerBurnSeconds || activeChannel.ephemeralTimerSeconds || undefined;
+    const effectiveBurnSec = activeChannel.isBurner
+      ? 20
+      : composerBurnSeconds || activeChannel.ephemeralTimerSeconds || undefined;
 
     await dispatchDcpEmailPacket({
       channel: activeChannel,
@@ -4499,21 +4794,30 @@ export function App() {
     }
 
     if (newChatType === 'workspace-channel') {
-      const id = `ch_custom_${Date.now().toString(36)}`;
-      const cleanName =
+      const id = isNewChatBurner
+        ? `burner_ch_${Date.now().toString(36)}`
+        : `ch_custom_${Date.now().toString(36)}`;
+      let cleanName =
         newChatName
           .trim()
           .toLowerCase()
-          .replace(/[^a-z0-9-]/g, '-') || 'new-group';
+          .replace(/[^a-z0-9-]/g, '-') ||
+        (isNewChatBurner ? 'burner-group' : 'new-group');
+      if (isNewChatBurner && !cleanName.endsWith('-burner')) {
+        cleanName = `${cleanName}-burner`;
+      }
       const newCh: DcpChannelMeta = {
         id,
         type: 'workspace-channel',
         name: cleanName,
         participants: users.filter((u) => u.hasAppInstalled).map((u) => u.email),
         shieldedAliasEmail: createdAliasEmail,
+        isBurner: isNewChatBurner,
+        ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
       };
       setChannels((prev) => [newCh, ...prev]);
       setNewChatName('');
+      setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
       openMobileChat(newCh.id);
@@ -4542,15 +4846,40 @@ export function App() {
         setUsers((prev) => [...prev, existingUser!]);
       }
 
+      const existingDm = channels.find(
+        (c) =>
+          c.type === 'dm' &&
+          Boolean(c.isBurner) === Boolean(isNewChatBurner) &&
+          c.participants.some((p) => p.toLowerCase() === targetEmail) &&
+          c.participants.some(
+            (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+          )
+      );
+
+      if (existingDm) {
+        setNewChatRecipientEmail('');
+        setIsNewChatBurner(false);
+        newChannelModalRef.current?.close();
+        menuDirectoryDialogRef.current?.close();
+        openMobileChat(existingDm.id);
+        return;
+      }
+
+      const rawName = existingUser.displayName.replace(' (No App Yet)', '');
       const dmCh: DcpChannelMeta = {
-        id: `dm_${Date.now().toString(36)}`,
+        id: isNewChatBurner
+          ? `burner_dm_${Date.now().toString(36)}`
+          : `dm_${Date.now().toString(36)}`,
         type: 'dm',
-        name: existingUser.displayName.replace(' (No App Yet)', ''),
+        name: isNewChatBurner ? `${rawName} (Burner)` : rawName,
         participants: [activeUser.email, existingUser.email],
         shieldedAliasEmail: createdAliasEmail,
+        isBurner: isNewChatBurner,
+        ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
       };
       setChannels((prev) => [dmCh, ...prev]);
       setNewChatRecipientEmail('');
+      setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
       openMobileChat(dmCh.id);
@@ -5072,18 +5401,95 @@ export function App() {
                     <QrCode size={15} />
                   </button>
 
-                  <button
-                    type="button"
-                    className="dc-compose-circle-btn"
-                    onClick={() => {
-                      setNewChatType('dm');
-                      newChannelModalRef.current?.showModal();
-                    }}
-                    title="New Message"
-                    aria-label="New Message"
+                  <div
+                    className="dc-add-menu-wrap"
+                    ref={addMenuContainerRef}
                   >
-                    <Plus size={16} />
-                  </button>
+                    <button
+                      type="button"
+                      className={`dc-compose-circle-btn ${isAddMenuOpen ? 'active' : ''}`}
+                      onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                      title="New Message or Burner Chat"
+                      aria-label="New Message or Burner Chat"
+                      aria-expanded={isAddMenuOpen}
+                    >
+                      <Plus size={16} />
+                    </button>
+
+                    {isAddMenuOpen && (
+                      <div className="dc-add-menu-dropdown" role="menu">
+                        <button
+                          type="button"
+                          className="dc-add-menu-item"
+                          onClick={() => {
+                            setIsAddMenuOpen(false);
+                            setNewChatType('dm');
+                            setIsNewChatBurner(false);
+                            newChannelModalRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-add-menu-icon">💬</span>
+                          <div className="dc-add-menu-text">
+                            <strong>New Message</strong>
+                            <small>Start regular direct message</small>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-add-menu-item dc-add-menu-item-burner"
+                          onClick={() => {
+                            setIsAddMenuOpen(false);
+                            setNewChatType('dm');
+                            setIsNewChatBurner(true);
+                            newChannelModalRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-add-menu-icon">🔥</span>
+                          <div className="dc-add-menu-text">
+                            <strong>New Burner Chat</strong>
+                            <small>20s cascade sequential self-destruct</small>
+                          </div>
+                        </button>
+
+                        <div className="dc-add-menu-divider" />
+
+                        <button
+                          type="button"
+                          className="dc-add-menu-item"
+                          onClick={() => {
+                            setIsAddMenuOpen(false);
+                            setNewChatType('workspace-channel');
+                            setIsNewChatBurner(false);
+                            newChannelModalRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-add-menu-icon">👥</span>
+                          <div className="dc-add-menu-text">
+                            <strong>New Group</strong>
+                            <small>Multi-person encrypted group</small>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dc-add-menu-item dc-add-menu-item-burner"
+                          onClick={() => {
+                            setIsAddMenuOpen(false);
+                            setNewChatType('workspace-channel');
+                            setIsNewChatBurner(true);
+                            newChannelModalRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-add-menu-icon">🔥</span>
+                          <div className="dc-add-menu-text">
+                            <strong>New Burner Group</strong>
+                            <small>Group with 20s cascade self-destruct</small>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Single Consolidated Avatar Menu */}
                   <div
@@ -5506,7 +5912,9 @@ export function App() {
                         type="button"
                         className={`dc-thread-card ${isActive ? 'active' : ''} ${
                           isVault ? 'vault-thread-card' : ''
-                        } ${unreadCount > 0 ? 'has-unread' : ''}`}
+                        } ${ch.isBurner ? 'burner-thread-card' : ''} ${
+                          unreadCount > 0 ? 'has-unread' : ''
+                        }`}
                         onClick={() => {
                           openMobileChat(ch.id);
                         }}
@@ -5520,7 +5928,9 @@ export function App() {
                         ) : (
                           <div
                             className={`dc-thread-avatar ${
-                              isVault
+                              ch.isBurner
+                                ? 'burner-avatar'
+                                : isVault
                                 ? 'vault-avatar'
                                 : isGroup
                                 ? 'group-avatar'
@@ -5529,7 +5939,9 @@ export function App() {
                                 : 'invite-avatar'
                             }`}
                           >
-                            {isVault ? (
+                            {ch.isBurner ? (
+                              <Flame size={17} className="dc-flame-fire-icon" />
+                            ) : isVault ? (
                               <Bookmark size={17} />
                             ) : isGroup ? (
                               <Users size={18} />
@@ -5544,6 +5956,14 @@ export function App() {
                         <div className="dc-thread-card-body">
                           <div className="dc-thread-card-top">
                             <span className="dc-thread-title">
+                              {ch.isBurner && (
+                                <span
+                                  className="dc-burner-badge-card"
+                                  title="Burner Chat (20s cascade)"
+                                >
+                                  🔥
+                                </span>
+                              )}
                               {isVault
                                 ? 'Saved Notes (@me)'
                                 : isGroup
@@ -5667,7 +6087,11 @@ export function App() {
                       onClick={() => groupInfoDialogRef.current?.showModal()}
                       title="Conversation participants"
                     >
-                      {activeChannel.type === 'vault' ? (
+                      {activeChannel.isBurner ? (
+                        <div className="dc-header-avatar burner-avatar">
+                          <Flame size={17} className="dc-flame-fire-icon" />
+                        </div>
+                      ) : activeChannel.type === 'vault' ? (
                         <div className="dc-header-avatar vault-avatar">
                           <Bookmark size={16} />
                         </div>
@@ -5688,7 +6112,17 @@ export function App() {
                         </div>
                       )}
                       <div>
-                        <h2>{activeChannelDisplayTitle}</h2>
+                        <h2>
+                          {activeChannel.isBurner && (
+                            <span
+                              className="dc-burner-title-badge"
+                              title="Burner Chat (20s cascade sequential self-destruct)"
+                            >
+                              🔥
+                            </span>
+                          )}
+                          {activeChannelDisplayTitle}
+                        </h2>
                       </div>
                     </div>
                   </div>
@@ -6602,15 +7036,41 @@ export function App() {
 
                         {/* Subtle Status Footnote (Whisper-quiet Checkmarks & Burn Countdown when applicable) */}
                         {(isOwn ||
+                          Boolean(msg.burnerStatus?.isBurner) ||
                           Boolean(
                             msg.packet.payload.ephemeralTtlSeconds &&
                               msg.packet.payload.ephemeralTtlSeconds > 0
                           )) && (
                           <div className="dc-subtle-status-row">
-                            {Boolean(
+                            {msg.burnerStatus?.isBurner ? (
+                              <span
+                                className={`dc-burn-countdown-badge ${
+                                  msg.burnerStatus.isActive
+                                    ? 'dc-burner-active-badge'
+                                    : 'dc-burner-queued-badge'
+                                }`}
+                                title={
+                                  msg.burnerStatus.isActive
+                                    ? `Cascade active: deletes in ${msg.burnerStatus.remainingSeconds}s`
+                                    : 'In queue: starts 20s burn after previous message is deleted'
+                                }
+                              >
+                                <Flame
+                                  size={11}
+                                  className={
+                                    msg.burnerStatus.isActive
+                                      ? 'dc-flame-active-glow'
+                                      : 'dc-flame-queued-icon'
+                                  }
+                                />{' '}
+                                {msg.burnerStatus.isActive
+                                  ? `${msg.burnerStatus.remainingSeconds}s`
+                                  : '⏳ queued (20s)'}
+                              </span>
+                            ) : Boolean(
                               msg.packet.payload.ephemeralTtlSeconds &&
                                 msg.packet.payload.ephemeralTtlSeconds > 0
-                            ) && (
+                            ) ? (
                               <span
                                 className="dc-burn-countdown-badge"
                                 title="Burn-After-Reading self-destruct timer"
@@ -6640,7 +7100,7 @@ export function App() {
                                     })()
                                   : `${msg.packet.payload.ephemeralTtlSeconds}s`}
                               </span>
-                            )}
+                            ) : null}
 
                             {isOwn && (
                               <span
@@ -6787,32 +7247,48 @@ export function App() {
                 </div>
               )}
 
-              {composerBurnSeconds > 0 && (
-                <div className="dc-composer-active-burn-bar">
+              {(composerBurnSeconds > 0 || activeChannel.isBurner) && (
+                <div
+                  className={`dc-composer-active-burn-bar ${
+                    activeChannel.isBurner ? 'is-locked-burner' : ''
+                  }`}
+                >
                   <span>
-                    <Flame size={13} /> ⏱️{' '}
+                    <Flame
+                      size={13}
+                      className={activeChannel.isBurner ? 'dc-flame-fire-icon' : ''}
+                    />{' '}
                     <strong>
-                      {composerBurnSeconds === 20
-                        ? '20s'
-                        : composerBurnSeconds === 60
-                        ? '1m'
-                        : composerBurnSeconds === 300
-                        ? '5m'
-                        : composerBurnSeconds === 15
-                        ? '15s'
-                        : composerBurnSeconds === 3600
-                        ? '1h'
-                        : '24h'}
+                      {activeChannel.isBurner
+                        ? '🔥 Burner Chat (20s Cascade)'
+                        : `⏱️ ${
+                            composerBurnSeconds === 20
+                              ? '20s'
+                              : composerBurnSeconds === 60
+                              ? '1m'
+                              : composerBurnSeconds === 300
+                              ? '5m'
+                              : composerBurnSeconds === 15
+                              ? '15s'
+                              : composerBurnSeconds === 3600
+                              ? '1h'
+                              : '24h'
+                          }`}
                     </strong>
+                    {activeChannel.isBurner && (
+                      <small className="dc-locked-tag">🔒 Locked (20s)</small>
+                    )}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setComposerBurnSeconds(0)}
-                    aria-label="Clear burn timer"
-                    title="Turn off timer"
-                  >
-                    <X size={13} />
-                  </button>
+                  {!activeChannel.isBurner && (
+                    <button
+                      type="button"
+                      onClick={() => setComposerBurnSeconds(0)}
+                      aria-label="Clear burn timer"
+                      title="Turn off timer"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -6930,39 +7406,46 @@ export function App() {
                         >
                           <Timer size={16} />
                         </span>
-                        <div className="dc-action-menu-burn-pills">
-                          {(
-                            [
-                              { value: 0, label: 'Off' },
-                              { value: 20, label: '20s' },
-                              { value: 60, label: '1m' },
-                              { value: 300, label: '5m' },
-                            ] as const
-                          ).map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              className={`dc-burn-option-chip ${
-                                composerBurnSeconds === opt.value
-                                  ? 'is-selected'
-                                  : ''
-                              }`}
-                              title={
-                                opt.value === 0
-                                  ? 'Timer Off'
-                                  : `Self-destruct: ${opt.label}`
-                              }
-                              onClick={() => {
-                                setComposerBurnSeconds(
-                                  opt.value as EphemeralTimerSeconds
-                                );
-                                setIsPlusMenuOpen(false);
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
+                        {activeChannel.isBurner ? (
+                          <div className="dc-action-menu-burn-locked">
+                            <Flame size={14} className="dc-flame-fire-icon" />
+                            <span>🔥 20s Cascade Burner (Locked)</span>
+                          </div>
+                        ) : (
+                          <div className="dc-action-menu-burn-pills">
+                            {(
+                              [
+                                { value: 0, label: 'Off' },
+                                { value: 20, label: '20s' },
+                                { value: 60, label: '1m' },
+                                { value: 300, label: '5m' },
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className={`dc-burn-option-chip ${
+                                  composerBurnSeconds === opt.value
+                                    ? 'is-selected'
+                                    : ''
+                                }`}
+                                title={
+                                  opt.value === 0
+                                    ? 'Timer Off'
+                                    : `Self-destruct: ${opt.label}`
+                                }
+                                onClick={() => {
+                                  setComposerBurnSeconds(
+                                    opt.value as EphemeralTimerSeconds
+                                  );
+                                  setIsPlusMenuOpen(false);
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -8812,16 +9295,31 @@ export function App() {
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
                 <h3>💬 Groups</h3>
-                <button
-                  type="button"
-                  className="dc-pill-action-btn"
-                  onClick={() => {
-                    setNewChatType('workspace-channel');
-                    newChannelModalRef.current?.showModal();
-                  }}
-                >
-                  ➕ Group
-                </button>
+                <div className="dc-menu-section-head-actions">
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn dc-burner-pill-btn"
+                    onClick={() => {
+                      setNewChatType('workspace-channel');
+                      setIsNewChatBurner(true);
+                      newChannelModalRef.current?.showModal();
+                    }}
+                    title="New Burner Group"
+                  >
+                    🔥 Burner
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn"
+                    onClick={() => {
+                      setNewChatType('workspace-channel');
+                      setIsNewChatBurner(false);
+                      newChannelModalRef.current?.showModal();
+                    }}
+                  >
+                    ➕ Group
+                  </button>
+                </div>
               </div>
 
               <div className="dc-menu-list">
@@ -8836,9 +9334,16 @@ export function App() {
                           openMobileChat(ch.id);
                         }}
                       >
-                        <Hash size={16} />
+                        {ch.isBurner ? (
+                          <Flame size={16} className="dc-flame-fire-icon" />
+                        ) : (
+                          <Hash size={16} />
+                        )}
                         <div>
-                          <strong>#{ch.name}</strong>
+                          <strong>
+                            {ch.isBurner ? '🔥 ' : '#'}
+                            {ch.name}
+                          </strong>
                           <span>
                             👥{' '}
                             {
@@ -8848,24 +9353,37 @@ export function App() {
                                   activeUser.email.toLowerCase()
                               ).length
                             }
+                            {ch.isBurner && ' • 🔥 20s Burner'}
                           </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="dc-btn-ghost"
-                        onClick={() => {
-                          setActiveChannelId(ch.id);
-                          menuDirectoryDialogRef.current?.close();
-                          groupInfoDialogRef.current?.showModal();
-                        }}
-                        title="People"
-                      >
-                        <UserPlus size={13} />
-                        {ch.participants.length > 2 && (
-                          <span>({ch.participants.length})</span>
-                        )}
-                      </button>
+                      <div className="dc-menu-item-actions">
+                        <button
+                          type="button"
+                          className="dc-btn-ghost dc-btn-burner-icon"
+                          onClick={() => handleStartOrOpenBurnerGroupChat(ch)}
+                          title="Start Burner Group Chat (20s Cascade)"
+                          aria-label={`Start Burner Group Chat for #${ch.name}`}
+                        >
+                          🔥
+                        </button>
+                        <button
+                          type="button"
+                          className="dc-btn-ghost"
+                          onClick={() => {
+                            setActiveChannelId(ch.id);
+                            menuDirectoryDialogRef.current?.close();
+                            groupInfoDialogRef.current?.showModal();
+                          }}
+                          title="People"
+                          aria-label="Group members"
+                        >
+                          <UserPlus size={13} />
+                          {ch.participants.length > 2 && (
+                            <span>({ch.participants.length})</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -8875,16 +9393,31 @@ export function App() {
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
                 <h3>👋 Friends</h3>
-                <button
-                  type="button"
-                  className="dc-pill-action-btn"
-                  onClick={() => {
-                    setNewChatType('dm');
-                    newChannelModalRef.current?.showModal();
-                  }}
-                >
-                  ➕ Friend
-                </button>
+                <div className="dc-menu-section-head-actions">
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn dc-burner-pill-btn"
+                    onClick={() => {
+                      setNewChatType('dm');
+                      setIsNewChatBurner(true);
+                      newChannelModalRef.current?.showModal();
+                    }}
+                    title="New Burner Chat"
+                  >
+                    🔥 Burner
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn"
+                    onClick={() => {
+                      setNewChatType('dm');
+                      setIsNewChatBurner(false);
+                      newChannelModalRef.current?.showModal();
+                    }}
+                  >
+                    ➕ Friend
+                  </button>
+                </div>
               </div>
 
               <div className="dc-menu-list">
@@ -8914,15 +9447,30 @@ export function App() {
                           </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="dc-btn-ghost"
-                        onClick={() =>
-                          handleStartOrOpenContactChat(contact.email)
-                        }
-                      >
-                        💬
-                      </button>
+                      <div className="dc-menu-item-actions">
+                        <button
+                          type="button"
+                          className="dc-btn-ghost dc-btn-burner-icon"
+                          onClick={() =>
+                            handleStartOrOpenBurnerContactChat(contact.email)
+                          }
+                          title="Start Burner Chat (20s Cascade)"
+                          aria-label={`Start Burner Chat with ${contact.displayName}`}
+                        >
+                          🔥
+                        </button>
+                        <button
+                          type="button"
+                          className="dc-btn-ghost"
+                          onClick={() =>
+                            handleStartOrOpenContactChat(contact.email)
+                          }
+                          title="Start regular chat"
+                          aria-label={`Chat with ${contact.displayName}`}
+                        >
+                          💬
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -9158,16 +9706,58 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={newChannelDialogTitleId}>
+              {isNewChatBurner ? '🔥 ' : ''}
               {newChatType === 'workspace-channel'
-                ? '👥 New Group'
+                ? isNewChatBurner
+                  ? 'New Burner Group'
+                  : '👥 New Group'
+                : isNewChatBurner
+                ? 'New Burner Chat'
                 : '💬 New Chat'}
             </h2>
             <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
+              <button
+                type="submit"
+                className="dc-icon-btn"
+                aria-label="Close"
+                onClick={() => setIsNewChatBurner(false)}
+              >
                 <X size={16} />
               </button>
             </form>
           </div>
+
+          <div className="dc-chat-mode-toggle">
+            <button
+              type="button"
+              className={`dc-mode-chip ${!isNewChatBurner ? 'is-active' : ''}`}
+              onClick={() => setIsNewChatBurner(false)}
+            >
+              💬 Regular Chat
+            </button>
+            <button
+              type="button"
+              className={`dc-mode-chip ${
+                isNewChatBurner ? 'is-active is-burner' : ''
+              }`}
+              onClick={() => setIsNewChatBurner(true)}
+            >
+              🔥 Burner (20s Cascade)
+            </button>
+          </div>
+
+          {isNewChatBurner && (
+            <div className="dc-burner-modal-notice">
+              <Flame size={15} className="dc-flame-fire-icon" />
+              <span>
+                <strong>Sequential Cascade Burner:</strong> Each message
+                permanently deletes 20 seconds after viewed. The next
+                message&apos;s 20s countdown starts only when the previous
+                message is deleted (e.g. 3 messages take 60s total). Cannot be
+                deactivated once created.
+              </span>
+            </div>
+          )}
 
           <form
             className="dc-modal-form"
@@ -9181,7 +9771,9 @@ export function App() {
                   type="text"
                   value={newChatName}
                   onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder="squad-chat"
+                  placeholder={
+                    isNewChatBurner ? 'secret-squad-burner' : 'squad-chat'
+                  }
                   required
                 />
               </div>
@@ -9202,9 +9794,18 @@ export function App() {
             )}
 
             <div className="dc-modal-actions">
-              <button type="submit" className="dc-btn-send">
+              <button
+                type="submit"
+                className={`dc-btn-send ${
+                  isNewChatBurner ? 'dc-btn-burner-send' : ''
+                }`}
+              >
                 {newChatType === 'workspace-channel'
-                  ? '🚀 Create Group'
+                  ? isNewChatBurner
+                    ? '🔥 Create Burner Group'
+                    : '🚀 Create Group'
+                  : isNewChatBurner
+                  ? '🔥 Start Burner Chat'
                   : '🚀 Start Chat'}
               </button>
             </div>

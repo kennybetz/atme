@@ -20,7 +20,11 @@ import {
   inspectAndDecryptEmail,
   isDontCallFormattedEmail,
 } from './protocol/mimeParser';
-import { DCP_PROTOCOL_VERSION, DcpPacket } from './protocol/types';
+import {
+  computeBurnerCascadeTimings,
+  DCP_PROTOCOL_VERSION,
+  DcpPacket,
+} from './protocol/types';
 import { createSampleRegularEmails } from './store/seedEmails';
 import {
   discoverCustomDomainEmailConfig,
@@ -617,5 +621,58 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(
       decryptedPoll.decryptedPacket?.payload.poll?.options[0].text
     ).toBe('Burn-After-Reading Timers');
+  });
+
+  it('implements sequential cascade deletion for Burner Chats (20s per message, 3 messages = 60s total)', () => {
+    const baseTime = 1000000;
+    const messages = [
+      { messageId: 'm1', viewedAtMs: baseTime },
+      { messageId: 'm2', viewedAtMs: baseTime },
+      { messageId: 'm3', viewedAtMs: baseTime },
+    ];
+
+    // At T = 0s (baseTime): m1 is active (20s remaining); m2 and m3 are queued
+    const t0 = computeBurnerCascadeTimings(messages, baseTime, 20);
+    expect(t0.get('m1')?.isActive).toBe(true);
+    expect(t0.get('m1')?.isQueued).toBe(false);
+    expect(t0.get('m1')?.isExpired).toBe(false);
+    expect(t0.get('m1')?.remainingSeconds).toBe(20);
+
+    expect(t0.get('m2')?.isActive).toBe(false);
+    expect(t0.get('m2')?.isQueued).toBe(true);
+    expect(t0.get('m2')?.isExpired).toBe(false);
+
+    expect(t0.get('m3')?.isActive).toBe(false);
+    expect(t0.get('m3')?.isQueued).toBe(true);
+    expect(t0.get('m3')?.isExpired).toBe(false);
+
+    // At T = 10s: m1 has 10s remaining; m2 and m3 still queued
+    const t10 = computeBurnerCascadeTimings(messages, baseTime + 10000, 20);
+    expect(t10.get('m1')?.isActive).toBe(true);
+    expect(t10.get('m1')?.remainingSeconds).toBe(10);
+    expect(t10.get('m2')?.isQueued).toBe(true);
+    expect(t10.get('m3')?.isQueued).toBe(true);
+
+    // At T = 20s: m1 is expired/deleted! m2 immediately becomes active (20s remaining); m3 still queued
+    const t20 = computeBurnerCascadeTimings(messages, baseTime + 20000, 20);
+    expect(t20.get('m1')?.isExpired).toBe(true);
+    expect(t20.get('m2')?.isActive).toBe(true);
+    expect(t20.get('m2')?.isQueued).toBe(false);
+    expect(t20.get('m2')?.remainingSeconds).toBe(20);
+    expect(t20.get('m3')?.isQueued).toBe(true);
+
+    // At T = 40s: m1 and m2 are expired/deleted! m3 immediately becomes active (20s remaining)
+    const t40 = computeBurnerCascadeTimings(messages, baseTime + 40000, 20);
+    expect(t40.get('m1')?.isExpired).toBe(true);
+    expect(t40.get('m2')?.isExpired).toBe(true);
+    expect(t40.get('m3')?.isActive).toBe(true);
+    expect(t40.get('m3')?.isQueued).toBe(false);
+    expect(t40.get('m3')?.remainingSeconds).toBe(20);
+
+    // At T = 60s: all 3 messages are expired/deleted (total duration exactly 60s once viewed!)
+    const t60 = computeBurnerCascadeTimings(messages, baseTime + 60000, 20);
+    expect(t60.get('m1')?.isExpired).toBe(true);
+    expect(t60.get('m2')?.isExpired).toBe(true);
+    expect(t60.get('m3')?.isExpired).toBe(true);
   });
 });

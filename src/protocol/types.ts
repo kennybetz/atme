@@ -183,6 +183,8 @@ export interface DcpChannelMeta {
   shieldedAliasEmail?: string;
   /** Pinned message ID in this conversation */
   pinnedMessageId?: string;
+  /** Whether this channel is a permanent Burner Chat (20s sequential cascade delete) */
+  isBurner?: boolean;
 }
 
 export interface DcpPacketPayload {
@@ -289,3 +291,6 @@ export interface FilterInspectionResult {
   compliantBuildVerified?: boolean;
   decryptionTimeMs?: number;
 }
+
+export * from './burner';
+

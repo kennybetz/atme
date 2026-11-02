@@ -5891,6 +5891,315 @@ dialog::backdrop {
   border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+/* ==========================================================================
+   Burner Chat: Sequential Cascade Self-Destruction & Friends Entry Icons
+   ========================================================================== */
+
+/* Main Menu '+' Add Menu Dropdown */
+.dc-add-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dc-add-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 250px;
+  max-width: calc(100vw - 24px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52);
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: dcHeaderMenuSlideIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dc-add-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.dc-add-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dc-add-menu-item-burner:hover {
+  background: rgba(255, 159, 10, 0.14);
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+.dc-add-menu-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.dc-add-menu-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-add-menu-text strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.dc-add-menu-text small {
+  font-size: 0.69rem;
+  color: var(--text-muted);
+}
+
+.dc-add-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-subtle);
+}
+
+/* Friends Section: Group & Contact Burner Entry Icons */
+.dc-menu-section-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dc-menu-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dc-pill-action-btn.dc-burner-pill-btn {
+  background: rgba(255, 159, 10, 0.14);
+  border: 1px solid rgba(255, 159, 10, 0.38);
+  color: #ff9f0a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  padding: 5px 10px;
+}
+
+.dc-pill-action-btn.dc-burner-pill-btn:hover {
+  background: rgba(255, 159, 10, 0.24);
+  border-color: rgba(255, 159, 10, 0.6);
+  transform: translateY(-1px);
+}
+
+.dc-btn-ghost.dc-btn-burner-icon {
+  color: #ff9f0a;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.dc-btn-ghost.dc-btn-burner-icon:hover {
+  background: rgba(255, 159, 10, 0.18);
+  transform: scale(1.1);
+}
+
+/* Flame Icon Flame Fire Accent */
+.dc-flame-fire-icon {
+  color: #ff9f0a;
+  filter: drop-shadow(0 0 5px rgba(255, 159, 10, 0.45));
+}
+
+/* Modal Mode Switcher for New Chat Dialog */
+.dc-chat-mode-toggle {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.dc-mode-chip {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dc-mode-chip.is-active {
+  background: var(--bg-card);
+  color: var(--text-main);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.dc-mode-chip.is-active.is-burner {
+  background: rgba(255, 159, 10, 0.2);
+  color: #ff9f0a;
+  border: 1px solid rgba(255, 159, 10, 0.35);
+}
+
+.dc-burner-modal-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 159, 10, 0.1);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+  border-radius: 11px;
+  margin-bottom: 14px;
+  color: #ffb340;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.dc-btn-send.dc-btn-burner-send {
+  background: linear-gradient(135deg, #ff9f0a 0%, #ff453a 100%);
+  border-color: rgba(255, 159, 10, 0.6);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(255, 159, 10, 0.32);
+}
+
+.dc-btn-send.dc-btn-burner-send:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Thread Card & Header Burner Indicators */
+.dc-thread-card.burner-thread-card {
+  border-left: 3px solid #ff9f0a;
+}
+
+.dc-thread-avatar.burner-avatar,
+.dc-header-avatar.burner-avatar {
+  background: rgba(255, 159, 10, 0.18);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+  color: #ff9f0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-burner-badge-card {
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 0.88rem;
+  filter: drop-shadow(0 0 3px rgba(255, 159, 10, 0.5));
+}
+
+.dc-burner-title-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  font-size: 1rem;
+  filter: drop-shadow(0 0 4px rgba(255, 159, 10, 0.6));
+}
+
+/* Message Badges: Active Burning Message vs In Queue */
+.dc-burn-countdown-badge.dc-burner-active-badge {
+  background: rgba(255, 159, 10, 0.18);
+  border: 1px solid rgba(255, 159, 10, 0.45);
+  color: #ff9f0a;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(255, 159, 10, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dc-burn-countdown-badge.dc-burner-queued-badge {
+  background: rgba(142, 142, 147, 0.12);
+  border: 1px dashed rgba(142, 142, 147, 0.35);
+  color: #a1a1aa;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dc-flame-active-glow {
+  color: #ff9f0a;
+  animation: dcFlamePulse 1.6s ease-in-out infinite;
+}
+
+.dc-flame-queued-icon {
+  color: #8e8e93;
+}
+
+@keyframes dcFlamePulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(255, 159, 10, 0.4));
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 6px rgba(255, 159, 10, 0.8));
+  }
+}
+
+/* Composer Active Burn Bar: Locked State */
+.dc-composer-active-burn-bar.is-locked-burner {
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  color: #ff9f0a;
+}
+
+.dc-locked-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(255, 159, 10, 0.2);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  border: 1px solid rgba(255, 159, 10, 0.3);
+}
+
+.dc-action-menu-burn-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #ff9f0a;
+}
+
+
 
 
 
