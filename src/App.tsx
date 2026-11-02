@@ -425,6 +425,31 @@ export function App() {
   const isIphoneFrame =
     typeof window !== 'undefined' &&
     window.location.search.includes('iphone=1');
+  const [isMobileDeviceView, setIsMobileDeviceView] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      isIphoneFrame ||
+      window.innerWidth <= 860 ||
+      (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(max-width: 860px)').matches)
+    );
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const updateDeviceView = () => {
+      const isMobile =
+        isIphoneFrame ||
+        window.innerWidth <= 860 ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(max-width: 860px)').matches);
+      setIsMobileDeviceView(isMobile);
+    };
+    updateDeviceView();
+    window.addEventListener('resize', updateDeviceView);
+    return () => window.removeEventListener('resize', updateDeviceView);
+  }, [isIphoneFrame]);
+
   const [mobileShowChatPane, setMobileShowChatPane] = useState<boolean>(
     () =>
       typeof window !== 'undefined' &&
@@ -451,6 +476,7 @@ export function App() {
       }
       setMobileShowChatPane(true);
       if (
+        isMobileDeviceView &&
         typeof window !== 'undefined' &&
         window.history.state?.atmeView !== 'chat'
       ) {
@@ -460,22 +486,23 @@ export function App() {
         );
       }
     },
-    [activeChannelId]
+    [activeChannelId, isMobileDeviceView]
   );
 
   const closeMobileChat = useCallback(() => {
     setMobileShowChatPane(false);
     if (
+      isMobileDeviceView &&
       typeof window !== 'undefined' &&
       window.history.state?.atmeView === 'chat'
     ) {
       window.history.back();
     }
-  }, []);
+  }, [isMobileDeviceView]);
 
   // Synchronize browser history so pressing OS/browser back or gestures returns to main page rather than exiting app
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isMobileDeviceView) return;
 
     if (mobileShowChatPane && !window.history.state?.atmeView) {
       window.history.replaceState({ atmeView: 'threads' }, '');
@@ -492,14 +519,14 @@ export function App() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [mobileShowChatPane]);
+  }, [mobileShowChatPane, isMobileDeviceView]);
 
   // Touch gesture listener on chat pane to swipe right back to main page
   useEffect(() => {
     const pane = freeflowChatPaneRef.current;
     if (!pane) return;
 
-    if (!mobileShowChatPane) {
+    if (!isMobileDeviceView || !mobileShowChatPane) {
       setSwipeOffsetX(0);
       setIsSwipingBack(false);
       setIsAnimatingOut(false);
@@ -2458,9 +2485,6 @@ export function App() {
   ]);
 
   const markActiveChannelAsRead = useCallback(async () => {
-    const isMobileDeviceView =
-      isIphoneFrame ||
-      (typeof window !== 'undefined' && window.innerWidth <= 860);
     if (isMobileDeviceView && !mobileShowChatPane) {
       return;
     }
@@ -2536,7 +2560,7 @@ export function App() {
     activeUser.email,
     readReceiptMode,
     readMessageIds,
-    isIphoneFrame,
+    isMobileDeviceView,
     mobileShowChatPane,
   ]);
 
@@ -3806,9 +3830,6 @@ export function App() {
   // When Auto mode is active and the conversation is visible & unlocked, automatically emit
   // encrypted `chat.receipt` packets for any unread incoming messages in `activeChannel`.
   useEffect(() => {
-    const isMobileDeviceView =
-      isIphoneFrame ||
-      (typeof window !== 'undefined' && window.innerWidth <= 860);
     if (isMobileDeviceView && !mobileShowChatPane) {
       return;
     }
@@ -4984,17 +5005,23 @@ export function App() {
           {/* Left Pane: Recent Text Threads + Instant Contact Search */}
           <aside
             className={`dc-threads-pane ${
-              mobileShowChatPane && !isSwipingBack && !isAnimatingOut
+              isMobileDeviceView &&
+              mobileShowChatPane &&
+              !isSwipingBack &&
+              !isAnimatingOut
                 ? 'mobile-hidden'
                 : ''
             }`}
             inert={
-              mobileShowChatPane && !isSwipingBack && !isAnimatingOut
+              isMobileDeviceView &&
+              mobileShowChatPane &&
+              !isSwipingBack &&
+              !isAnimatingOut
                 ? true
                 : undefined
             }
             style={
-              isSwipingBack || isAnimatingOut
+              isMobileDeviceView && (isSwipingBack || isAnimatingOut)
                 ? {
                     transform: `translateX(${
                       -24 +
@@ -5565,11 +5592,15 @@ export function App() {
           <section
             ref={freeflowChatPaneRef}
             className={`dc-freeflow-chat-pane ${
-              !mobileShowChatPane ? 'mobile-hidden' : ''
+              isMobileDeviceView && !mobileShowChatPane ? 'mobile-hidden' : ''
             }`}
-            inert={!mobileShowChatPane ? true : undefined}
+            inert={
+              isMobileDeviceView && !mobileShowChatPane ? true : undefined
+            }
             style={
-              mobileShowChatPane && (swipeOffsetX > 0 || isAnimatingOut)
+              isMobileDeviceView &&
+              mobileShowChatPane &&
+              (swipeOffsetX > 0 || isAnimatingOut)
                 ? {
                     transform: `translateX(${
                       isAnimatingOut ? '100%' : `${swipeOffsetX}px`
