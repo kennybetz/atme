@@ -6149,6 +6149,21 @@ dialog::backdrop {
   gap: 4px;
 }
 
+.dc-burn-countdown-badge.dc-burner-unread-badge {
+  background: rgba(255, 179, 64, 0.08);
+  border: 1px dotted rgba(255, 179, 64, 0.45);
+  color: #d19a38;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dc-flame-unread-icon {
+  color: #d19a38;
+  opacity: 0.85;
+}
+
 .dc-flame-active-glow {
   color: #ff9f0a;
   animation: dcFlamePulse 1.6s ease-in-out infinite;

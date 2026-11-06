@@ -22,6 +22,7 @@ import {
 } from './protocol/mimeParser';
 import {
   computeBurnerCascadeTimings,
+  computeViewerBurnerCascade,
   DCP_PROTOCOL_VERSION,
   DcpPacket,
 } from './protocol/types';
@@ -674,5 +675,232 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(t60.get('m1')?.isExpired).toBe(true);
     expect(t60.get('m2')?.isExpired).toBe(true);
     expect(t60.get('m3')?.isExpired).toBe(true);
+  });
+
+  it('activates the burner timer ONLY when the recipient views the message in the app (sender send time does not burn)', () => {
+    const baseTime = 1000000;
+    const channelMessages = [
+      { messageId: 'm1', senderEmail: 'alex@gmail.com' },
+      { messageId: 'm2', senderEmail: 'alex@gmail.com' },
+      { messageId: 'm3', senderEmail: 'alex@gmail.com' },
+    ];
+    const participants = ['alex@gmail.com', 'elena@proton.me'];
+
+    // 1. Initially: Alex sent 3 messages at baseTime. Elena has NOT viewed them yet!
+    const elenaT0 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'elena@proton.me',
+      participants,
+      localViewMap: {},
+      nowMs: baseTime + 15000, // 15 seconds have passed since send
+      ttlSeconds: 20,
+    });
+
+    // Elena has not viewed them in the app -> none have started!
+    expect(elenaT0.get('m1')?.isViewed).toBe(false);
+    expect(elenaT0.get('m1')?.isActive).toBe(false);
+    expect(elenaT0.get('m1')?.isExpired).toBe(false);
+    expect(elenaT0.get('m1')?.remainingSeconds).toBe(20);
+    expect(elenaT0.get('m1')?.summaryLabel).toContain('burns 20s once viewed');
+
+    // Alex (the sender) sees that Elena has not viewed them yet
+    const alexT0 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap: {},
+      nowMs: baseTime + 15000,
+      ttlSeconds: 20,
+    });
+    expect(alexT0.get('m1')?.isExpired).toBe(false);
+    expect(alexT0.get('m1')?.summaryLabel).toContain('Unread by Elena (burns 20s once viewed)');
+
+    // 2. Elena opens the chat and views them at baseTime + 30000 (30 seconds after send)
+    const elenaViewTime = baseTime + 30000;
+    const localViewMap: Record<string, number> = {
+      'elena@proton.me:m1': elenaViewTime,
+      'elena@proton.me:m2': elenaViewTime,
+      'elena@proton.me:m3': elenaViewTime,
+    };
+
+    // Immediately upon Elena viewing (at T = 30s): m1 starts 20s timer, m2 and m3 are queued
+    const elenaT30 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'elena@proton.me',
+      participants,
+      localViewMap,
+      nowMs: elenaViewTime,
+      ttlSeconds: 20,
+    });
+    expect(elenaT30.get('m1')?.isViewed).toBe(true);
+    expect(elenaT30.get('m1')?.isActive).toBe(true);
+    expect(elenaT30.get('m1')?.remainingSeconds).toBe(20);
+    expect(elenaT30.get('m2')?.isQueued).toBe(true);
+    expect(elenaT30.get('m3')?.isQueued).toBe(true);
+
+    // On Alex's screen (via Elena's view/receipt): Alex sees Elena actively burning m1!
+    const alexT30 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap,
+      nowMs: elenaViewTime,
+      ttlSeconds: 20,
+    });
+    expect(alexT30.get('m1')?.isExpired).toBe(false);
+    expect(alexT30.get('m1')?.summaryLabel).toContain('Elena (20s)');
+    expect(alexT30.get('m2')?.summaryLabel).toContain('Elena queued (20s)');
+
+    // 20s later (T = 50s): m1 has expired for Elena and deletes from both screens; m2 is active
+    const elenaT50 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'elena@proton.me',
+      participants,
+      localViewMap,
+      nowMs: elenaViewTime + 20000,
+      ttlSeconds: 20,
+    });
+    expect(elenaT50.get('m1')?.isExpired).toBe(true);
+    expect(elenaT50.get('m2')?.isActive).toBe(true);
+    expect(elenaT50.get('m2')?.remainingSeconds).toBe(20);
+    expect(elenaT50.get('m3')?.isQueued).toBe(true);
+
+    const alexT50 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap,
+      nowMs: elenaViewTime + 20000,
+      ttlSeconds: 20,
+    });
+    expect(alexT50.get('m1')?.isExpired).toBe(true); // Deletes from sender screen because Elena finished
+    expect(alexT50.get('m2')?.isExpired).toBe(false);
+    expect(alexT50.get('m2')?.summaryLabel).toContain('Elena (20s)');
+
+    // Total 60s from Elena's view time (T = 90s): all messages are deleted
+    const elenaT90 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'elena@proton.me',
+      participants,
+      localViewMap,
+      nowMs: elenaViewTime + 60000,
+      ttlSeconds: 20,
+    });
+    expect(elenaT90.get('m1')?.isExpired).toBe(true);
+    expect(elenaT90.get('m2')?.isExpired).toBe(true);
+    expect(elenaT90.get('m3')?.isExpired).toBe(true);
+  });
+
+  it('supports Group Burner Chats with multiple users and independent read times', () => {
+    const baseTime = 1000000;
+    const channelMessages = [
+      { messageId: 'm1', senderEmail: 'alex@gmail.com' },
+      { messageId: 'm2', senderEmail: 'alex@gmail.com' },
+      { messageId: 'm3', senderEmail: 'alex@gmail.com' },
+    ];
+    const participants = ['alex@gmail.com', 'elena@proton.me', 'sam@dontcall.me'];
+
+    // Elena views at T = 1000ms
+    // Sam does NOT view until T = 100,000ms
+    const elenaViewTime = baseTime + 1000;
+    const samViewTime = baseTime + 100000;
+
+    const localViewMap: Record<string, number> = {
+      'elena@proton.me:m1': elenaViewTime,
+      'elena@proton.me:m2': elenaViewTime,
+      'elena@proton.me:m3': elenaViewTime,
+    };
+
+    // At T = 25s (24s after Elena viewed, but Sam has still not viewed):
+    const nowMs25 = elenaViewTime + 24000;
+
+    // For Elena: m1 has expired and deleted; m2 is active with 16s remaining
+    const elenaState = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'elena@proton.me',
+      participants,
+      localViewMap,
+      nowMs: nowMs25,
+      ttlSeconds: 20,
+    });
+    expect(elenaState.get('m1')?.isExpired).toBe(true);
+    expect(elenaState.get('m2')?.isActive).toBe(true);
+    expect(elenaState.get('m2')?.remainingSeconds).toBe(16);
+
+    // For Sam at T = 25s: Sam has NOT viewed m1 yet! m1 is NOT expired for Sam!
+    const samStateBeforeView = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'sam@dontcall.me',
+      participants,
+      localViewMap,
+      nowMs: nowMs25,
+      ttlSeconds: 20,
+    });
+    expect(samStateBeforeView.get('m1')?.isExpired).toBe(false);
+    expect(samStateBeforeView.get('m1')?.isViewed).toBe(false);
+    expect(samStateBeforeView.get('m1')?.remainingSeconds).toBe(20);
+
+    // For Alex (sender) at T = 25s:
+    // Elena has burned m1, but Sam has NOT read m1 yet!
+    // Therefore, m1 MUST NOT be deleted from Alex's screen!
+    const alexStateAt25 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap,
+      nowMs: nowMs25,
+      ttlSeconds: 20,
+    });
+    expect(alexStateAt25.get('m1')?.isExpired).toBe(false); // Elena expired, but Sam hasn't!
+    expect(alexStateAt25.get('m1')?.summaryLabel).toContain('Burned by Elena');
+    expect(alexStateAt25.get('m1')?.summaryLabel).toContain('Sam unread');
+
+    // Now at T = 100,000ms: Sam opens the chat and views all 3 messages!
+    localViewMap['sam@dontcall.me:m1'] = samViewTime;
+    localViewMap['sam@dontcall.me:m2'] = samViewTime;
+    localViewMap['sam@dontcall.me:m3'] = samViewTime;
+
+    const samStateAtView = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'sam@dontcall.me',
+      participants,
+      localViewMap,
+      nowMs: samViewTime,
+      ttlSeconds: 20,
+    });
+    // Sam gets his full independent 20s cascade: m1 active (20s), m2 queued, m3 queued
+    expect(samStateAtView.get('m1')?.isActive).toBe(true);
+    expect(samStateAtView.get('m1')?.remainingSeconds).toBe(20);
+    expect(samStateAtView.get('m2')?.isQueued).toBe(true);
+    expect(samStateAtView.get('m3')?.isQueued).toBe(true);
+
+    // Sender Alex sees: Burned by Elena, Sam active (20s)
+    const alexStateAtSamView = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap,
+      nowMs: samViewTime,
+      ttlSeconds: 20,
+    });
+    expect(alexStateAtSamView.get('m1')?.isExpired).toBe(false);
+    expect(alexStateAtSamView.get('m1')?.summaryLabel).toContain('Burned by Elena');
+    expect(alexStateAtSamView.get('m1')?.summaryLabel).toContain('Sam (20s)');
+
+    // 20s later (samViewTime + 20,000ms): Sam finishes burning m1!
+    // NOW both Elena and Sam have expired m1 -> m1 is finally expired and deleted on Alex's screen!
+    const alexStateAfterSamM1 = computeViewerBurnerCascade({
+      messages: channelMessages,
+      viewerEmail: 'alex@gmail.com',
+      participants,
+      localViewMap,
+      nowMs: samViewTime + 20000,
+      ttlSeconds: 20,
+    });
+    expect(alexStateAfterSamM1.get('m1')?.isExpired).toBe(true);
+    // m2 is still alive on Alex's screen because Sam is now burning m2!
+    expect(alexStateAfterSamM1.get('m2')?.isExpired).toBe(false);
+    expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Burned by Elena');
+    expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Sam (20s)');
   });
 });

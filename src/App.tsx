@@ -81,6 +81,8 @@ import {
   ShieldedBurnerAlias,
   UserIdentity,
   computeBurnerCascadeTimings,
+  computeViewerBurnerCascade,
+  ViewerBurnerCascadeItem,
   BurnerCascadeItem,
 } from './protocol/types';
 import {
@@ -165,7 +167,11 @@ interface FreeflowChatMessage {
     isBurner: boolean;
     isActive: boolean;
     isQueued: boolean;
+    isExpired: boolean;
+    isUnread?: boolean;
     remainingSeconds: number;
+    summaryLabel?: string;
+    isOwn?: boolean;
   };
 }
 
@@ -2388,7 +2394,7 @@ export function App() {
     const isBurnerChat = Boolean(activeChannel.isBurner);
 
     // If burner chat, precompute cascade timings across chronologically sorted channel messages
-    let burnerTimingMap = new Map<string, BurnerCascadeItem>();
+    let burnerTimingMap = new Map<string, ViewerBurnerCascadeItem>();
     if (isBurnerChat) {
       const channelMessages = chronologicallySorted
         .map((i) => i.decryptedPacket!)
@@ -2399,14 +2405,24 @@ export function App() {
             (pkt.type === 'chat.message' || pkt.type === 'chat.poll')
         );
 
-      burnerTimingMap = computeBurnerCascadeTimings(
-        channelMessages.map((p) => ({
+      burnerTimingMap = computeViewerBurnerCascade({
+        messages: channelMessages.map((p) => ({
           messageId: p.payload.messageId,
-          viewedAtMs: burnReadStartedAtMs[p.payload.messageId],
+          senderEmail: p.sender.email,
         })),
-        burnTickNowMs,
-        20
-      );
+        viewerEmail: activeUser.email,
+        participants: activeChannel.participants,
+        receiptsByMessageId: receiptsByTargetId,
+        localViewMap: burnReadStartedAtMs,
+        nowMs: burnTickNowMs,
+        ttlSeconds: 20,
+        userNameLookup: (email) => {
+          const u = users.find(
+            (x) => x.email.toLowerCase() === email.toLowerCase()
+          );
+          return u?.displayName?.split(' ')[0] || u?.handle || email.split('@')[0];
+        },
+      });
     }
 
     for (const item of chronologicallySorted) {
@@ -2433,21 +2449,30 @@ export function App() {
         const timing = burnerTimingMap.get(msgId);
         if (timing) {
           if (timing.isExpired) {
-            // Cascade deleted after 20 seconds!
+            // Cascade deleted!
             continue;
           }
           burnerStatus = {
             isBurner: true,
             isActive: timing.isActive,
             isQueued: timing.isQueued,
+            isExpired: timing.isExpired,
+            isUnread: !timing.isViewed,
             remainingSeconds: timing.remainingSeconds,
+            summaryLabel: timing.summaryLabel,
+            isOwn: timing.isOwn,
           };
         } else {
           burnerStatus = {
             isBurner: true,
             isActive: false,
             isQueued: true,
+            isExpired: false,
+            isUnread: true,
             remainingSeconds: 20,
+            summaryLabel: '⏳ queued (20s)',
+            isOwn:
+              pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase(),
           };
         }
       } else {
@@ -2499,6 +2524,8 @@ export function App() {
     activeChannel,
     burnReadStartedAtMs,
     burnTickNowMs,
+    activeUser.email,
+    users,
   ]);
 
   const lastMessageEmailId =
@@ -2641,10 +2668,19 @@ export function App() {
         if (autoReadSentKeysRef.current.has(dedupKey)) continue;
         autoReadSentKeysRef.current.add(dedupKey);
 
-        setBurnReadStartedAtMs((prev) => ({
-          ...prev,
-          [msgId]: prev[msgId] || Date.now(),
-        }));
+        setBurnReadStartedAtMs((prev) => {
+          const next = {
+            ...prev,
+            [dedupKey]: prev[dedupKey] || Date.now(),
+            [msgId]: prev[msgId] || Date.now(),
+          };
+          try {
+            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
+          } catch {
+            // ignore
+          }
+          return next;
+        });
 
         await dispatchDcpEmailPacket({
           channel: activeChannel,
@@ -2933,14 +2969,17 @@ export function App() {
         let validPackets = matchingPackets;
         if (ch.isBurner) {
           const chron = [...matchingPackets].reverse();
-          const cascadeMap = computeBurnerCascadeTimings(
-            chron.map((p) => ({
+          const cascadeMap = computeViewerBurnerCascade({
+            messages: chron.map((p) => ({
               messageId: p.payload.messageId,
-              viewedAtMs: burnReadStartedAtMs[p.payload.messageId],
+              senderEmail: p.sender.email,
             })),
-            burnTickNowMs,
-            20
-          );
+            viewerEmail: activeUser.email,
+            participants: ch.participants,
+            localViewMap: burnReadStartedAtMs,
+            nowMs: burnTickNowMs,
+            ttlSeconds: 20,
+          });
           validPackets = matchingPackets.filter((p) => {
             const timing = cascadeMap.get(p.payload.messageId);
             return timing ? !timing.isExpired : true;
@@ -3084,17 +3123,6 @@ export function App() {
         .slice(2, 6)}`;
       const msgId = `msg_${Date.now().toString(36)}`;
 
-      if (params.channel.isBurner) {
-        setBurnReadStartedAtMs((prev) => {
-          const next = { ...prev, [msgId]: Date.now() };
-          try {
-            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
-          } catch {
-            // ignore
-          }
-          return next;
-        });
-      }
 
       const hasUnregisteredParticipant = params.channel.participants.some(
         (email) => {
@@ -3950,10 +3978,19 @@ export function App() {
     if (!activeChannel) return;
     const dedupKey = `${activeUser.email.toLowerCase()}:${targetMessageId}`;
     autoReadSentKeysRef.current.add(dedupKey);
-    setBurnReadStartedAtMs((prev) => ({
-      ...prev,
-      [targetMessageId]: prev[targetMessageId] || Date.now(),
-    }));
+    setBurnReadStartedAtMs((prev) => {
+      const next = {
+        ...prev,
+        [dedupKey]: prev[dedupKey] || Date.now(),
+        [targetMessageId]: prev[targetMessageId] || Date.now(),
+      };
+      try {
+        localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
     await dispatchDcpEmailPacket({
       channel: activeChannel,
       type: 'chat.receipt',
@@ -4014,10 +4051,19 @@ export function App() {
         if (autoReadSentKeysRef.current.has(dedupKey)) continue;
         autoReadSentKeysRef.current.add(dedupKey);
 
-        setBurnReadStartedAtMs((prev) => ({
-          ...prev,
-          [msgId]: prev[msgId] || Date.now(),
-        }));
+        setBurnReadStartedAtMs((prev) => {
+          const next = {
+            ...prev,
+            [dedupKey]: prev[dedupKey] || Date.now(),
+            [msgId]: prev[msgId] || Date.now(),
+          };
+          try {
+            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
+          } catch {
+            // ignore
+          }
+          return next;
+        });
 
         await dispatchDcpEmailPacket({
           channel: activeChannel,
@@ -4042,8 +4088,8 @@ export function App() {
     activeUser.email,
   ]);
 
-  // Burner Chat Active Auto-View: when active channel is a burner chat, immediately
-  // record viewing timestamp for all unread messages in the active channel to begin their sequential cascade.
+  // Burner Chat Active Auto-View: when active channel is a burner chat,
+  // record viewing timestamp for incoming unread messages in the active channel to begin their sequential cascade.
   useEffect(() => {
     if (!activeChannel || !activeChannel.isBurner) return;
     if (isMobileDeviceView && !mobileShowChatPane) return;
@@ -4055,7 +4101,8 @@ export function App() {
         (pkt) =>
           pkt &&
           pkt.channel.id === activeChannel.id &&
-          (pkt.type === 'chat.message' || pkt.type === 'chat.poll')
+          (pkt.type === 'chat.message' || pkt.type === 'chat.poll') &&
+          pkt.sender.email.toLowerCase() !== activeUser.email.toLowerCase()
       );
 
     if (channelPackets.length === 0) return;
@@ -4066,7 +4113,9 @@ export function App() {
 
     for (const pkt of channelPackets) {
       const msgId = pkt.payload.messageId;
-      if (!burnReadStartedAtMs[msgId]) {
+      const userKey = `${activeUser.email.toLowerCase()}:${msgId}`;
+      if (!burnReadStartedAtMs[userKey]) {
+        missing[userKey] = now;
         missing[msgId] = now;
         hasMissing = true;
       }
@@ -4093,6 +4142,7 @@ export function App() {
     isInitializingKeys,
     surfaceMode,
     burnReadStartedAtMs,
+    activeUser.email,
   ]);
 
   // Lock ephemeral countdown timer to 20s whenever activeChannel is a permanent Burner Chat
@@ -6587,11 +6637,13 @@ export function App() {
                   msg.packet.payload.ephemeralTtlSeconds ||
                   activeChannel.ephemeralTimerSeconds ||
                   0;
+                const userKey = `${activeUser.email.toLowerCase()}:${msg.packet.payload.messageId}`;
                 const isBurnHiddenInManualMode =
                   !isOwn &&
                   readReceiptMode === 'manual' &&
                   effectiveBurnTtl > 0 &&
                   !alreadyReadByMe &&
+                  !burnReadStartedAtMs[userKey] &&
                   !burnReadStartedAtMs[msg.packet.payload.messageId];
 
                 // System Pill for Adding / Removing Group Members
@@ -7047,12 +7099,15 @@ export function App() {
                                 className={`dc-burn-countdown-badge ${
                                   msg.burnerStatus.isActive
                                     ? 'dc-burner-active-badge'
+                                    : msg.burnerStatus.isUnread
+                                    ? 'dc-burner-unread-badge'
                                     : 'dc-burner-queued-badge'
                                 }`}
                                 title={
-                                  msg.burnerStatus.isActive
+                                  msg.burnerStatus.summaryLabel ||
+                                  (msg.burnerStatus.isActive
                                     ? `Cascade active: deletes in ${msg.burnerStatus.remainingSeconds}s`
-                                    : 'In queue: starts 20s burn after previous message is deleted'
+                                    : 'In queue: starts 20s burn after previous message is deleted')
                                 }
                               >
                                 <Flame
@@ -7060,12 +7115,15 @@ export function App() {
                                   className={
                                     msg.burnerStatus.isActive
                                       ? 'dc-flame-active-glow'
+                                      : msg.burnerStatus.isUnread
+                                      ? 'dc-flame-unread-icon'
                                       : 'dc-flame-queued-icon'
                                   }
                                 />{' '}
-                                {msg.burnerStatus.isActive
-                                  ? `${msg.burnerStatus.remainingSeconds}s`
-                                  : '⏳ queued (20s)'}
+                                {msg.burnerStatus.summaryLabel ||
+                                  (msg.burnerStatus.isActive
+                                    ? `${msg.burnerStatus.remainingSeconds}s`
+                                    : '⏳ queued (20s)')}
                               </span>
                             ) : Boolean(
                               msg.packet.payload.ephemeralTtlSeconds &&
