@@ -57,6 +57,7 @@ export interface ViewerBurnerCascadeItem {
   remainingSeconds: number;
   allRecipientsExpired?: boolean;
   peerStatuses?: PeerRecipientBurnStatus[];
+  unburnedRecipientCount?: number;
   summaryLabel: string;
 }
 
@@ -324,6 +325,22 @@ export function computeViewerBurnerCascade(params: {
         ? `⏳ queued (${ttlSeconds}s)`
         : `⏳ burns ${ttlSeconds}s once viewed`;
 
+      const msgSenderNorm = msg.senderEmail.toLowerCase().trim();
+      const recipientsOfMsg = participants.filter(
+        (p) => p.toLowerCase().trim() !== msgSenderNorm
+      );
+      let unburnedRecipientCount = 0;
+      for (const rEmail of recipientsOfMsg) {
+        const normR = rEmail.toLowerCase().trim();
+        if (normR === normViewer) {
+          if (!item.isExpired) unburnedRecipientCount++;
+        } else {
+          const pMap = peerCascades.get(normR);
+          const pItem = pMap?.get(msg.messageId);
+          if (!pItem || !pItem.isExpired) unburnedRecipientCount++;
+        }
+      }
+
       result.set(msg.messageId, {
         messageId: msg.messageId,
         isOwn: false,
@@ -335,6 +352,7 @@ export function computeViewerBurnerCascade(params: {
         isQueued: item.isQueued,
         isExpired: item.isExpired,
         remainingSeconds: item.remainingSeconds,
+        unburnedRecipientCount,
         summaryLabel,
       });
     } else {
@@ -381,9 +399,9 @@ export function computeViewerBurnerCascade(params: {
       } else if (peerStatuses.length === 1) {
         const p = peerStatuses[0];
         if (p.isExpired) {
-          summaryLabel = `🔥 Burned by ${p.name}`;
+          summaryLabel = `Burned by ${p.name}`;
         } else if (p.isActive) {
-          summaryLabel = `🔥 ${p.name} (${p.remainingSeconds}s)`;
+          summaryLabel = `${p.name} (${p.remainingSeconds}s)`;
         } else if (p.isQueued) {
           summaryLabel = `⏳ ${p.name} queued (${ttlSeconds}s)`;
         } else {
@@ -415,6 +433,7 @@ export function computeViewerBurnerCascade(params: {
           : ttlSeconds,
         allRecipientsExpired,
         peerStatuses,
+        unburnedRecipientCount: peerStatuses.filter((p) => !p.isExpired).length,
         summaryLabel,
       });
     }

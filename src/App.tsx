@@ -29,14 +29,17 @@ import {
   Lock,
   Mail,
   Menu,
+  MessageCircle,
   MessageSquare,
   Mic,
   Moon,
+  Palette,
   Paperclip,
   Pin,
   Plus,
   PlusCircle,
   QrCode,
+  Radio,
   RefreshCw,
   Search,
   Send,
@@ -48,6 +51,7 @@ import {
   Sparkles,
   Square,
   Sun,
+  Tag,
   Terminal,
   Timer,
   Trash2,
@@ -57,15 +61,20 @@ import {
   UserPlus,
   Users,
   VenetianMask,
+  Wallet,
   X,
   XCircle,
+  Zap,
+  Coins,
 } from 'lucide-react';
 import {
   DCP_COMPLIANT_BUILD_VERSION,
   DCP_COMPLIANT_BUNDLE_SHA256,
   DCP_PROTOCOL_VERSION,
+  MAX_CHANNEL_AND_GROUP_USERS,
   DcpAttachment,
   DcpChannelMeta,
+  DcpIouPayload,
   DcpLinkPreview,
   DcpPacket,
   DcpPacketType,
@@ -107,8 +116,10 @@ import {
 import { buildDcpMimeEmail } from './protocol/mimeBuilder';
 import { inspectAndDecryptEmail } from './protocol/mimeParser';
 import {
+  CARTOON_SKETCH_AVATARS,
   INITIAL_CHANNELS,
   INITIAL_USERS,
+  createEncryptedSeedEmailsForUsers,
   createInitialSeedInspections,
   createSampleRegularEmails,
 } from './store/seedEmails';
@@ -170,6 +181,7 @@ interface FreeflowChatMessage {
     isExpired: boolean;
     isUnread?: boolean;
     remainingSeconds: number;
+    unreadCount?: number;
     summaryLabel?: string;
     isOwn?: boolean;
   };
@@ -282,8 +294,19 @@ type BubbleThemeId =
   | 'violet'
   | 'mint'
   | 'sunset'
-  | 'gold'
   | 'custom';
+
+export const TOP_5_COLORS_2026: ReadonlyArray<{
+  id: Exclude<BubbleThemeId, 'custom'>;
+  label: string;
+  color: string;
+}> = [
+  { id: 'ocean', label: 'Teal', color: '#0a84ff' },
+  { id: 'violet', label: 'Dusk', color: '#8b5cf6' },
+  { id: 'berry', label: 'Fuchsia', color: '#ec4899' },
+  { id: 'mint', label: 'Mint', color: '#10b981' },
+  { id: 'sunset', label: 'Apricot', color: '#f97316' },
+];
 
 const DEFAULT_TOP_5_EMOJIS: string[] = ['❤️', '😂', '🔥', '💀', '😭'];
 
@@ -431,7 +454,7 @@ export function App() {
   const [users, setUsers] = useState<UserIdentity[]>(INITIAL_USERS);
   const [channels, setChannels] = useState<DcpChannelMeta[]>(() => {
     try {
-      const raw = localStorage.getItem('dc_channels_v1');
+      const raw = localStorage.getItem('dc_channels_v4');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -450,7 +473,7 @@ export function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('dc_channels_v1', JSON.stringify(channels));
+      localStorage.setItem('dc_channels_v4', JSON.stringify(channels));
     } catch {
       // ignore
     }
@@ -459,7 +482,7 @@ export function App() {
     INITIAL_USERS[0].email
   );
   const [activeChannelId, setActiveChannelId] = useState<string>(
-    INITIAL_CHANNELS[2].id
+    INITIAL_CHANNELS[0].id
   );
   const isIphoneFrame =
     typeof window !== 'undefined' &&
@@ -773,6 +796,8 @@ export function App() {
   >(null);
 
   // Voice Note Recording State (MediaRecorder + Fallback)
+  const [isVoiceRecorderOpen, setIsVoiceRecorderOpen] =
+    useState<boolean>(false);
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -824,17 +849,17 @@ export function App() {
     'google' | 'microsoft' | null
   >(null);
   const [simulatedOAuthEmail, setSimulatedOAuthEmail] = useState<string>(
-    'founder@startup.io'
+    'taylor@gmail.com'
   );
   const [simulatedOAuthName, setSimulatedOAuthName] =
-    useState<string>('Taylor Brooks');
+    useState<string>('Taylor');
 
   // Custom Domain Auto-Discovery & Universal IMAP/SMTP/JMAP Sign-In State
   const [customDomainEmail, setCustomDomainEmail] = useState<string>(
-    'cto@customcompany.com'
+    'morgan@schoolclub.org'
   );
   const [customDomainName, setCustomDomainName] =
-    useState<string>('Morgan Vance');
+    useState<string>('Morgan');
   const [customDomainPassword, setCustomDomainPassword] =
     useState<string>('');
   const [domainDiscoveryResult, setDomainDiscoveryResult] =
@@ -888,6 +913,7 @@ export function App() {
   const appLockConfigDialogRef = useRef<HTMLDialogElement | null>(null);
   const safetyListDialogRef = useRef<HTMLDialogElement | null>(null);
   const cameraCaptureDialogRef = useRef<HTMLDialogElement | null>(null);
+  const iouDialogRef = useRef<HTMLDialogElement | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState<boolean>(false);
@@ -897,6 +923,25 @@ export function App() {
   const [capturedPhotoDataUrl, setCapturedPhotoDataUrl] = useState<
     string | null
   >(null);
+  const cameraViewportRef = useRef<HTMLDivElement | null>(null);
+  const [cameraStamps, setCameraStamps] = useState<
+    Array<{
+      id: string;
+      emoji: string;
+      xPct: number;
+      yPct: number;
+      sizePx: number;
+    }>
+  >([]);
+  const [selectedCameraStampId, setSelectedCameraStampId] = useState<
+    string | null
+  >(null);
+  const [isCameraStampPickerOpen, setIsCameraStampPickerOpen] =
+    useState<boolean>(true);
+  const draggingStampRef = useRef<{
+    stampId: string;
+    pointerId: number;
+  } | null>(null);
   const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(
     null
   );
@@ -947,7 +992,6 @@ export function App() {
         saved === 'violet' ||
         saved === 'mint' ||
         saved === 'sunset' ||
-        saved === 'gold' ||
         saved === 'custom'
       ) {
         return saved;
@@ -1121,8 +1165,8 @@ export function App() {
   >({
     ch_product_launch: {
       messageId: 'msg_seed_01',
-      text: 'Welcome to @me! First messages automatically exchange your encrypted Profile Card into local IndexedDB.',
-      senderName: 'Alex Rivera',
+      text: 'Yo everyone! School Wi-Fi blocked every other app on our Chromebooks, so we are officially on @me now 🛹',
+      senderName: 'Alex',
     },
   });
 
@@ -1152,14 +1196,35 @@ export function App() {
   const appLockDialogTitleId = useId();
   const safetyDialogTitleId = useId();
   const cameraDialogTitleId = useId();
+  const iouDialogTitleId = useId();
 
   // New Group / Channel or DM Creation Form State
   const [newChatName, setNewChatName] = useState<string>('');
   const [newChatRecipientEmail, setNewChatRecipientEmail] =
     useState<string>('');
-  const [newChatType, setNewChatType] = useState<'workspace-channel' | 'dm'>(
-    'workspace-channel'
+  const [selectedGroupMemberEmails, setSelectedGroupMemberEmails] = useState<
+    string[]
+  >([]);
+  const [newChatType, setNewChatType] = useState<
+    'workspace-channel' | 'dm' | 'broadcast-channel'
+  >('workspace-channel');
+  const [newChannelDescription, setNewChannelDescription] =
+    useState<string>('');
+  const [showNewChatContactPicker, setShowNewChatContactPicker] =
+    useState<boolean>(false);
+
+  // IOU Wallet & Peer Ledger State
+  const [selectedIouPeerEmail, setSelectedIouPeerEmail] = useState<
+    string | null
+  >(null);
+  const [iouSendPeerEmail, setIouSendPeerEmail] = useState<string>(
+    INITIAL_USERS[1]?.email || 'sam@outlook.com'
   );
+  const [iouSendAmount, setIouSendAmount] = useState<string>('5');
+  const [iouSendNote, setIouSendNote] = useState<string>('');
+  const [showIouIssueForm, setShowIouIssueForm] = useState<boolean>(false);
+  const [iouCollectAmountInput, setIouCollectAmountInput] =
+    useState<string>('1');
 
   const activeUser = useMemo(
     () => users.find((u) => u.email === activeUserEmail) || users[0],
@@ -1196,7 +1261,7 @@ export function App() {
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
         );
         if (!isParticipant) return false;
-        if (c.type === 'dm' || c.participants.length <= 2) {
+        if (c.type === 'dm') {
           const peer = c.participants.find(
             (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
           );
@@ -1234,10 +1299,7 @@ export function App() {
     if (activeChannel.type === 'vault') {
       return 'Vault (@me)';
     }
-    if (
-      activeChannel.type === 'dm' ||
-      activeChannel.participants.length <= 2
-    ) {
+    if (activeChannel.type === 'dm') {
       const peerEmail =
         activeChannel.participants.find(
           (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
@@ -1370,6 +1432,7 @@ export function App() {
     isComposerEmojiOpen,
     isHeaderMenuOpen,
     isAvatarMenuOpen,
+    isAddMenuOpen,
   ]);
 
   // Apply color-scheme preference to <meta name="color-scheme"> and stay synced across tabs
@@ -1415,27 +1478,25 @@ export function App() {
     return () => window.removeEventListener('storage', handleStorage);
   }, [colorSchemePref]);
 
-  // Auto-resize composer textarea (fallback when field-sizing: content is unsupported) & track multiline state for pill radius morphing
+  // Auto-resize composer textarea height cleanly without field-sizing: content (which clips ::placeholder in Blink after clearing short strings)
   useEffect(() => {
     const textarea = composerTextareaRef.current;
     if (!textarea) {
       setIsComposerMultiline(false);
       return;
     }
-    const supportsFieldSizing =
-      typeof CSS !== 'undefined' &&
-      typeof CSS.supports === 'function' &&
-      CSS.supports('field-sizing', 'content');
-
-    if (!supportsFieldSizing) {
-      textarea.style.height = 'auto';
-      const nextHeight = Math.min(Math.max(textarea.scrollHeight, 38), 130);
-      textarea.style.height = `${nextHeight}px`;
+    if (!composerText) {
+      textarea.style.height = '38px';
+      setIsComposerMultiline(false);
+      return;
     }
 
-    const currentHeight = textarea.scrollHeight || textarea.clientHeight;
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, 38), 130);
+    textarea.style.height = `${nextHeight}px`;
+
     setIsComposerMultiline(
-      composerText.includes('\n') || currentHeight > 46
+      composerText.includes('\n') || nextHeight > 46
     );
   }, [composerText, isRecordingVoice]);
 
@@ -1470,8 +1531,7 @@ export function App() {
       themeParam === 'berry' ||
       themeParam === 'violet' ||
       themeParam === 'mint' ||
-      themeParam === 'sunset' ||
-      themeParam === 'gold'
+      themeParam === 'sunset'
     ) {
       setChatBubbleTheme(themeParam);
     }
@@ -1556,7 +1616,45 @@ export function App() {
       menuDirectoryDialogRef.current?.showModal();
     } else if (viewParam === 'new-chat') {
       setNewChatType('dm');
+      setSelectedGroupMemberEmails([]);
       newChannelModalRef.current?.showModal();
+    } else if (viewParam === 'new-group') {
+      setNewChatType('workspace-channel');
+      setIsNewChatBurner(true);
+      setSelectedGroupMemberEmails([
+        'elena.vogt@proton.me',
+        'jordan.taylor@yahoo.com',
+      ]);
+      newChannelModalRef.current?.showModal();
+    } else if (viewParam === 'voice-ready') {
+      setIsVoiceRecorderOpen(true);
+    } else if (viewParam === 'single-info') {
+      setActiveChannelId('dm_alex_elena');
+      groupInfoDialogRef.current?.showModal();
+    } else if (viewParam === 'burner-dm') {
+      setActiveChannelId('burner_dm_alex_sam');
+    } else if (viewParam === 'burner-group') {
+      setActiveChannelId('burner_ch_lunch_table');
+    } else if (viewParam === 'new-channel') {
+      setNewChatType('broadcast-channel');
+      setSelectedGroupMemberEmails([]);
+      newChannelModalRef.current?.showModal();
+    } else if (viewParam === 'add-menu') {
+      setIsAddMenuOpen(true);
+    } else if (viewParam === 'broadcast') {
+      setActiveChannelId('ch_broadcast_skate_clips');
+    } else if (viewParam === 'iou' || viewParam === 'ious') {
+      setSelectedIouPeerEmail('sam.chen@outlook.com');
+      iouDialogRef.current?.showModal();
+    } else if (viewParam === 'camera-stamp') {
+      handleSnapCameraPhoto();
+      setCameraStamps([
+        { id: 'stamp-demo-1', emoji: '😎', xPct: 50, yPct: 44, sizePx: 112 },
+        { id: 'stamp-demo-2', emoji: '🔒', xPct: 26, yPct: 72, sizePx: 58 },
+      ]);
+      setSelectedCameraStampId('stamp-demo-1');
+      setIsCameraStampPickerOpen(true);
+      cameraCaptureDialogRef.current?.showModal();
     } else if (viewParam === 'shred' || viewParam === 'burn-modal') {
       setPendingShredOptions({ shredScope: 'peer-pgp-key-and-threads' });
       shredConfirmDialogRef.current?.showModal();
@@ -1598,6 +1696,7 @@ export function App() {
       pollCreatorDialogRef.current,
       appLockConfigDialogRef.current,
       safetyListDialogRef.current,
+      iouDialogRef.current,
     ].filter(Boolean) as HTMLDialogElement[];
 
     if ('closedBy' in HTMLDialogElement.prototype) return;
@@ -1633,7 +1732,7 @@ export function App() {
 
       const seedVersion =
         typeof localStorage !== 'undefined'
-          ? localStorage.getItem('dontcall_seed_v4')
+          ? localStorage.getItem('dontcall_seed_v6')
           : 'true';
       const shouldReseed = seedVersion !== 'true';
 
@@ -1659,8 +1758,17 @@ export function App() {
       }
 
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('dontcall_seed_v4', 'true');
+        localStorage.setItem('dontcall_seed_v6', 'true');
+        localStorage.removeItem('dc_burn_read_started');
+        localStorage.setItem(
+          'atme_whitelisted_emails',
+          JSON.stringify(INITIAL_USERS.map((u) => u.email.toLowerCase()))
+        );
       }
+      setBurnReadStartedAtMs({});
+      setWhitelistedEmails(INITIAL_USERS.map((u) => u.email.toLowerCase()));
+
+      await clearIdbDatabase();
 
       const hydratedUsers: UserIdentity[] = [];
       for (const u of INITIAL_USERS) {
@@ -1672,465 +1780,9 @@ export function App() {
         }
       }
 
-      const alex = hydratedUsers[0];
-      const sam = hydratedUsers[1];
-      const elena = hydratedUsers[2];
-
-      const seedDcpEmails: RawTransportEmail[] = [];
-
-      if (alex.pgpKeyPair && elena.pgpKeyPair && sam.pgpKeyPair) {
-        const allAppKeys = [
-          alex.pgpKeyPair.publicKeyArmored,
-          sam.pgpKeyPair.publicKeyArmored,
-          elena.pgpKeyPair.publicKeyArmored,
-        ];
-
-        // 1. Alex (Gmail) -> #product-launch (Includes Alex's First-Contact Profile Card!)
-        const pkt1: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_01',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[0],
-          sender: {
-            email: alex.email,
-            displayName: alex.displayName,
-            handle: alex.handle,
-            provider: alex.provider,
-            pgpFingerprint: alex.pgpKeyPair.fingerprint,
-            publicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-            profileCard: {
-              displayName: alex.displayName,
-              handle: alex.handle || '@alexrivera',
-              avatarDataUrl: alex.avatarDataUrl,
-              bio: alex.bio,
-              updatedAt: alex.profileUpdatedAt || new Date().toISOString(),
-            },
-          },
-          payload: {
-            messageId: 'msg_seed_01',
-            text: 'Yo! Welcome to @me 👋',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
-        };
-
-        const enc1 = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pkt1),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: alex.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({ packet: pkt1, encryptedPacketArmored: enc1 })
-        );
-
-        // 2. Elena (Proton Mail) -> #product-launch (Includes Elena's Profile Card)
-        const pkt2: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_02',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[0],
-          sender: {
-            email: elena.email,
-            displayName: elena.displayName,
-            handle: elena.handle,
-            provider: elena.provider,
-            pgpFingerprint: elena.pgpKeyPair.fingerprint,
-            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-            profileCard: {
-              displayName: elena.displayName,
-              handle: elena.handle || '@elenavogt',
-              avatarDataUrl: elena.avatarDataUrl,
-              bio: elena.bio,
-              updatedAt: elena.profileUpdatedAt || new Date().toISOString(),
-            },
-          },
-          payload: {
-            messageId: 'msg_seed_02',
-            text: 'Just scanned your QR! Ready for Friday? 🎮',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        };
-
-        const enc2 = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pkt2),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({ packet: pkt2, encryptedPacketArmored: enc2 })
-        );
-
-        // 3. Elena -> Read Receipt (`chat.receipt`) for Alex's msg_seed_01
-        const pktReceipt: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_rcpt_01',
-          type: 'chat.receipt',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[0],
-          sender: {
-            email: elena.email,
-            displayName: elena.displayName,
-            handle: elena.handle,
-            provider: elena.provider,
-            pgpFingerprint: elena.pgpKeyPair.fingerprint,
-            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          },
-          payload: {
-            messageId: 'msg_seed_rcpt_01',
-            targetMessageId: 'msg_seed_01',
-            receiptStatus: 'read',
-            text: 'Read msg_seed_01',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 28).toISOString(),
-        };
-
-        const encReceipt = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktReceipt),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktReceipt,
-            encryptedPacketArmored: encReceipt,
-          })
-        );
-
-        // 4. Sam (Outlook) -> Emoji Reaction on Elena's message
-        const pktReaction: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_react_01',
-          type: 'chat.reaction',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[0],
-          sender: {
-            email: sam.email,
-            displayName: sam.displayName,
-            handle: sam.handle,
-            provider: sam.provider,
-            pgpFingerprint: sam.pgpKeyPair.fingerprint,
-            publicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-          },
-          payload: {
-            messageId: 'msg_seed_react_01',
-            targetMessageId: 'msg_seed_02',
-            reactionEmoji: '🔒',
-            text: 'Reacted 🔒',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 26).toISOString(),
-        };
-
-        const encReact = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktReaction),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: sam.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktReaction,
-            encryptedPacketArmored: encReact,
-          })
-        );
-
-        // 5. Sam (Outlook) -> Inline Reply to msg_seed_01 with Profile Card
-        const pktReply: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_reply_01',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[0],
-          sender: {
-            email: sam.email,
-            displayName: sam.displayName,
-            handle: sam.handle,
-            provider: sam.provider,
-            pgpFingerprint: sam.pgpKeyPair.fingerprint,
-            publicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-            profileCard: {
-              displayName: sam.displayName,
-              handle: sam.handle || '@samchen',
-              avatarDataUrl: sam.avatarDataUrl,
-              bio: sam.bio,
-              updatedAt: sam.profileUpdatedAt || new Date().toISOString(),
-            },
-          },
-          payload: {
-            messageId: 'msg_seed_reply_01',
-            replyToMessageId: 'msg_seed_01',
-            text: 'Let’s gooo 🔥',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-        };
-
-        const encReply = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktReply),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: sam.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktReply,
-            encryptedPacketArmored: encReply,
-          })
-        );
-
-        // 6. Alex (Gmail) -> Jordan (Yahoo — Does NOT have the app installed yet)
-        const inviteSecret = generateInviteSecret();
-        const pktInvite: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_invite_03',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-invite-key',
-          channel: INITIAL_CHANNELS[4],
-          sender: {
-            email: alex.email,
-            displayName: alex.displayName,
-            handle: alex.handle,
-            provider: alex.provider,
-            pgpFingerprint: alex.pgpKeyPair.fingerprint,
-            publicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-            profileCard: {
-              displayName: alex.displayName,
-              handle: alex.handle || '@alexrivera',
-              avatarDataUrl: alex.avatarDataUrl,
-              bio: alex.bio,
-              updatedAt: alex.profileUpdatedAt || new Date().toISOString(),
-            },
-          },
-          payload: {
-            messageId: 'msg_seed_03',
-            text: 'Hey Jordan! Scan my @me QR so we can chat 🛹',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-        };
-
-        const encInvite = await encryptDcpPayloadWithInviteKey({
-          cleartextJson: JSON.stringify(pktInvite),
-          inviteSecret,
-          senderPublicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: alex.pgpKeyPair.privateKeyArmored,
-        });
-
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktInvite,
-            encryptedPacketArmored: encInvite,
-            inviteKeyFragment: inviteSecret,
-          })
-        );
-
-        // 7. Elena (Proton Mail) -> Alex (Gmail) 1-on-1 DM (`dm_alex_elena`)
-        const elenaAttest = await createSignedComplianceAttestation({
-          senderEmail: elena.email,
-          senderPgpFingerprint: elena.pgpKeyPair.fingerprint,
-        });
-        const pktDmElena: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_dm_elena_01',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[2],
-          sender: {
-            email: elena.email,
-            displayName: elena.displayName,
-            handle: elena.handle,
-            provider: elena.provider,
-            pgpFingerprint: elena.pgpKeyPair.fingerprint,
-            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-            profileCard: {
-              displayName: elena.displayName,
-              handle: elena.handle || '@elenavogt',
-              avatarDataUrl: elena.avatarDataUrl,
-              bio: elena.bio,
-              updatedAt: elena.profileUpdatedAt || new Date().toISOString(),
-            },
-          },
-          complianceAttestation: elenaAttest,
-          payload: {
-            messageId: 'msg_seed_dm_elena_01',
-            text: 'Hey Alex! Are we meeting after school? 🎧',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
-        };
-
-        const encDmElena = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktDmElena),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktDmElena,
-            encryptedPacketArmored: encDmElena,
-          })
-        );
-
-        // 8. Alex (Gmail) -> Elena (Proton Mail) 1-on-1 DM Reply
-        const alexAttest = await createSignedComplianceAttestation({
-          senderEmail: alex.email,
-          senderPgpFingerprint: alex.pgpKeyPair.fingerprint,
-        });
-        const pktDmAlexReply: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_dm_alex_02',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[2],
-          sender: {
-            email: alex.email,
-            displayName: alex.displayName,
-            handle: alex.handle,
-            provider: alex.provider,
-            pgpFingerprint: alex.pgpKeyPair.fingerprint,
-            publicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-          },
-          complianceAttestation: alexAttest,
-          payload: {
-            messageId: 'msg_seed_dm_alex_02',
-            replyToMessageId: 'msg_seed_dm_elena_01',
-            text: 'Yep! See you at 4pm 🚀',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 60 * 1).toISOString(),
-        };
-
-        const encDmAlexReply = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktDmAlexReply),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: alex.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: alex.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktDmAlexReply,
-            encryptedPacketArmored: encDmAlexReply,
-          })
-        );
-
-        // 9. Elena (Proton Mail) -> Alex (Gmail) Unread Message 1
-        const pktDmElenaUnread1: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_dm_elena_unread_01',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[2],
-          sender: {
-            email: elena.email,
-            displayName: elena.displayName,
-            handle: elena.handle,
-            provider: elena.provider,
-            pgpFingerprint: elena.pgpKeyPair.fingerprint,
-            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          },
-          complianceAttestation: elenaAttest,
-          payload: {
-            messageId: 'msg_seed_dm_elena_unread_01',
-            text: 'Can you bring your portable speaker? 🔊',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 25).toISOString(),
-        };
-        const encDmElenaUnread1 = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktDmElenaUnread1),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktDmElenaUnread1,
-            encryptedPacketArmored: encDmElenaUnread1,
-          })
-        );
-
-        // 10. Elena (Proton Mail) -> Alex (Gmail) Unread Message 2
-        const pktDmElenaUnread2: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_dm_elena_unread_02',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[2],
-          sender: {
-            email: elena.email,
-            displayName: elena.displayName,
-            handle: elena.handle,
-            provider: elena.provider,
-            pgpFingerprint: elena.pgpKeyPair.fingerprint,
-            publicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          },
-          complianceAttestation: elenaAttest,
-          payload: {
-            messageId: 'msg_seed_dm_elena_unread_02',
-            text: 'Are you still coming to the game room? 🎮',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 8).toISOString(),
-        };
-        const encDmElenaUnread2 = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktDmElenaUnread2),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: elena.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: elena.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktDmElenaUnread2,
-            encryptedPacketArmored: encDmElenaUnread2,
-          })
-        );
-
-        // 11. Sam (Outlook) -> Alex (Gmail) 1-on-1 DM Unread Message
-        const samAttest = await createSignedComplianceAttestation({
-          senderEmail: sam.email,
-          senderPgpFingerprint: sam.pgpKeyPair.fingerprint,
-        });
-        const pktDmSamUnread: DcpPacket = {
-          protocol: DCP_PROTOCOL_VERSION,
-          packetId: 'pkt_seed_dm_sam_unread_01',
-          type: 'chat.message',
-          encryptionMode: 'openpgp-asymmetric',
-          channel: INITIAL_CHANNELS[3],
-          sender: {
-            email: sam.email,
-            displayName: sam.displayName,
-            handle: sam.handle,
-            provider: sam.provider,
-            pgpFingerprint: sam.pgpKeyPair.fingerprint,
-            publicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-          },
-          complianceAttestation: samAttest,
-          payload: {
-            messageId: 'msg_seed_dm_sam_unread_01',
-            text: 'Security audit passed with zero errors! 🛡️',
-            formatting: 'markdown',
-          },
-          sentAt: new Date(Date.now() - 1000 * 15).toISOString(),
-        };
-        const encDmSamUnread = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(pktDmSamUnread),
-          recipientPublicKeysArmored: allAppKeys,
-          senderPublicKeyArmored: sam.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: sam.pgpKeyPair.privateKeyArmored,
-        });
-        seedDcpEmails.push(
-          buildDcpMimeEmail({
-            packet: pktDmSamUnread,
-            encryptedPacketArmored: encDmSamUnread,
-          })
-        );
-      }
+      const seedDcpEmails = await createEncryptedSeedEmailsForUsers(
+        hydratedUsers
+      );
 
       const regularEmails = createSampleRegularEmails();
       const combined = [...seedDcpEmails, ...regularEmails].sort(
@@ -2168,7 +1820,10 @@ export function App() {
         const isRecipient = email.to.some((t) =>
           t.toLowerCase().includes(myEmailLower)
         );
-        if (myEmailLower && !isSender && !isRecipient) {
+        const isBccRecipient = email.bcc?.some((b) =>
+          b.toLowerCase().includes(myEmailLower)
+        );
+        if (myEmailLower && !isSender && !isRecipient && !isBccRecipient) {
           continue;
         }
 
@@ -2232,6 +1887,19 @@ export function App() {
           setUsers(nextUsers);
           await saveUserIdentitiesToIdb(nextUsers);
         }
+        // Automatically ensure any channel referenced by a decrypted packet is present in `channels`
+        setChannels((prev) => {
+          const existingIds = new Set(prev.map((c) => c.id));
+          const discovered: DcpChannelMeta[] = [];
+          for (const r of results) {
+            const ch = r.decryptedPacket?.channel;
+            if (ch && ch.id && !existingIds.has(ch.id)) {
+              existingIds.add(ch.id);
+              discovered.push(ch);
+            }
+          }
+          return discovered.length > 0 ? [...discovered, ...prev] : prev;
+        });
       }
     }
     if (transportEmails.length > 0) {
@@ -2292,6 +1960,81 @@ export function App() {
     () => inspections.filter((i) => !i.accepted),
     [inspections]
   );
+
+  // Compute Peer-to-Peer Crypto-Inspired IOU Wallet Ledger Totals (No History Shown — Totals Only!)
+  const iouLedgerSummary = useMemo(() => {
+    const myEmail = activeUser.email.toLowerCase();
+    // Positive net means friend owes activeUser; Negative net means activeUser owes friend
+    const netByPeer = new Map<string, number>();
+
+    const chronologicalIouPackets = acceptedPackets
+      .map((i) => i.decryptedPacket!)
+      .filter((pkt) => pkt && pkt.type === 'chat.iou' && pkt.payload.iou)
+      .sort(
+        (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+      );
+
+    for (const pkt of chronologicalIouPackets) {
+      const iou = pkt.payload.iou!;
+      const debtor = iou.debtorEmail.toLowerCase();
+      const creditor = iou.creditorEmail.toLowerCase();
+
+      if (debtor !== myEmail && creditor !== myEmail) continue;
+      const peerEmail = debtor === myEmail ? creditor : debtor;
+
+      if (iou.action === 'collect') {
+        const current = netByPeer.get(peerEmail) || 0;
+        const settledAmt = iou.amount > 0 ? iou.amount : Math.abs(current);
+        if (current > 0) {
+          netByPeer.set(peerEmail, Math.max(0, current - settledAmt));
+        } else if (current < 0) {
+          netByPeer.set(peerEmail, Math.min(0, current + settledAmt));
+        }
+      } else {
+        const delta = creditor === myEmail ? iou.amount : -iou.amount;
+        netByPeer.set(peerEmail, (netByPeer.get(peerEmail) || 0) + delta);
+      }
+    }
+
+    let owedToMeTotal = 0;
+    let iOweTotal = 0;
+    const rows: Array<{
+      peerEmail: string;
+      peerUser?: UserIdentity;
+      displayName: string;
+      handle: string;
+      netAmount: number;
+    }> = [];
+
+    for (const [peerEmail, net] of netByPeer.entries()) {
+      if (Math.abs(net) < 0.01) continue;
+      if (net > 0) owedToMeTotal += net;
+      if (net < 0) iOweTotal += Math.abs(net);
+      const u = users.find((x) => x.email.toLowerCase() === peerEmail);
+      const fallbackName =
+        peerEmail.split('@')[0].charAt(0).toUpperCase() +
+        peerEmail.split('@')[0].slice(1);
+      rows.push({
+        peerEmail,
+        peerUser: u,
+        displayName: (u?.displayName || fallbackName).replace(
+          ' (No App Yet)',
+          ''
+        ),
+        handle: u?.handle || `@${peerEmail.split('@')[0]}`,
+        netAmount: net,
+      });
+    }
+
+    rows.sort((a, b) => Math.abs(b.netAmount) - Math.abs(a.netAmount));
+
+    return {
+      owedToMeTotal,
+      iOweTotal,
+      netBalance: owedToMeTotal - iOweTotal,
+      rows,
+    };
+  }, [acceptedPackets, activeUser.email, users]);
 
   // Build free-flowing chronological message stream with reactions, inline quotes, polls, AND read receipts
   const freeflowStream = useMemo(() => {
@@ -2425,13 +2168,31 @@ export function App() {
       });
     }
 
+    // If broadcast-channel, find the latest channelReactionTotals snapshot pushed by the creator
+    let latestBroadcastReactionTotals:
+      | Record<string, Record<string, number>>
+      | undefined;
+    if (activeChannel.type === 'broadcast-channel') {
+      for (let i = chronologicallySorted.length - 1; i >= 0; i--) {
+        const p = chronologicallySorted[i].decryptedPacket!;
+        if (
+          p.channel.id === activeChannel.id &&
+          p.payload.channelReactionTotals
+        ) {
+          latestBroadcastReactionTotals = p.payload.channelReactionTotals;
+          break;
+        }
+      }
+    }
+
     for (const item of chronologicallySorted) {
       const pkt = item.decryptedPacket!;
       if (pkt.channel.id !== activeChannel.id) continue;
       if (
         pkt.type !== 'chat.message' &&
         pkt.type !== 'chat.poll' &&
-        pkt.type !== 'chat.member-update'
+        pkt.type !== 'chat.member-update' &&
+        pkt.type !== 'chat.iou'
       ) {
         continue;
       }
@@ -2459,6 +2220,9 @@ export function App() {
             isExpired: timing.isExpired,
             isUnread: !timing.isViewed,
             remainingSeconds: timing.remainingSeconds,
+            unreadCount:
+              timing.unburnedRecipientCount ??
+              Math.max(1, activeChannel.participants.length - 1),
             summaryLabel: timing.summaryLabel,
             isOwn: timing.isOwn,
           };
@@ -2470,6 +2234,7 @@ export function App() {
             isExpired: false,
             isUnread: true,
             remainingSeconds: 20,
+            unreadCount: Math.max(1, activeChannel.participants.length - 1),
             summaryLabel: '⏳ queued (20s)',
             isOwn:
               pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase(),
@@ -2498,12 +2263,62 @@ export function App() {
         ? pollVotesByPollId.get(pkt.payload.poll.pollId) || []
         : [];
 
+      // Merge anonymous broadcast-channel reaction totals with direct reactions
+      let effectiveReactions =
+        reactionsByTargetId.get(pkt.payload.messageId) || [];
+      if (activeChannel.type === 'broadcast-channel') {
+        const snapshotForMsg =
+          latestBroadcastReactionTotals?.[pkt.payload.messageId] ||
+          pkt.payload.channelReactionTotals?.[pkt.payload.messageId];
+        if (snapshotForMsg) {
+          const synthList: Array<{
+            emoji: string;
+            senderName: string;
+            senderEmail: string;
+          }> = [];
+          for (const [emoji, count] of Object.entries(snapshotForMsg)) {
+            for (let c = 0; c < count; c++) {
+              synthList.push({
+                emoji,
+                senderName: `Anon #${c + 1}`,
+                senderEmail: `anon_${c + 1}@bcc.local`,
+              });
+            }
+          }
+          // Also include active user's own pending reaction if not yet in creator's snapshot
+          const myDirectReactions = effectiveReactions.filter(
+            (r) =>
+              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase() ||
+              activeChannel.creatorEmail?.toLowerCase() ===
+                activeUser.email.toLowerCase()
+          );
+          for (const r of myDirectReactions) {
+            if (
+              activeChannel.creatorEmail?.toLowerCase() ===
+                activeUser.email.toLowerCase() &&
+              r.senderEmail.toLowerCase() !== activeUser.email.toLowerCase()
+            ) {
+              synthList.push(r);
+            } else if (
+              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
+            ) {
+              synthList.push({
+                emoji: r.emoji,
+                senderName: 'You (Anonymous via Creator)',
+                senderEmail: r.senderEmail,
+              });
+            }
+          }
+          effectiveReactions = synthList;
+        }
+      }
+
       messages.push({
         emailId: item.emailId,
         packet: pkt,
         signatureVerified: Boolean(item.signatureVerified),
         decryptionTimeMs: item.decryptionTimeMs,
-        reactions: reactionsByTargetId.get(pkt.payload.messageId) || [],
+        reactions: effectiveReactions,
         receipts: msgReceipts,
         pollVotes,
         burnerStatus,
@@ -3001,15 +2816,19 @@ export function App() {
           lastText:
             lastPacket?.payload.text ||
             (ch.isBurner
-              ? '🔥 Burner Chat (20s cascade)'
+              ? '20s cascade'
+              : ch.type === 'broadcast-channel'
+              ? ch.description || 'Broadcast Feed'
               : ch.type === 'vault'
-              ? '📌 Notes'
+              ? 'Notes'
               : ch.type === 'dm'
-              ? '💬 Chat'
-              : `👥 ${ch.participants.length}`),
-          lastTime: lastPacket?.sentAt || '',
+              ? 'Chat'
+              : `${ch.participants.length}`),
+          lastTime: lastPacket?.sentAt || ch.createdAt || '',
           lastTimestampMs: lastPacket
             ? new Date(lastPacket.sentAt).getTime()
+            : ch.createdAt
+            ? new Date(ch.createdAt).getTime()
             : 0,
           peerUser,
           unreadCount,
@@ -3102,6 +2921,13 @@ export function App() {
     poll?: DcpPollPayload;
     pollVote?: DcpPollVotePayload;
     pinUpdate?: DcpPinPayload;
+    iou?: DcpIouPayload;
+    channelReactionTotals?: Record<string, Record<string, number>>;
+    storyCard?: {
+      imageDataUrl?: string;
+      caption?: string;
+      badgeText?: string;
+    };
     vaultCategory?: 'note' | 'credential' | 'file' | 'snippet';
     memberUpdate?: {
       action: 'add' | 'remove';
@@ -3198,6 +3024,9 @@ export function App() {
           poll: params.poll,
           pollVote: params.pollVote,
           pinUpdate: params.pinUpdate,
+          iou: params.iou,
+          channelReactionTotals: params.channelReactionTotals,
+          storyCard: params.storyCard,
           vaultCategory: params.vaultCategory,
           senderShieldedAlias: activeAlias
             ? {
@@ -3451,6 +3280,7 @@ export function App() {
       return next;
     });
     setWhitelistInputEmail('');
+    handleOpenExistingOrStartContactChat(email);
     setSafetyBannerNotice(`✨ Added ${email} to your Approved Whitelist.`);
     setTimeout(() => setSafetyBannerNotice(''), 4000);
   }
@@ -3555,15 +3385,26 @@ export function App() {
       ];
     });
 
-    // 4. Open or create their 1-on-1 DM
-    const existingDm = channels.find(
+    // 4. Open or create their 1-on-1 DM (Regular first, or Burner if only Burner exists)
+    const existingRegularDm = channels.find(
       (c) =>
         c.type === 'dm' &&
+        !c.isBurner &&
         c.participants.some((p) => p.toLowerCase() === cleanEmail) &&
         c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
         )
     );
+    const existingBurnerDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        Boolean(c.isBurner) &&
+        c.participants.some((p) => p.toLowerCase() === cleanEmail) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+    const existingDm = existingRegularDm || existingBurnerDm;
     let targetChannelId = existingDm?.id;
     if (existingDm) {
       setActiveChannelId(existingDm.id);
@@ -3573,6 +3414,7 @@ export function App() {
         type: 'dm',
         name: resolvedName,
         participants: [activeUser.email, cleanEmail],
+        createdAt: new Date().toISOString(),
       };
       setChannels((prev) => [dmCh, ...prev]);
       setActiveChannelId(dmCh.id);
@@ -3618,12 +3460,15 @@ export function App() {
   }
 
   // Save User Profile (Avatar, Display Name, Handle) to Local IndexedDB
-  // and transition to the generated @me Friend QR Code Card!
-  async function handleSaveUserProfile(e: React.FormEvent) {
-    e.preventDefault();
-    const formattedHandle = profileHandleInput.trim().startsWith('@')
-      ? profileHandleInput.trim()
-      : `@${profileHandleInput.trim()}`;
+  async function handleSaveUserProfile(e?: React.FormEvent) {
+    e?.preventDefault();
+    const cleanRawHandle = profileHandleInput
+      .replace(/^@+/, '')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_]/g, '');
+    const formattedHandle = `@${
+      cleanRawHandle || activeUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '')
+    }`;
 
     const nowIso = new Date().toISOString();
     const updatedUsers = users.map((u) =>
@@ -3647,9 +3492,6 @@ export function App() {
     } catch {
       // Ignore storage errors
     }
-    setProfileModalStep('qr-card');
-    setProfileSaveBanner('Your @me Profile & QR Card are ready to share!');
-    setTimeout(() => setProfileSaveBanner(''), 4000);
   }
 
   async function handleAvatarFileSelected(
@@ -3728,6 +3570,9 @@ export function App() {
 
   async function handleOpenCameraModal() {
     setCapturedPhotoDataUrl(null);
+    setCameraStamps([]);
+    setSelectedCameraStampId(null);
+    setIsCameraStampPickerOpen(true);
     cameraCaptureDialogRef.current?.showModal();
     await startCameraStream(cameraFacingMode);
   }
@@ -3735,6 +3580,45 @@ export function App() {
   function handleCloseCameraModal() {
     stopCameraStream();
     setCapturedPhotoDataUrl(null);
+    setCameraStamps([]);
+    setSelectedCameraStampId(null);
+  }
+
+  function handleAddCameraEmojiStamp(emoji: string) {
+    const id = `stamp_${Date.now().toString(36)}_${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+    const count = cameraStamps.length;
+    const offsetXPct = ((count * 9) % 36) - 14;
+    const offsetYPct = ((count * 7) % 28) - 10;
+    const newStamp = {
+      id,
+      emoji,
+      xPct: Math.min(82, Math.max(18, 50 + (count === 0 ? 0 : offsetXPct))),
+      yPct: Math.min(80, Math.max(20, 45 + (count === 0 ? 0 : offsetYPct))),
+      sizePx: 88,
+    };
+    setCameraStamps((prev) => [...prev, newStamp]);
+    setSelectedCameraStampId(id);
+  }
+
+  function handleUpdateCameraStampSize(stampId: string, nextSizePx: number) {
+    const clamped = Math.min(220, Math.max(24, Math.round(nextSizePx)));
+    setCameraStamps((prev) =>
+      prev.map((s) => (s.id === stampId ? { ...s, sizePx: clamped } : s))
+    );
+  }
+
+  function handleDeleteCameraStamp(stampId: string) {
+    setCameraStamps((prev) => {
+      const remaining = prev.filter((s) => s.id !== stampId);
+      if (selectedCameraStampId === stampId) {
+        setSelectedCameraStampId(
+          remaining.length > 0 ? remaining[remaining.length - 1].id : null
+        );
+      }
+      return remaining;
+    });
   }
 
   async function handleFlipCamera() {
@@ -3849,11 +3733,55 @@ export function App() {
     const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.88);
     stopCameraStream();
     setCapturedPhotoDataUrl(jpegDataUrl);
+    setCameraStamps([]);
+    setSelectedCameraStampId(null);
+    setIsCameraStampPickerOpen(true);
   }
 
   async function handleSendCapturedCameraPhoto() {
     if (!capturedPhotoDataUrl || !activeChannel) return;
-    const snapDataUrl = capturedPhotoDataUrl;
+    let snapDataUrl = capturedPhotoDataUrl;
+
+    // Permanently bake any placed emoji stamps directly into the JPEG pixels before encryption
+    if (cameraStamps.length > 0) {
+      try {
+        const viewportWidth = cameraViewportRef.current?.clientWidth || 360;
+        snapDataUrl = await new Promise<string>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const w = img.naturalWidth || 640;
+            const h = img.naturalHeight || 480;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(capturedPhotoDataUrl);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, w, h);
+            const scaleRatio = w / Math.max(1, viewportWidth);
+            for (const st of cameraStamps) {
+              const cx = (st.xPct / 100) * w;
+              const cy = (st.yPct / 100) * h;
+              const fontPx = Math.round(st.sizePx * scaleRatio);
+              ctx.save();
+              ctx.font = `${fontPx}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(st.emoji, cx, cy);
+              ctx.restore();
+            }
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+          };
+          img.onerror = () => resolve(capturedPhotoDataUrl);
+          img.src = capturedPhotoDataUrl;
+        });
+      } catch {
+        snapDataUrl = capturedPhotoDataUrl;
+      }
+    }
+
     const approxBytes = Math.round((snapDataUrl.length * 3) / 4);
     const stamp = Date.now().toString(36);
     const photoAttachment: DcpAttachment = {
@@ -3867,6 +3795,8 @@ export function App() {
 
     // Clear from memory and close camera dialog before dispatching encrypted packet to localDb
     setCapturedPhotoDataUrl(null);
+    setCameraStamps([]);
+    setSelectedCameraStampId(null);
     stopCameraStream();
     cameraCaptureDialogRef.current?.close();
 
@@ -3883,6 +3813,24 @@ export function App() {
     if (composerText.trim()) {
       setComposerText('');
     }
+  }
+
+  // Cancel Voice Recorder UI without saving attachment
+  function handleCancelVoiceRecorder() {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== 'inactive'
+    ) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingVoice(false);
+    setIsVoiceRecorderOpen(false);
+    setRecordingSeconds(0);
   }
 
   // Real Voice Note Recording via Browser MediaRecorder (with automatic synthesized WAV fallback)
@@ -3917,11 +3865,13 @@ export function App() {
         ]);
       }
       setIsRecordingVoice(false);
+      setIsVoiceRecorderOpen(false);
       setRecordingSeconds(0);
       return;
     }
 
     // Start recording
+    setIsVoiceRecorderOpen(true);
     setRecordingSeconds(0);
     setIsRecordingVoice(true);
     recordingTimerRef.current = window.setInterval(() => {
@@ -4364,10 +4314,17 @@ export function App() {
     void mimeAck;
   }
 
-  // Add Member to Group
+  // Add Member to Group or Broadcast Channel (Hard Capped at 99 Users to prevent personal email spam limits)
   async function handleAddMemberToChannel(e: React.FormEvent) {
     e.preventDefault();
     if (!activeChannel) return;
+    if (activeChannel.participants.length >= MAX_CHANNEL_AND_GROUP_USERS) {
+      setSafetyBannerNotice(
+        `Hard cap of ${MAX_CHANNEL_AND_GROUP_USERS} users reached to protect personal email deliverability.`
+      );
+      setTimeout(() => setSafetyBannerNotice(''), 4000);
+      return;
+    }
     const cleanEmail = newMemberEmailInput.trim().toLowerCase();
     if (!cleanEmail) return;
     if (
@@ -4461,6 +4418,52 @@ export function App() {
     });
   }
 
+  // Start or jump to an existing 1-on-1 chat (Regular first, then Burner in that order), or create Regular if neither exists
+  function handleOpenExistingOrStartContactChat(email: string) {
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail) return;
+
+    const existingRegularDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        !c.isBurner &&
+        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+
+    if (existingRegularDm) {
+      setContactSearchQuery('');
+      menuDirectoryDialogRef.current?.close();
+      groupInfoDialogRef.current?.close();
+      newChannelModalRef.current?.close();
+      openMobileChat(existingRegularDm.id);
+      return;
+    }
+
+    const existingBurnerDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        Boolean(c.isBurner) &&
+        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+
+    if (existingBurnerDm) {
+      setContactSearchQuery('');
+      menuDirectoryDialogRef.current?.close();
+      groupInfoDialogRef.current?.close();
+      newChannelModalRef.current?.close();
+      openMobileChat(existingBurnerDm.id);
+      return;
+    }
+
+    handleStartOrOpenContactChat(targetEmail);
+  }
+
   // Start or jump to a regular 1-on-1 DM with any Contact
   function handleStartOrOpenContactChat(email: string) {
     const targetEmail = email.trim().toLowerCase();
@@ -4479,6 +4482,8 @@ export function App() {
     if (existingDm) {
       setContactSearchQuery('');
       menuDirectoryDialogRef.current?.close();
+      groupInfoDialogRef.current?.close();
+      newChannelModalRef.current?.close();
       openMobileChat(existingDm.id);
       return;
     }
@@ -4509,10 +4514,13 @@ export function App() {
       type: 'dm',
       name: existingUser.displayName.replace(' (No App Yet)', ''),
       participants: [activeUser.email, existingUser.email],
+      createdAt: new Date().toISOString(),
     };
     setChannels((prev) => [dmCh, ...prev]);
     setContactSearchQuery('');
     menuDirectoryDialogRef.current?.close();
+    groupInfoDialogRef.current?.close();
+    newChannelModalRef.current?.close();
     openMobileChat(dmCh.id);
   }
 
@@ -4534,6 +4542,8 @@ export function App() {
     if (existingBurnerDm) {
       setContactSearchQuery('');
       menuDirectoryDialogRef.current?.close();
+      groupInfoDialogRef.current?.close();
+      newChannelModalRef.current?.close();
       openMobileChat(existingBurnerDm.id);
       return;
     }
@@ -4566,10 +4576,13 @@ export function App() {
       participants: [activeUser.email, existingUser.email],
       isBurner: true,
       ephemeralTimerSeconds: 20,
+      createdAt: new Date().toISOString(),
     };
     setChannels((prev) => [burnerDmCh, ...prev]);
     setContactSearchQuery('');
     menuDirectoryDialogRef.current?.close();
+    groupInfoDialogRef.current?.close();
+    newChannelModalRef.current?.close();
     openMobileChat(burnerDmCh.id);
   }
 
@@ -4628,6 +4641,70 @@ export function App() {
       ? 20
       : composerBurnSeconds || activeChannel.ephemeralTimerSeconds || undefined;
 
+    // If activeChannel is a broadcast-channel and activeUser is the creator,
+    // aggregate all incoming subscriber reactions and push updated channelReactionTotals out to all BCC subscribers!
+    let nextChannelReactionTotals:
+      | Record<string, Record<string, number>>
+      | undefined;
+    let nextStoryCard:
+      | { imageDataUrl?: string; caption?: string; badgeText?: string }
+      | undefined;
+
+    if (
+      activeChannel.type === 'broadcast-channel' &&
+      activeChannel.creatorEmail?.toLowerCase() ===
+        activeUser.email.toLowerCase()
+    ) {
+      const mergedTotals: Record<string, Record<string, number>> = {};
+      for (const item of acceptedPackets) {
+        const p = item.decryptedPacket;
+        if (!p || p.channel.id !== activeChannel.id) continue;
+        if (p.payload.channelReactionTotals) {
+          for (const [mId, counts] of Object.entries(
+            p.payload.channelReactionTotals
+          )) {
+            mergedTotals[mId] = { ...(mergedTotals[mId] || {}), ...counts };
+          }
+        }
+      }
+      // Count any new 1-to-1 reactions sent to creator since the last snapshot
+      const directReactionsByMsg: Record<string, Record<string, number>> = {};
+      for (const item of acceptedPackets) {
+        const p = item.decryptedPacket;
+        if (
+          p &&
+          p.channel.id === activeChannel.id &&
+          p.type === 'chat.reaction' &&
+          p.payload.targetMessageId &&
+          p.payload.reactionEmoji
+        ) {
+          const mId = p.payload.targetMessageId;
+          const em = p.payload.reactionEmoji;
+          if (!directReactionsByMsg[mId]) directReactionsByMsg[mId] = {};
+          directReactionsByMsg[mId][em] =
+            (directReactionsByMsg[mId][em] || 0) + 1;
+        }
+      }
+      for (const [mId, counts] of Object.entries(directReactionsByMsg)) {
+        if (!mergedTotals[mId]) mergedTotals[mId] = {};
+        for (const [em, c] of Object.entries(counts)) {
+          mergedTotals[mId][em] = (mergedTotals[mId][em] || 0) + c;
+        }
+      }
+      nextChannelReactionTotals = mergedTotals;
+
+      const firstImgAtt = pendingAttachments.find((a) =>
+        a.mimeType.startsWith('image/')
+      );
+      if (firstImgAtt) {
+        nextStoryCard = {
+          imageDataUrl: firstImgAtt.encryptedData,
+          caption: cleanText,
+          badgeText: 'LIVE STORY • BCC',
+        };
+      }
+    }
+
     await dispatchDcpEmailPacket({
       channel: activeChannel,
       type: 'chat.message',
@@ -4637,6 +4714,8 @@ export function App() {
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
       ephemeralTtlSeconds: effectiveBurnSec,
       linkPreview,
+      channelReactionTotals: nextChannelReactionTotals,
+      storyCard: nextStoryCard,
       vaultCategory:
         activeChannel.type === 'vault' ? vaultCategoryInput : undefined,
     });
@@ -4647,8 +4726,158 @@ export function App() {
     setPendingAttachments([]);
     setReplyingToMessage(null);
     if (composerTextareaRef.current) {
-      composerTextareaRef.current.style.height = '';
+      composerTextareaRef.current.style.height = '38px';
     }
+  }
+
+  // Send or Recognize Collection on a Peer-to-Peer IOU (`chat.iou`)
+  async function handleSendOrSettleIou(params: {
+    action: 'send-iou' | 'request-iou' | 'collect';
+    peerEmail: string;
+    amount: number;
+    note?: string;
+  }) {
+    const cleanPeer = params.peerEmail.trim().toLowerCase();
+    if (!cleanPeer || params.amount <= 0) return;
+
+    const peerUser = users.find((u) => u.email.toLowerCase() === cleanPeer);
+    const peerName = (
+      peerUser?.displayName || cleanPeer.split('@')[0]
+    ).replace(' (No App Yet)', '');
+
+    let targetDm = channels.find(
+      (c) =>
+        c.type === 'dm' &&
+        !c.isBurner &&
+        c.participants.some((p) => p.toLowerCase() === cleanPeer) &&
+        c.participants.some(
+          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
+        )
+    );
+    if (!targetDm) {
+      targetDm = {
+        id: `dm_${Date.now().toString(36)}`,
+        type: 'dm',
+        name: peerName,
+        participants: [activeUser.email, cleanPeer],
+      };
+      setChannels((prev) => [targetDm!, ...prev]);
+    }
+
+    const isCreditorMe =
+      params.action === 'request-iou' ||
+      (params.action === 'collect' &&
+        (iouLedgerSummary.rows.find((r) => r.peerEmail === cleanPeer)
+          ?.netAmount || 0) > 0);
+
+    const debtorEmail =
+      params.action === 'send-iou'
+        ? activeUser.email
+        : params.action === 'request-iou'
+        ? cleanPeer
+        : isCreditorMe
+        ? cleanPeer
+        : activeUser.email;
+
+    const creditorEmail =
+      debtorEmail.toLowerCase() === activeUser.email.toLowerCase()
+        ? cleanPeer
+        : activeUser.email;
+
+    const iouPayload: DcpIouPayload = {
+      iouId: `iou_${Date.now().toString(36)}`,
+      action: params.action,
+      amount: params.amount,
+      unit: 'IOU',
+      note: params.note || (params.action === 'collect' ? 'Settled up' : 'IOU'),
+      debtorEmail,
+      creditorEmail,
+      settledAt:
+        params.action === 'collect' ? new Date().toISOString() : undefined,
+    };
+
+    const summaryText =
+      params.action === 'collect'
+        ? `Recognized collection of ${params.amount} from ${peerName}`
+        : `Sent ${params.amount} to ${peerName}${
+            params.note ? ` (${params.note})` : ''
+          }`;
+
+    await dispatchDcpEmailPacket({
+      channel: targetDm,
+      type: 'chat.iou',
+      text: summaryText,
+      iou: iouPayload,
+    });
+
+    setSelectedIouPeerEmail(null);
+    setShowIouIssueForm(false);
+    setIouSendNote('');
+    setSafetyBannerNotice(summaryText);
+    setTimeout(() => setSafetyBannerNotice(''), 4000);
+  }
+
+  // Subscriber Burn Local Channel & Block (sends encrypted Unsubscribe packet back to Creator to remove from BCC)
+  async function handleSubscriberBurnAndUnsubscribeChannel(
+    channelToUnsub: DcpChannelMeta
+  ) {
+    if (channelToUnsub.type !== 'broadcast-channel') return;
+    const creatorEmail =
+      channelToUnsub.creatorEmail || channelToUnsub.participants[0];
+
+    const updatedParticipants = channelToUnsub.participants.filter(
+      (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
+    );
+
+    // 1. Send encrypted unsubscribe email back to the creator
+    await dispatchDcpEmailPacket({
+      channel: channelToUnsub,
+      type: 'chat.member-update',
+      text: `Unsubscribe & remove ${activeUser.email} from #${channelToUnsub.name} BCC list`,
+      memberUpdate: {
+        action: 'remove',
+        targetEmail: activeUser.email,
+        targetDisplayName: activeUser.displayName,
+        updatedParticipants,
+      },
+    });
+
+    // 2. Burn local channel messages from IndexedDB
+    const channelHeaderTag = `[${channelToUnsub.id}]`;
+    const emailIdsToScrub = transportEmails
+      .filter(
+        (eml) =>
+          eml.headers['X-@me-Channel-Id'] === channelToUnsub.id ||
+          eml.subject.includes(channelHeaderTag)
+      )
+      .map((eml) => eml.id);
+    if (emailIdsToScrub.length > 0) {
+      await cryptographicScrubPeerAndEmailsInIdb({ emailIdsToScrub });
+      const remaining = transportEmails.filter(
+        (e) => !emailIdsToScrub.includes(e.id)
+      );
+      setTransportEmails(remaining);
+      await saveTransportEmailsToIdb(remaining);
+    }
+
+    // 3. Remove activeUser from local channel subscription & switch to another conversation
+    setChannels((prev) =>
+      prev.map((c) =>
+        c.id === channelToUnsub.id
+          ? { ...c, participants: updatedParticipants }
+          : c
+      )
+    );
+    const fallbackCh = userScopedChannels.find(
+      (c) => c.id !== channelToUnsub.id
+    );
+    if (fallbackCh) {
+      setActiveChannelId(fallbackCh.id);
+    }
+    setSafetyBannerNotice(
+      `Unsubscribed & burned local feed #${channelToUnsub.name} (sent removal notice to ${creatorEmail})`
+    );
+    setTimeout(() => setSafetyBannerNotice(''), 4500);
   }
 
   // Create and dispatch an Encrypted Poll (`chat.poll`)
@@ -4843,30 +5072,95 @@ export function App() {
       createdAliasEmail = alias.aliasEmail;
     }
 
+    if (newChatType === 'broadcast-channel') {
+      const id = `ch_broadcast_${Date.now().toString(36)}`;
+      const cleanName =
+        newChatName
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, '-') || 'live-feed';
+      const selectedParticipants =
+        selectedGroupMemberEmails.length > 0
+          ? Array.from(
+              new Set([activeUser.email, ...selectedGroupMemberEmails])
+            ).slice(0, MAX_CHANNEL_AND_GROUP_USERS)
+          : users
+              .filter((u) => u.hasAppInstalled)
+              .map((u) => u.email)
+              .slice(0, MAX_CHANNEL_AND_GROUP_USERS);
+      const newBroadcastCh: DcpChannelMeta = {
+        id,
+        type: 'broadcast-channel',
+        name: cleanName,
+        creatorEmail: activeUser.email,
+        description:
+          newChannelDescription.trim() ||
+          'Anonymous BCC Story Channel • Subscribers react privately',
+        participants: selectedParticipants,
+        createdAt: new Date().toISOString(),
+      };
+      setChannels((prev) => [newBroadcastCh, ...prev]);
+      setNewChatName('');
+      setNewChannelDescription('');
+      setSelectedGroupMemberEmails([]);
+      setIsNewChatBurner(false);
+      newChannelModalRef.current?.close();
+      menuDirectoryDialogRef.current?.close();
+      openMobileChat(newBroadcastCh.id);
+      return;
+    }
+
     if (newChatType === 'workspace-channel') {
       const id = isNewChatBurner
         ? `burner_ch_${Date.now().toString(36)}`
         : `ch_custom_${Date.now().toString(36)}`;
+      const selectedFriendNames = selectedGroupMemberEmails
+        .map(
+          (em) =>
+            users
+              .find((u) => u.email.toLowerCase() === em.toLowerCase())
+              ?.displayName.replace(' (No App Yet)', '')
+              .toLowerCase() || em.split('@')[0].toLowerCase()
+        )
+        .filter(Boolean);
+      const fallbackGroupName =
+        selectedFriendNames.length > 0
+          ? `${activeUser.displayName.toLowerCase()}-${selectedFriendNames.join(
+              '-'
+            )}`
+          : isNewChatBurner
+          ? 'burner-group'
+          : 'new-group';
       let cleanName =
         newChatName
           .trim()
           .toLowerCase()
-          .replace(/[^a-z0-9-]/g, '-') ||
-        (isNewChatBurner ? 'burner-group' : 'new-group');
+          .replace(/[^a-z0-9-]/g, '-') || fallbackGroupName;
       if (isNewChatBurner && !cleanName.endsWith('-burner')) {
         cleanName = `${cleanName}-burner`;
       }
+      const groupParticipants =
+        selectedGroupMemberEmails.length > 0
+          ? Array.from(
+              new Set([activeUser.email, ...selectedGroupMemberEmails])
+            ).slice(0, MAX_CHANNEL_AND_GROUP_USERS)
+          : users
+              .filter((u) => u.hasAppInstalled)
+              .map((u) => u.email)
+              .slice(0, MAX_CHANNEL_AND_GROUP_USERS);
       const newCh: DcpChannelMeta = {
         id,
         type: 'workspace-channel',
         name: cleanName,
-        participants: users.filter((u) => u.hasAppInstalled).map((u) => u.email),
+        participants: groupParticipants,
         shieldedAliasEmail: createdAliasEmail,
         isBurner: isNewChatBurner,
         ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
+        createdAt: new Date().toISOString(),
       };
       setChannels((prev) => [newCh, ...prev]);
       setNewChatName('');
+      setSelectedGroupMemberEmails([]);
       setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
@@ -4926,6 +5220,7 @@ export function App() {
         shieldedAliasEmail: createdAliasEmail,
         isBurner: isNewChatBurner,
         ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
+        createdAt: new Date().toISOString(),
       };
       setChannels((prev) => [dmCh, ...prev]);
       setNewChatRecipientEmail('');
@@ -4986,11 +5281,11 @@ export function App() {
         easyDisplayNameInput.trim() || guessedName || 'User'
       );
     } else if (provider === 'google') {
-      setSimulatedOAuthEmail('taylor.brooks@gmail.com');
-      setSimulatedOAuthName('Taylor Brooks');
+      setSimulatedOAuthEmail('taylor@gmail.com');
+      setSimulatedOAuthName('Taylor');
     } else {
-      setSimulatedOAuthEmail('morgan.lee@outlook.com');
-      setSimulatedOAuthName('Morgan Lee');
+      setSimulatedOAuthEmail('morgan@outlook.com');
+      setSimulatedOAuthName('Morgan');
     }
   }
 
@@ -5238,6 +5533,11 @@ export function App() {
 
   async function handleResetDemoState() {
     if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('dontcall_seed_v5');
+      window.localStorage.removeItem('dontcall_seed_v6');
+      window.localStorage.removeItem('dc_channels_v3');
+      window.localStorage.removeItem('dc_channels_v4');
+      window.localStorage.removeItem('dc_burn_read_started');
       window.localStorage.removeItem('atme_profile_onboarded');
       window.localStorage.removeItem('atme_blocked_emails');
       window.localStorage.removeItem('atme_whitelisted_emails');
@@ -5369,7 +5669,7 @@ export function App() {
                 <KeyRound size={11} /> 🔑 PIN: <code>{appLockPin}</code>
               </span>
               <span>
-                <Flame size={11} /> 🔥 Wipe: <code>{duressPanicPin}</code>
+                <Flame size={11} className="dc-flame-fire-icon" /> Wipe: <code>{duressPanicPin}</code>
               </span>
             </div>
           </div>
@@ -5467,75 +5767,66 @@ export function App() {
                     </button>
 
                     {isAddMenuOpen && (
-                      <div className="dc-add-menu-dropdown" role="menu">
+                      <div
+                        className="dc-add-menu-dropdown dc-add-menu-icon-bar"
+                        role="menu"
+                        aria-label="New conversation"
+                      >
                         <button
                           type="button"
-                          className="dc-add-menu-item"
+                          role="menuitem"
+                          className="dc-add-icon-only-btn"
                           onClick={() => {
                             setIsAddMenuOpen(false);
                             setNewChatType('dm');
                             setIsNewChatBurner(false);
+                            setNewChatRecipientEmail('');
+                            setSelectedGroupMemberEmails([]);
+                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
+                          title="New Message (Regular or Burner)"
+                          aria-label="New Message"
                         >
-                          <span className="dc-add-menu-icon">💬</span>
-                          <div className="dc-add-menu-text">
-                            <strong>New Message</strong>
-                            <small>Start regular direct message</small>
-                          </div>
+                          <MessageCircle size={19} />
                         </button>
 
                         <button
                           type="button"
-                          className="dc-add-menu-item dc-add-menu-item-burner"
-                          onClick={() => {
-                            setIsAddMenuOpen(false);
-                            setNewChatType('dm');
-                            setIsNewChatBurner(true);
-                            newChannelModalRef.current?.showModal();
-                          }}
-                        >
-                          <span className="dc-add-menu-icon">🔥</span>
-                          <div className="dc-add-menu-text">
-                            <strong>New Burner Chat</strong>
-                            <small>20s cascade sequential self-destruct</small>
-                          </div>
-                        </button>
-
-                        <div className="dc-add-menu-divider" />
-
-                        <button
-                          type="button"
-                          className="dc-add-menu-item"
+                          role="menuitem"
+                          className="dc-add-icon-only-btn"
                           onClick={() => {
                             setIsAddMenuOpen(false);
                             setNewChatType('workspace-channel');
                             setIsNewChatBurner(false);
+                            setNewChatName('');
+                            setSelectedGroupMemberEmails([]);
+                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
+                          title="New Group (Regular or Burner)"
+                          aria-label="New Group"
                         >
-                          <span className="dc-add-menu-icon">👥</span>
-                          <div className="dc-add-menu-text">
-                            <strong>New Group</strong>
-                            <small>Multi-person encrypted group</small>
-                          </div>
+                          <Users size={19} />
                         </button>
 
                         <button
                           type="button"
-                          className="dc-add-menu-item dc-add-menu-item-burner"
+                          role="menuitem"
+                          className="dc-add-icon-only-btn dc-add-icon-channel-btn"
                           onClick={() => {
                             setIsAddMenuOpen(false);
-                            setNewChatType('workspace-channel');
-                            setIsNewChatBurner(true);
+                            setNewChatType('broadcast-channel');
+                            setIsNewChatBurner(false);
+                            setNewChatName('');
+                            setSelectedGroupMemberEmails([]);
+                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
+                          title="Setup Broadcast Channel (BCC Live Feed)"
+                          aria-label="Setup Broadcast Channel"
                         >
-                          <span className="dc-add-menu-icon">🔥</span>
-                          <div className="dc-add-menu-text">
-                            <strong>New Burner Group</strong>
-                            <small>Group with 20s cascade self-destruct</small>
-                          </div>
+                          <Radio size={19} />
                         </button>
                       </div>
                     )}
@@ -5604,7 +5895,7 @@ export function App() {
                                 )?.blur?.();
                               }}
                             >
-                              <QrCode size={14} /> @me QR
+                              <QrCode size={14} /> @me
                             </button>
                           </div>
                         </div>
@@ -5672,11 +5963,43 @@ export function App() {
                           </span>
                         </button>
 
+                        <button
+                          type="button"
+                          className="dc-header-menu-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsAvatarMenuOpen(false);
+                            setSelectedIouPeerEmail(null);
+                            setShowIouIssueForm(false);
+                            iouDialogRef.current?.showModal();
+                          }}
+                        >
+                          <span className="dc-header-menu-icon icon-iou">
+                            <Coins size={15} />
+                          </span>
+                          <span className="dc-header-menu-label">
+                            IOUs
+                          </span>
+                          {iouLedgerSummary.rows.length > 0 && (
+                            <span
+                              className={`dc-header-menu-badge ${
+                                iouLedgerSummary.netBalance >= 0
+                                  ? 'is-positive'
+                                  : 'is-negative'
+                              }`}
+                            >
+                              {iouLedgerSummary.netBalance >= 0
+                                ? `+${iouLedgerSummary.netBalance}`
+                                : iouLedgerSummary.netBalance}
+                            </span>
+                          )}
+                        </button>
+
                         <div className="dc-header-menu-divider" />
 
                         <div className="dc-avatar-theme-picker">
                           <span className="dc-avatar-section-label">
-                            🌗 Mode
+                            <Sun size={12} />
                           </span>
                           <div className="dc-setting-segmented">
                             <button
@@ -5689,8 +6012,10 @@ export function App() {
                               onClick={() =>
                                 handleSelectColorScheme('dark')
                               }
+                              title="Dark mode"
+                              aria-label="Dark mode"
                             >
-                              🌙 Dark
+                              <Moon size={13} />
                             </button>
                             <button
                               type="button"
@@ -5702,8 +6027,10 @@ export function App() {
                               onClick={() =>
                                 handleSelectColorScheme('light')
                               }
+                              title="Light mode"
+                              aria-label="Light mode"
                             >
-                              ☀️ Light
+                              <Sun size={13} />
                             </button>
                             <button
                               type="button"
@@ -5715,51 +6042,20 @@ export function App() {
                               onClick={() =>
                                 handleSelectColorScheme('light dark')
                               }
+                              title="Auto mode"
+                              aria-label="Auto mode"
                             >
-                              ✨ Auto
+                              <Sparkles size={13} />
                             </button>
                           </div>
                         </div>
 
                         <div className="dc-avatar-theme-picker">
                           <span className="dc-avatar-section-label">
-                            🎨 Color
+                            <Palette size={12} />
                           </span>
                           <div className="dc-bubble-theme-swatches">
-                            {(
-                              [
-                                {
-                                  id: 'ocean',
-                                  label: 'Ocean',
-                                  color: '#0a84ff',
-                                },
-                                {
-                                  id: 'berry',
-                                  label: 'Berry',
-                                  color: '#ec4899',
-                                },
-                                {
-                                  id: 'violet',
-                                  label: 'Violet',
-                                  color: '#8b5cf6',
-                                },
-                                {
-                                  id: 'mint',
-                                  label: 'Mint',
-                                  color: '#10b981',
-                                },
-                                {
-                                  id: 'sunset',
-                                  label: 'Sunset',
-                                  color: '#f97316',
-                                },
-                                {
-                                  id: 'gold',
-                                  label: 'Gold',
-                                  color: '#eab308',
-                                },
-                              ] as const
-                            ).map((t) => (
+                            {TOP_5_COLORS_2026.map((t) => (
                               <button
                                 key={t.id}
                                 type="button"
@@ -5858,7 +6154,7 @@ export function App() {
                   type="search"
                   value={contactSearchQuery}
                   onChange={(e) => setContactSearchQuery(e.target.value)}
-                  placeholder="🔍 Search…"
+                  placeholder="Search…"
                 />
                 {contactSearchQuery && (
                   <button
@@ -5878,7 +6174,7 @@ export function App() {
                     type="button"
                     className="dc-instant-email-start"
                     onClick={() =>
-                      handleStartOrOpenContactChat(contactSearchQuery)
+                      handleOpenExistingOrStartContactChat(contactSearchQuery)
                     }
                   >
                     <UserPlus size={15} />
@@ -5905,7 +6201,9 @@ export function App() {
                       key={c.email}
                       type="button"
                       className="dc-contact-hit-row"
-                      onClick={() => handleStartOrOpenContactChat(c.email)}
+                      onClick={() =>
+                        handleOpenExistingOrStartContactChat(c.email)
+                      }
                     >
                       {renderUserAvatar(c, c.displayName)}
                       <div className="dc-contact-hit-info">
@@ -5950,9 +6248,11 @@ export function App() {
                   ({ channel: ch, lastText, lastTime, peerUser, unreadCount }) => {
                     const isActive = ch.id === activeChannel?.id;
                     const isVault = ch.type === 'vault';
-                    const isGroup = ch.type !== 'dm' && !isVault;
+                    const isBroadcast = ch.type === 'broadcast-channel';
+                    const isGroup =
+                      ch.type !== 'dm' && !isVault && !isBroadcast;
                     const hasApp =
-                      isGroup || isVault
+                      isGroup || isVault || isBroadcast
                         ? true
                         : peerUser?.hasAppInstalled ?? false;
 
@@ -5963,13 +6263,16 @@ export function App() {
                         className={`dc-thread-card ${isActive ? 'active' : ''} ${
                           isVault ? 'vault-thread-card' : ''
                         } ${ch.isBurner ? 'burner-thread-card' : ''} ${
-                          unreadCount > 0 ? 'has-unread' : ''
-                        }`}
+                          isBroadcast ? 'broadcast-thread-card' : ''
+                        } ${unreadCount > 0 ? 'has-unread' : ''}`}
                         onClick={() => {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {!isGroup && !isVault && peerUser?.avatarDataUrl ? (
+                        {!isGroup &&
+                        !isVault &&
+                        !isBroadcast &&
+                        peerUser?.avatarDataUrl ? (
                           <img
                             src={peerUser.avatarDataUrl}
                             alt={peerUser.displayName}
@@ -5980,6 +6283,8 @@ export function App() {
                             className={`dc-thread-avatar ${
                               ch.isBurner
                                 ? 'burner-avatar'
+                                : isBroadcast
+                                ? 'broadcast-avatar'
                                 : isVault
                                 ? 'vault-avatar'
                                 : isGroup
@@ -5991,6 +6296,8 @@ export function App() {
                           >
                             {ch.isBurner ? (
                               <Flame size={17} className="dc-flame-fire-icon" />
+                            ) : isBroadcast ? (
+                              <Radio size={17} />
                             ) : isVault ? (
                               <Bookmark size={17} />
                             ) : isGroup ? (
@@ -6006,17 +6313,32 @@ export function App() {
                         <div className="dc-thread-card-body">
                           <div className="dc-thread-card-top">
                             <span className="dc-thread-title">
-                              {ch.isBurner && (
+                              {ch.isBurner &&
+                                !isGroup &&
+                                !isVault &&
+                                !isBroadcast &&
+                                Boolean(peerUser?.avatarDataUrl) && (
+                                  <span
+                                    className="dc-burner-badge-card"
+                                    title="Burner Chat (20s cascade)"
+                                  >
+                                    <Flame
+                                      size={13}
+                                      className="dc-flame-fire-icon"
+                                    />
+                                  </span>
+                                )}
+                              {isBroadcast && (
                                 <span
-                                  className="dc-burner-badge-card"
-                                  title="Burner Chat (20s cascade)"
+                                  className="dc-broadcast-badge-card"
+                                  title="Broadcast Channel (BCC)"
                                 >
-                                  🔥
+                                  <Radio size={13} />
                                 </span>
                               )}
                               {isVault
                                 ? 'Saved Notes (@me)'
-                                : isGroup
+                                : isGroup || isBroadcast
                                 ? `#${ch.name}`
                                 : (
                                     peerUser?.displayName ||
@@ -6039,7 +6361,15 @@ export function App() {
                           </div>
 
                           <div className="dc-thread-card-bottom">
-                            <div className="dc-thread-snippet">{lastText}</div>
+                            <div className="dc-thread-snippet">
+                              {ch.isBurner && (
+                                <Flame
+                                  size={11}
+                                  className="dc-flame-fire-icon dc-snippet-flame"
+                                />
+                              )}
+                              {lastText}
+                            </div>
                             {unreadCount > 0 && (
                               <span
                                 className="dc-thread-unread-badge"
@@ -6132,49 +6462,87 @@ export function App() {
                       <ArrowLeft size={18} />
                     </button>
 
-                    <div
-                      className="dc-freeflow-header-identity"
-                      onClick={() => groupInfoDialogRef.current?.showModal()}
-                      title="Conversation participants"
-                    >
-                      {activeChannel.isBurner ? (
-                        <div className="dc-header-avatar burner-avatar">
-                          <Flame size={17} className="dc-flame-fire-icon" />
-                        </div>
-                      ) : activeChannel.type === 'vault' ? (
-                        <div className="dc-header-avatar vault-avatar">
-                          <Bookmark size={16} />
-                        </div>
-                      ) : activeChannel.type === 'dm' &&
-                        activeChannelPeerUser?.avatarDataUrl ? (
-                        <img
-                          src={activeChannelPeerUser.avatarDataUrl}
-                          alt={activeChannelDisplayTitle}
-                          className="dc-header-avatar dc-avatar-img"
-                        />
-                      ) : (
-                        <div className="dc-header-avatar">
-                          {activeChannel.type === 'dm' ? (
-                            activeChannelDisplayTitle.charAt(0).toUpperCase()
+                    {(() => {
+                      const isBroadcast =
+                        activeChannel.type === 'broadcast-channel';
+                      const isBroadcastCreator =
+                        isBroadcast &&
+                        (
+                          activeChannel.creatorEmail ||
+                          activeChannel.participants[0] ||
+                          ''
+                        ).toLowerCase() === activeUser.email.toLowerCase();
+                      const canManageParticipants =
+                        activeChannel.type !== 'vault' &&
+                        (!isBroadcast || isBroadcastCreator);
+
+                      return (
+                        <div
+                          className="dc-freeflow-header-identity"
+                          onClick={() => {
+                            if (canManageParticipants) {
+                              groupInfoDialogRef.current?.showModal();
+                            }
+                          }}
+                          style={{
+                            cursor: canManageParticipants
+                              ? 'pointer'
+                              : 'default',
+                          }}
+                          title={
+                            canManageParticipants
+                              ? 'Conversation participants'
+                              : activeChannelDisplayTitle
+                          }
+                        >
+                          {activeChannel.isBurner ? (
+                            <div className="dc-header-avatar burner-avatar">
+                              <Flame size={17} className="dc-flame-fire-icon" />
+                            </div>
+                          ) : isBroadcast ? (
+                            isBroadcastCreator ? (
+                              <div className="dc-header-avatar broadcast-avatar">
+                                <Radio size={17} />
+                              </div>
+                            ) : null
+                          ) : activeChannel.type === 'vault' ? (
+                            <div className="dc-header-avatar vault-avatar">
+                              <Bookmark size={16} />
+                            </div>
+                          ) : activeChannel.type === 'dm' &&
+                            activeChannelPeerUser?.avatarDataUrl ? (
+                            <img
+                              src={activeChannelPeerUser.avatarDataUrl}
+                              alt={activeChannelDisplayTitle}
+                              className="dc-header-avatar dc-avatar-img"
+                            />
                           ) : (
-                            <Users size={17} />
+                            <div className="dc-header-avatar">
+                              {activeChannel.type === 'dm' ? (
+                                activeChannelDisplayTitle
+                                  .charAt(0)
+                                  .toUpperCase()
+                              ) : (
+                                <Users size={17} />
+                              )}
+                            </div>
                           )}
+                          <div>
+                            <h2>
+                              {isBroadcast && !isBroadcastCreator && (
+                                <span
+                                  className="dc-broadcast-title-badge"
+                                  title="Broadcast Channel (BCC)"
+                                >
+                                  <Radio size={14} />
+                                </span>
+                              )}
+                              {activeChannelDisplayTitle}
+                            </h2>
+                          </div>
                         </div>
-                      )}
-                      <div>
-                        <h2>
-                          {activeChannel.isBurner && (
-                            <span
-                              className="dc-burner-title-badge"
-                              title="Burner Chat (20s cascade sequential self-destruct)"
-                            >
-                              🔥
-                            </span>
-                          )}
-                          {activeChannelDisplayTitle}
-                        </h2>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="dc-freeflow-header-actions">
@@ -6208,7 +6576,15 @@ export function App() {
                             role="toolbar"
                             aria-label="Conversation actions"
                           >
-                            {activeChannel.type !== 'vault' && (
+                            {activeChannel.type !== 'vault' &&
+                              activeChannel.type !== 'dm' &&
+                              (activeChannel.type !== 'broadcast-channel' ||
+                                (
+                                  activeChannel.creatorEmail ||
+                                  activeChannel.participants[0] ||
+                                  ''
+                                ).toLowerCase() ===
+                                  activeUser.email.toLowerCase()) && (
                               <button
                                 type="button"
                                 role="menuitem"
@@ -6217,16 +6593,8 @@ export function App() {
                                   setIsHeaderMenuOpen(false);
                                   groupInfoDialogRef.current?.showModal();
                                 }}
-                                title={`People${
-                                  activeChannel.participants.length > 2
-                                    ? ` (${activeChannel.participants.length})`
-                                    : ''
-                                }`}
-                                aria-label={`People${
-                                  activeChannel.participants.length > 2
-                                    ? ` (${activeChannel.participants.length})`
-                                    : ''
-                                }`}
+                                title={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
+                                aria-label={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
                               >
                                 <UserPlus size={16} />
                               </button>
@@ -6277,43 +6645,10 @@ export function App() {
                           >
                             <div className="dc-setting-group">
                               <span className="dc-setting-label">
-                                🎨 Color
+                                <Palette size={13} />
                               </span>
                               <div className="dc-bubble-theme-swatches">
-                                {(
-                                  [
-                                    {
-                                      id: 'ocean',
-                                      label: 'Ocean',
-                                      color: '#0a84ff',
-                                    },
-                                    {
-                                      id: 'berry',
-                                      label: 'Berry',
-                                      color: '#ec4899',
-                                    },
-                                    {
-                                      id: 'violet',
-                                      label: 'Violet',
-                                      color: '#8b5cf6',
-                                    },
-                                    {
-                                      id: 'mint',
-                                      label: 'Mint',
-                                      color: '#10b981',
-                                    },
-                                    {
-                                      id: 'sunset',
-                                      label: 'Sunset',
-                                      color: '#f97316',
-                                    },
-                                    {
-                                      id: 'gold',
-                                      label: 'Gold',
-                                      color: '#eab308',
-                                    },
-                                  ] as const
-                                ).map((t) => (
+                                {TOP_5_COLORS_2026.map((t) => (
                                   <button
                                     key={t.id}
                                     type="button"
@@ -6595,17 +6930,15 @@ export function App() {
                   <div className="dc-clean-empty-avatar">
                     {activeChannel.type === 'vault' ? (
                       <Bookmark size={22} />
+                    ) : activeChannel.type === 'broadcast-channel' ? (
+                      <Radio size={22} />
                     ) : activeChannel.type === 'dm' ? (
                       activeChannelDisplayTitle.charAt(0).toUpperCase()
                     ) : (
                       <Users size={22} />
                     )}
                   </div>
-                  <strong>
-                    {activeChannel.type === 'vault'
-                      ? '📌 Notes'
-                      : `👋 Say hi!`}
-                  </strong>
+                  {activeChannel.type === 'vault' && <strong>📌 Notes</strong>}
                 </div>
               )}
 
@@ -6659,9 +6992,28 @@ export function App() {
                   );
                 }
 
+                // Crypto-inspired IOU Token Card inside DM stream
+                if (msg.packet.type === 'chat.iou' && msg.packet.payload.iou) {
+                  const iou = msg.packet.payload.iou;
+                  return (
+                    <div
+                      key={msg.emailId}
+                      className="dc-system-event-pill dc-iou-event-pill"
+                      onClick={() => iouDialogRef.current?.showModal()}
+                      title="Open IOU Wallet"
+                    >
+                      <Coins size={14} />
+                      <span>
+                        <strong>{iou.amount}</strong> &bull;{' '}
+                        {msg.packet.payload.text}
+                      </span>
+                    </div>
+                  );
+                }
+
                 const isTwoPersonChat =
-                  activeChannel.type !== 'group' ||
-                  activeChannel.participants.length <= 2;
+                  activeChannel.type === 'dm' ||
+                  activeChannel.type === 'vault';
                 const groupedReactions = msg.reactions.reduce<
                   Array<{ emoji: string; senderNames: string[] }>
                 >((acc, r) => {
@@ -6732,17 +7084,6 @@ export function App() {
                           </div>
                         )}
 
-                        {/* Free-Flowing Inline Reply Quote */}
-                        {msg.quotedMessage && (
-                          <div className="dc-inline-reply-quote">
-                            <CornerDownLeft size={12} />
-                            <div>
-                              <strong>{msg.quotedMessage.senderName}</strong>:{' '}
-                              <span>{msg.quotedMessage.textSnippet}</span>
-                            </div>
-                          </div>
-                        )}
-
                         <div className="dc-gmsg-bubble-line">
                           {/* Message Bubble — clicking directly opens the Top 5 Emoji Reaction Bar */}
                           <div
@@ -6800,6 +7141,46 @@ export function App() {
                               </div>
                             ) : (
                               <>
+                                {/* Broadcast Channel Story Card (Live Feed Image + Badge) */}
+                                {msg.packet.payload.storyCard && (
+                                  <div
+                                    className="dc-broadcast-story-card"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {msg.packet.payload.storyCard.badgeText && (
+                                      <div className="dc-story-card-badge">
+                                        <Radio size={11} />
+                                        <span>
+                                          {
+                                            msg.packet.payload.storyCard
+                                              .badgeText
+                                          }
+                                        </span>
+                                      </div>
+                                    )}
+                                    {msg.packet.payload.storyCard
+                                      .imageDataUrl && (
+                                      <img
+                                        src={
+                                          msg.packet.payload.storyCard
+                                            .imageDataUrl
+                                        }
+                                        alt={
+                                          msg.packet.payload.storyCard
+                                            .caption || 'Story post'
+                                        }
+                                        className="dc-story-card-image"
+                                        onClick={() =>
+                                          setFullscreenImageUrl(
+                                            msg.packet.payload.storyCard!
+                                              .imageDataUrl!
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </div>
+                                )}
+
                                 {!msg.packet.payload.poll && (
                                   <p>{msg.packet.payload.text}</p>
                                 )}
@@ -7099,9 +7480,7 @@ export function App() {
                                 className={`dc-burn-countdown-badge ${
                                   msg.burnerStatus.isActive
                                     ? 'dc-burner-active-badge'
-                                    : msg.burnerStatus.isUnread
-                                    ? 'dc-burner-unread-badge'
-                                    : 'dc-burner-queued-badge'
+                                    : 'dc-burner-unread-badge'
                                 }`}
                                 title={
                                   msg.burnerStatus.summaryLabel ||
@@ -7115,15 +7494,15 @@ export function App() {
                                   className={
                                     msg.burnerStatus.isActive
                                       ? 'dc-flame-active-glow'
-                                      : msg.burnerStatus.isUnread
-                                      ? 'dc-flame-unread-icon'
-                                      : 'dc-flame-queued-icon'
+                                      : 'dc-flame-unread-icon'
                                   }
                                 />{' '}
-                                {msg.burnerStatus.summaryLabel ||
-                                  (msg.burnerStatus.isActive
-                                    ? `${msg.burnerStatus.remainingSeconds}s`
-                                    : '⏳ queued (20s)')}
+                                {msg.burnerStatus.isActive
+                                  ? `${msg.burnerStatus.remainingSeconds}s`
+                                  : '20s'}
+                                {!isTwoPersonChat
+                                  ? ` (${msg.burnerStatus.unreadCount ?? 1})`
+                                  : ''}
                               </span>
                             ) : Boolean(
                               msg.packet.payload.ephemeralTtlSeconds &&
@@ -7318,8 +7697,8 @@ export function App() {
                     />{' '}
                     <strong>
                       {activeChannel.isBurner
-                        ? '🔥 Burner Chat (20s Cascade)'
-                        : `⏱️ ${
+                        ? '20s Cascade'
+                        : `${
                             composerBurnSeconds === 20
                               ? '20s'
                               : composerBurnSeconds === 60
@@ -7334,7 +7713,9 @@ export function App() {
                           }`}
                     </strong>
                     {activeChannel.isBurner && (
-                      <small className="dc-locked-tag">🔒 Locked (20s)</small>
+                      <small className="dc-locked-tag">
+                        <Lock size={11} />
+                      </small>
                     )}
                   </span>
                   {!activeChannel.isBurner && (
@@ -7350,6 +7731,33 @@ export function App() {
                 </div>
               )}
 
+              {activeChannel.type === 'broadcast-channel' &&
+              activeChannel.creatorEmail?.toLowerCase() !==
+                activeUser.email.toLowerCase() ? (
+                <div className="dc-broadcast-subscriber-bar">
+                  <div className="dc-broadcast-sub-info">
+                    <Radio size={15} />
+                    <span>
+                      Read-Only BCC Feed &bull; Tap any post to react
+                      anonymously
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="dc-btn-danger-confirm dc-broadcast-unsub-btn"
+                    onClick={() =>
+                      void handleSubscriberBurnAndUnsubscribeChannel(
+                        activeChannel
+                      )
+                    }
+                    title="Burn local channel & send Unsubscribe email to remove from BCC"
+                    aria-label="Burn local channel and unsubscribe"
+                  >
+                    <Flame size={14} className="dc-flame-fire-icon" />
+                    <UserMinus size={14} />
+                  </button>
+                </div>
+              ) : (
               <div className="dc-imessage-input-row">
                 {/* Collapsed Bottom-Left '+' Action Menu (Upload, Time Burn, Voice, Poll Group) */}
                 <div
@@ -7419,22 +7827,23 @@ export function App() {
                           type="button"
                           role="menuitem"
                           className={`dc-action-icon-btn action-voice ${
-                            isRecordingVoice ? 'is-recording' : ''
+                            isVoiceRecorderOpen || isRecordingVoice
+                              ? 'is-recording'
+                              : ''
                           }`}
                           onClick={() => {
                             setIsPlusMenuOpen(false);
-                            void handleToggleVoiceRecording();
+                            if (isRecordingVoice) {
+                              void handleToggleVoiceRecording();
+                            } else {
+                              setIsVoiceRecorderOpen(true);
+                              setRecordingSeconds(0);
+                            }
                           }}
-                          title={isRecordingVoice ? 'Stop recording' : 'Voice'}
-                          aria-label={
-                            isRecordingVoice ? 'Stop recording' : 'Voice'
-                          }
+                          title="Voice"
+                          aria-label="Voice"
                         >
-                          {isRecordingVoice ? (
-                            <Square size={16} />
-                          ) : (
-                            <Mic size={19} />
-                          )}
+                          <Mic size={19} />
                         </button>
 
                         <button
@@ -7467,7 +7876,7 @@ export function App() {
                         {activeChannel.isBurner ? (
                           <div className="dc-action-menu-burn-locked">
                             <Flame size={14} className="dc-flame-fire-icon" />
-                            <span>🔥 20s Cascade Burner (Locked)</span>
+                            <span>20s Cascade</span>
                           </div>
                         ) : (
                           <div className="dc-action-menu-burn-pills">
@@ -7509,19 +7918,49 @@ export function App() {
                   )}
                 </div>
 
-                {isRecordingVoice ? (
+                {isVoiceRecorderOpen || isRecordingVoice ? (
                   <>
                     <div className="dc-recording-pill">
-                      <span className="dc-rec-dot" /> 🎤 {recordingSeconds}s…
+                      <span
+                        className={`dc-rec-dot ${
+                          isRecordingVoice ? '' : 'is-idle'
+                        }`}
+                      />{' '}
+                      <span>
+                        {recordingSeconds}s{isRecordingVoice ? '…' : ''}
+                      </span>
+                      {!isRecordingVoice && (
+                        <button
+                          type="button"
+                          className="dc-rec-cancel-btn"
+                          onClick={handleCancelVoiceRecorder}
+                          title="Cancel voice recording"
+                          aria-label="Cancel voice recording"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
                     </div>
                     <button
                       type="button"
-                      className="dc-circle-icon-btn recording-active"
-                      onClick={handleToggleVoiceRecording}
-                      title="Stop"
-                      aria-label="Stop"
+                      className={`dc-circle-icon-btn ${
+                        isRecordingVoice
+                          ? 'recording-active'
+                          : 'recording-start'
+                      }`}
+                      onClick={() => void handleToggleVoiceRecording()}
+                      title={
+                        isRecordingVoice ? 'Stop recording' : 'Start recording'
+                      }
+                      aria-label={
+                        isRecordingVoice ? 'Stop recording' : 'Start recording'
+                      }
                     >
-                      <Square size={15} />
+                      {isRecordingVoice ? (
+                        <Square size={15} />
+                      ) : (
+                        <Mic size={16} />
+                      )}
                     </button>
                   </>
                 ) : (
@@ -7531,6 +7970,14 @@ export function App() {
                     }`}
                     data-replicated-value={composerText}
                   >
+                    {!composerText && (
+                      <span
+                        className="dc-composer-custom-placeholder"
+                        aria-hidden="true"
+                      >
+                        {activeChannel.type === 'vault' ? 'Note…' : 'Message…'}
+                      </span>
+                    )}
                     <textarea
                       ref={composerTextareaRef}
                       rows={1}
@@ -7560,7 +8007,7 @@ export function App() {
                           }
                         }
                       }}
-                      placeholder={
+                      aria-label={
                         activeChannel.type === 'vault'
                           ? 'Note…'
                           : 'Message…'
@@ -7661,6 +8108,7 @@ export function App() {
                   <Send size={15} />
                 </button>
               </div>
+              )}
             </form>
               </>
             )}
@@ -8120,39 +8568,54 @@ export function App() {
           <div className="dc-modal-header">
             <h2 id={profileDialogTitleId}>
               {profileModalStep === 'edit' ? (
-                <>
-                  <Sparkles size={17} /> 👋 You
-                </>
+                <span className="dc-profile-you-brand">
+                  <img
+                    src="/atme-app-icon.png"
+                    alt="@"
+                    className="dc-modal-brand-logo"
+                  />
+                  <span>you</span>
+                </span>
               ) : (
                 <>
-                  <QrCode size={17} /> @me QR
+                  <QrCode size={17} /> @me
                 </>
               )}
             </h2>
             <div className="dc-profile-modal-tabs">
               <button
                 type="button"
-                className={`dc-profile-step-tab ${
+                className={`dc-profile-step-tab dc-profile-icon-tab ${
                   profileModalStep === 'edit' ? 'active' : ''
                 }`}
                 onClick={() => setProfileModalStep('edit')}
+                title="Profile"
+                aria-label="Profile"
               >
-                😎 Look
+                <User size={15} />
               </button>
               <button
                 type="button"
-                className={`dc-profile-step-tab ${
+                className={`dc-profile-step-tab dc-profile-icon-tab ${
                   profileModalStep === 'qr-card' ? 'active' : ''
                 }`}
-                onClick={() => setProfileModalStep('qr-card')}
+                onClick={() => {
+                  void handleSaveUserProfile();
+                  setProfileModalStep('qr-card');
+                }}
+                title="@me QR"
+                aria-label="@me QR"
               >
-                <QrCode size={13} /> QR
+                <QrCode size={15} />
               </button>
               <form method="dialog">
                 <button
                   type="submit"
                   className="dc-icon-btn"
                   aria-label="Close"
+                  onClick={() => {
+                    void handleSaveUserProfile();
+                  }}
                 >
                   <X size={16} />
                 </button>
@@ -8178,112 +8641,90 @@ export function App() {
                 </div>
                 <div className="dc-profile-avatar-buttons">
                   <span className="dc-avatar-section-label">
-                    😎 Avatar
+                    <User size={12} /> Avatar
                   </span>
                   <div className="dc-preset-avatars-row">
-                    {[
-                      { emoji: '🎮', bg1: '#2563eb', bg2: '#06b6d4' },
-                      { emoji: '⚡', bg1: '#6366f1', bg2: '#a855f7' },
-                      { emoji: '🎧', bg1: '#ec4899', bg2: '#8b5cf6' },
-                      { emoji: '🛹', bg1: '#10b981', bg2: '#059669' },
-                      { emoji: '✨', bg1: '#f59e0b', bg2: '#ef4444' },
-                      { emoji: '🚀', bg1: '#3b82f6', bg2: '#1d4ed8' },
-                      { emoji: '🐱', bg1: '#f97316', bg2: '#db2777' },
-                      { emoji: '🌈', bg1: '#8b5cf6', bg2: '#06b6d4' },
-                    ].map((preset) => (
+                    {CARTOON_SKETCH_AVATARS.map((sketch) => (
                       <button
-                        key={preset.emoji}
+                        key={sketch.id}
                         type="button"
-                        className="dc-preset-avatar-btn"
-                        style={{
-                          background: `linear-gradient(135deg, ${preset.bg1}, ${preset.bg2})`,
+                        className={`dc-preset-avatar-btn dc-sketch-avatar-btn ${
+                          profileAvatarInput === sketch.dataUrl ? 'active' : ''
+                        }`}
+                        onClick={() => {
+                          setProfileAvatarInput(sketch.dataUrl);
                         }}
-                        onClick={() =>
-                          handleSelectPresetAvatar(
-                            preset.emoji,
-                            preset.bg1,
-                            preset.bg2
-                          )
-                        }
-                        title={preset.emoji}
+                        title={sketch.label}
+                        aria-label={sketch.label}
                       >
-                        {preset.emoji}
+                        <img
+                          src={sketch.dataUrl}
+                          alt={sketch.label}
+                          className="dc-sketch-avatar-thumb"
+                        />
                       </button>
                     ))}
                   </div>
                   <button
                     type="button"
-                    className="dc-pill-action-btn"
+                    className="dc-pill-action-btn dc-photo-icon-btn"
                     onClick={() => avatarUploadInputRef.current?.click()}
+                    title="Upload photo"
+                    aria-label="Upload photo"
                   >
-                    📷 Photo
+                    <Camera size={15} />
                   </button>
                 </div>
               </div>
 
               <div className="dc-form-row">
                 <div className="dc-form-group">
-                  <label htmlFor="profile-name-input">🏷️ Name</label>
+                  <label htmlFor="profile-name-input">
+                    <Tag size={12} /> Name
+                  </label>
                   <input
                     id="profile-name-input"
                     type="text"
                     value={profileNameInput}
                     onChange={(e) => setProfileNameInput(e.target.value)}
+                    onBlur={() => void handleSaveUserProfile()}
                     placeholder="Alex"
                     required
                   />
                 </div>
 
                 <div className="dc-form-group">
-                  <label htmlFor="profile-handle-input">⚡ @handle</label>
-                  <input
-                    id="profile-handle-input"
-                    type="text"
-                    value={profileHandleInput}
-                    onChange={(e) => setProfileHandleInput(e.target.value)}
-                    placeholder="@alex"
-                    required
-                  />
+                  <label htmlFor="profile-handle-input">
+                    <Zap size={12} /> @handle
+                  </label>
+                  <div className="dc-handle-prefix-box">
+                    <span className="dc-handle-at-prefix" aria-hidden="true">
+                      @
+                    </span>
+                    <input
+                      id="profile-handle-input"
+                      type="text"
+                      value={profileHandleInput.replace(/^@+/, '')}
+                      onChange={(e) => {
+                        const sanitized = e.target.value
+                          .replace(/\s+/g, '_')
+                          .replace(/[^a-zA-Z0-9_]/g, '');
+                        setProfileHandleInput(`@${sanitized}`);
+                      }}
+                      onBlur={() => void handleSaveUserProfile()}
+                      placeholder="alex_26"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="dc-form-group">
-                <label>🎨 Color</label>
+                <label>
+                  <Palette size={12} /> Color
+                </label>
                 <div className="dc-onboarding-theme-grid">
-                  {(
-                    [
-                      {
-                        id: 'ocean',
-                        label: 'Ocean',
-                        color: '#0a84ff',
-                      },
-                      {
-                        id: 'berry',
-                        label: 'Berry',
-                        color: '#ec4899',
-                      },
-                      {
-                        id: 'violet',
-                        label: 'Violet',
-                        color: '#8b5cf6',
-                      },
-                      {
-                        id: 'mint',
-                        label: 'Mint',
-                        color: '#10b981',
-                      },
-                      {
-                        id: 'sunset',
-                        label: 'Sunset',
-                        color: '#f97316',
-                      },
-                      {
-                        id: 'gold',
-                        label: 'Gold',
-                        color: '#eab308',
-                      },
-                    ] as const
-                  ).map((t) => (
+                  {TOP_5_COLORS_2026.map((t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -8322,12 +8763,6 @@ export function App() {
                     <span>Custom</span>
                   </label>
                 </div>
-              </div>
-
-              <div className="dc-modal-actions">
-                <button type="submit" className="dc-btn-send dc-btn-full">
-                  <QrCode size={15} /> @me QR
-                </button>
               </div>
             </form>
           ) : (
@@ -8383,7 +8818,11 @@ export function App() {
               <div className="dc-qr-card-actions">
                 <button
                   type="button"
-                  className="dc-btn-secondary-action"
+                  className={`dc-qr-plain-icon-btn dc-qr-link-btn ${
+                    qrLinkCopied ? 'is-copied' : ''
+                  }`}
+                  title={qrLinkCopied ? 'Copied Link' : 'Copy QR Link'}
+                  aria-label={qrLinkCopied ? 'Copied Link' : 'Copy QR Link'}
                   onClick={async () => {
                     const cleanHandle = (
                       profileHandleInput ||
@@ -8402,19 +8841,21 @@ export function App() {
                     setTimeout(() => setQrLinkCopied(false), 2400);
                   }}
                 >
-                  {qrLinkCopied ? '✅ Copied' : '🔗 Link'}
+                  {qrLinkCopied ? <Check size={18} /> : <Link2 size={18} />}
                 </button>
 
                 <button
                   type="button"
-                  className="dc-btn-secondary-action"
+                  className="dc-qr-plain-icon-btn dc-qr-scan-btn"
+                  title="Scan Friend QR"
+                  aria-label="Scan Friend QR"
                   onClick={() => {
                     profileDialogRef.current?.close();
                     setSafetyModalTab('scan-qr');
                     safetyListDialogRef.current?.showModal();
                   }}
                 >
-                  📷 Scan
+                  <Camera size={18} />
                 </button>
               </div>
             </div>
@@ -8838,7 +9279,7 @@ export function App() {
                             onChange={(e) =>
                               setEasyDisplayNameInput(e.target.value)
                             }
-                            placeholder="Taylor Brooks"
+                            placeholder="Taylor"
                           />
                         </div>
                         <div className="dc-form-group">
@@ -9339,7 +9780,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={menuDialogTitleId}>
-              👥 Friends
+              <Users size={17} /> Friends
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -9352,7 +9793,9 @@ export function App() {
             {/* Section 1: Channels & Groups */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>💬 Groups</h3>
+                <h3>
+                  <Users size={15} /> Groups &amp; Channels
+                </h3>
                 <div className="dc-menu-section-head-actions">
                   <button
                     type="button"
@@ -9363,8 +9806,9 @@ export function App() {
                       newChannelModalRef.current?.showModal();
                     }}
                     title="New Burner Group"
+                    aria-label="New Burner Group"
                   >
-                    🔥 Burner
+                    <Flame size={14} className="dc-flame-fire-icon" />
                   </button>
                   <button
                     type="button"
@@ -9374,8 +9818,23 @@ export function App() {
                       setIsNewChatBurner(false);
                       newChannelModalRef.current?.showModal();
                     }}
+                    title="New Group"
+                    aria-label="New Group"
                   >
-                    ➕ Group
+                    <Plus size={14} /> <Users size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-pill-action-btn"
+                    onClick={() => {
+                      setNewChatType('broadcast-channel');
+                      setIsNewChatBurner(false);
+                      newChannelModalRef.current?.showModal();
+                    }}
+                    title="New Broadcast Channel"
+                    aria-label="New Broadcast Channel"
+                  >
+                    <Plus size={14} /> <Radio size={14} />
                   </button>
                 </div>
               </div>
@@ -9394,16 +9853,14 @@ export function App() {
                       >
                         {ch.isBurner ? (
                           <Flame size={16} className="dc-flame-fire-icon" />
+                        ) : ch.type === 'broadcast-channel' ? (
+                          <Radio size={16} />
                         ) : (
                           <Hash size={16} />
                         )}
                         <div>
-                          <strong>
-                            {ch.isBurner ? '🔥 ' : '#'}
-                            {ch.name}
-                          </strong>
+                          <strong>#{ch.name}</strong>
                           <span>
-                            👥{' '}
                             {
                               ch.participants.filter(
                                 (p) =>
@@ -9411,20 +9868,23 @@ export function App() {
                                   activeUser.email.toLowerCase()
                               ).length
                             }
-                            {ch.isBurner && ' • 🔥 20s Burner'}
+                            {ch.isBurner && ' • 20s'}
+                            {ch.type === 'broadcast-channel' && ' • BCC'}
                           </span>
                         </div>
                       </div>
                       <div className="dc-menu-item-actions">
-                        <button
-                          type="button"
-                          className="dc-btn-ghost dc-btn-burner-icon"
-                          onClick={() => handleStartOrOpenBurnerGroupChat(ch)}
-                          title="Start Burner Group Chat (20s Cascade)"
-                          aria-label={`Start Burner Group Chat for #${ch.name}`}
-                        >
-                          🔥
-                        </button>
+                        {ch.type !== 'broadcast-channel' && (
+                          <button
+                            type="button"
+                            className="dc-btn-ghost dc-btn-burner-icon"
+                            onClick={() => handleStartOrOpenBurnerGroupChat(ch)}
+                            title="Start Burner Group Chat (20s Cascade)"
+                            aria-label={`Start Burner Group Chat for #${ch.name}`}
+                          >
+                            <Flame size={14} className="dc-flame-fire-icon" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="dc-btn-ghost"
@@ -9450,7 +9910,9 @@ export function App() {
             {/* Section 2: Friends & Contacts */}
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
-                <h3>👋 Friends</h3>
+                <h3>
+                  <User size={15} /> Friends
+                </h3>
                 <div className="dc-menu-section-head-actions">
                   <button
                     type="button"
@@ -9461,8 +9923,9 @@ export function App() {
                       newChannelModalRef.current?.showModal();
                     }}
                     title="New Burner Chat"
+                    aria-label="New Burner Chat"
                   >
-                    🔥 Burner
+                    <Flame size={14} className="dc-flame-fire-icon" />
                   </button>
                   <button
                     type="button"
@@ -9472,8 +9935,10 @@ export function App() {
                       setIsNewChatBurner(false);
                       newChannelModalRef.current?.showModal();
                     }}
+                    title="Add Friend"
+                    aria-label="Add Friend"
                   >
-                    ➕ Friend
+                    <Plus size={14} /> <User size={14} />
                   </button>
                 </div>
               </div>
@@ -9486,7 +9951,7 @@ export function App() {
                       <div
                         className="dc-menu-item-main"
                         onClick={() =>
-                          handleStartOrOpenContactChat(contact.email)
+                          handleOpenExistingOrStartContactChat(contact.email)
                         }
                       >
                         {renderUserAvatar(contact, contact.displayName)}
@@ -9501,7 +9966,7 @@ export function App() {
                           </strong>
                           <span>
                             {contact.email}
-                            {!contact.hasAppInstalled ? ' • 📩' : ''}
+                            {!contact.hasAppInstalled ? ' • Invite' : ''}
                           </span>
                         </div>
                       </div>
@@ -9515,7 +9980,7 @@ export function App() {
                           title="Start Burner Chat (20s Cascade)"
                           aria-label={`Start Burner Chat with ${contact.displayName}`}
                         >
-                          🔥
+                          <Flame size={14} className="dc-flame-fire-icon" />
                         </button>
                         <button
                           type="button"
@@ -9526,7 +9991,7 @@ export function App() {
                           title="Start regular chat"
                           aria-label={`Chat with ${contact.displayName}`}
                         >
-                          💬
+                          <MessageCircle size={14} />
                         </button>
                       </div>
                     </div>
@@ -9549,7 +10014,21 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={groupInfoTitleId}>
-              <Users size={17} /> 👥 People
+              {activeChannel?.type === 'dm' ? (
+                <>
+                  <User size={17} /> Contact
+                </>
+              ) : (
+                <>
+                  <Users size={17} /> People
+                  {activeChannel && (
+                    <span className="dc-cap-counter-pill">
+                      {activeChannel.participants.length} /{' '}
+                      {MAX_CHANNEL_AND_GROUP_USERS}
+                    </span>
+                  )}
+                </>
+              )}
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -9558,82 +10037,173 @@ export function App() {
             </form>
           </div>
 
-          {activeChannel && (
-            <>
-              <form
-                className="dc-add-member-form"
-                onSubmit={handleAddMemberToChannel}
-              >
-                <input
-                  type="email"
-                  value={newMemberEmailInput}
-                  onChange={(e) => setNewMemberEmailInput(e.target.value)}
-                  placeholder="✉️ friend@email.com"
-                  required
-                />
-                <input
-                  type="text"
-                  value={newMemberNameInput}
-                  onChange={(e) => setNewMemberNameInput(e.target.value)}
-                  placeholder="🏷️ Name"
-                />
-                <button type="submit" className="dc-btn-send">
-                  <UserPlus size={14} /> ➕ Add
-                </button>
-              </form>
+          {activeChannel &&
+            (activeChannel.type === 'dm' ? (
+              (() => {
+                const peerEmail =
+                  activeChannel.participants.find(
+                    (em) =>
+                      em.toLowerCase() !== activeUser.email.toLowerCase()
+                  ) || activeChannel.participants[0];
+                const peer = users.find(
+                  (usr) => usr.email.toLowerCase() === peerEmail?.toLowerCase()
+                );
+                const displayName = (
+                  peer?.displayName ||
+                  peerEmail ||
+                  activeChannel.name
+                ).replace(' (No App Yet)', '');
 
-              <div className="dc-participants-list">
-                {activeChannel.participants
-                  .filter(
-                    (email) =>
-                      email.toLowerCase() !== activeUser.email.toLowerCase()
-                  )
-                  .map((email) => {
-                    const u = users.find(
-                      (usr) => usr.email.toLowerCase() === email.toLowerCase()
-                    );
+                return (
+                  <div className="dc-single-contact-card">
+                    <div className="dc-single-contact-hero">
+                      {renderUserAvatar(
+                        peer || peerEmail,
+                        displayName,
+                        'dc-single-contact-avatar'
+                      )}
+                      <strong>{displayName}</strong>
+                      {peer?.handle && (
+                        <span className="dc-handle-tag">{peer.handle}</span>
+                      )}
+                      <small>{peerEmail}</small>
+                      {peer?.bio && (
+                        <p className="dc-single-contact-bio">{peer.bio}</p>
+                      )}
+                    </div>
 
-                    return (
-                      <div key={email} className="dc-participant-row">
-                        <div className="dc-participant-info">
-                          {renderUserAvatar(u || email, u?.displayName || email)}
-                          <div>
-                            <strong>
-                              {u?.displayName || email}{' '}
-                              {u?.handle && (
-                                <small className="dc-handle-tag">
-                                  {u.handle}
-                                </small>
-                              )}
-                            </strong>
-                            <span>
-                              {email}
-                              {!u?.hasAppInstalled ? ' • 📩' : ''}
-                            </span>
+                    <div className="dc-single-contact-modes">
+                      <button
+                        type="button"
+                        className={`dc-mode-chip ${
+                          !activeChannel.isBurner ? 'is-active' : ''
+                        }`}
+                        onClick={() => {
+                          if (peerEmail) {
+                            handleStartOrOpenContactChat(peerEmail);
+                          }
+                        }}
+                      >
+                        <MessageCircle size={15} /> Regular Chat
+                      </button>
+                      <button
+                        type="button"
+                        className={`dc-mode-chip ${
+                          activeChannel.isBurner ? 'is-active is-burner' : ''
+                        }`}
+                        onClick={() => {
+                          if (peerEmail) {
+                            handleStartOrOpenBurnerContactChat(peerEmail);
+                          }
+                        }}
+                      >
+                        <Flame size={15} className="dc-flame-fire-icon" />{' '}
+                        Burner (20s)
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <>
+                <form
+                  className="dc-add-member-form"
+                  onSubmit={handleAddMemberToChannel}
+                >
+                  <input
+                    type="email"
+                    value={newMemberEmailInput}
+                    onChange={(e) => setNewMemberEmailInput(e.target.value)}
+                    placeholder={
+                      activeChannel.participants.length >=
+                      MAX_CHANNEL_AND_GROUP_USERS
+                        ? `Max ${MAX_CHANNEL_AND_GROUP_USERS} users reached`
+                        : 'friend@email.com'
+                    }
+                    disabled={
+                      activeChannel.participants.length >=
+                      MAX_CHANNEL_AND_GROUP_USERS
+                    }
+                    required
+                  />
+                  <input
+                    type="text"
+                    value={newMemberNameInput}
+                    onChange={(e) => setNewMemberNameInput(e.target.value)}
+                    placeholder="Name"
+                    disabled={
+                      activeChannel.participants.length >=
+                      MAX_CHANNEL_AND_GROUP_USERS
+                    }
+                  />
+                  <button
+                    type="submit"
+                    className="dc-btn-send"
+                    disabled={
+                      activeChannel.participants.length >=
+                      MAX_CHANNEL_AND_GROUP_USERS
+                    }
+                  >
+                    <UserPlus size={14} /> Add
+                  </button>
+                </form>
+
+                <div className="dc-participants-list">
+                  {activeChannel.participants
+                    .filter(
+                      (email) =>
+                        email.toLowerCase() !== activeUser.email.toLowerCase()
+                    )
+                    .map((email) => {
+                      const u = users.find(
+                        (usr) =>
+                          usr.email.toLowerCase() === email.toLowerCase()
+                      );
+
+                      return (
+                        <div key={email} className="dc-participant-row">
+                          <div className="dc-participant-info">
+                            {renderUserAvatar(
+                              u || email,
+                              u?.displayName || email
+                            )}
+                            <div>
+                              <strong>
+                                {u?.displayName || email}{' '}
+                                {u?.handle && (
+                                  <small className="dc-handle-tag">
+                                    {u.handle}
+                                  </small>
+                                )}
+                              </strong>
+                              <span>
+                                {email}
+                                {!u?.hasAppInstalled ? ' • 📩' : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="dc-participant-actions">
+                            {activeChannel.participants.length > 2 && (
+                              <button
+                                type="button"
+                                className="dc-btn-remove-member dc-icon-only-pill"
+                                onClick={() =>
+                                  handleRemoveMemberFromChannel(email)
+                                }
+                                title="Remove"
+                                aria-label="Remove"
+                              >
+                                <UserMinus size={14} />
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        <div className="dc-participant-actions">
-                          {activeChannel.participants.length > 2 && (
-                            <button
-                              type="button"
-                              className="dc-btn-remove-member dc-icon-only-pill"
-                              onClick={() =>
-                                handleRemoveMemberFromChannel(email)
-                              }
-                              title="Remove"
-                              aria-label="Remove"
-                            >
-                              <UserMinus size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
+                      );
+                    })}
+                </div>
+              </>
+            ))}
         </div>
       </dialog>
 
@@ -9649,7 +10219,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={shredConfirmDialogTitleId} className="dc-shred-modal-title">
-              🔥 Clear Chat?
+              <Flame size={17} className="dc-flame-fire-icon" /> Clear Chat?
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -9660,7 +10230,7 @@ export function App() {
 
           <div className="dc-shred-warning-body">
             <div className="dc-shred-warning-banner">
-              <strong>🗑️ Deletes for everyone.</strong>
+              <strong>Deletes for everyone.</strong>
             </div>
 
             <div className="dc-modal-actions">
@@ -9686,7 +10256,7 @@ export function App() {
                   await handleRemoteKeyShredAndScrub(opts);
                 }}
               >
-                🔥 Clear
+                <Flame size={14} className="dc-flame-fire-icon" /> Clear
               </button>
             </div>
           </div>
@@ -9753,7 +10323,7 @@ export function App() {
       </dialog>
 
       {/* =====================================================================
-          MODAL 6: Create New Encrypted Group or DM (with Shielded Burner Alias Toggle)
+          MODAL 6: Create New Encrypted Group, DM, or Broadcast Channel (+ Add Friend from Contacts)
          ===================================================================== */}
       <dialog
         ref={newChannelModalRef}
@@ -9764,14 +10334,29 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={newChannelDialogTitleId}>
-              {isNewChatBurner ? '🔥 ' : ''}
-              {newChatType === 'workspace-channel'
-                ? isNewChatBurner
-                  ? 'New Burner Group'
-                  : '👥 New Group'
-                : isNewChatBurner
-                ? 'New Burner Chat'
-                : '💬 New Chat'}
+              {newChatType === 'broadcast-channel' ? (
+                <>
+                  <Radio size={17} /> Channel
+                </>
+              ) : newChatType === 'workspace-channel' ? (
+                <>
+                  {isNewChatBurner ? (
+                    <Flame size={17} className="dc-flame-fire-icon" />
+                  ) : (
+                    <Users size={17} />
+                  )}{' '}
+                  {isNewChatBurner ? 'Burner Group' : 'New Group'}
+                </>
+              ) : (
+                <>
+                  {isNewChatBurner ? (
+                    <Flame size={17} className="dc-flame-fire-icon" />
+                  ) : (
+                    <MessageCircle size={17} />
+                  )}{' '}
+                  {isNewChatBurner ? 'Burner Chat' : 'New Chat'}
+                </>
+              )}
             </h2>
             <form method="dialog">
               <button
@@ -9785,35 +10370,24 @@ export function App() {
             </form>
           </div>
 
-          <div className="dc-chat-mode-toggle">
-            <button
-              type="button"
-              className={`dc-mode-chip ${!isNewChatBurner ? 'is-active' : ''}`}
-              onClick={() => setIsNewChatBurner(false)}
-            >
-              💬 Regular Chat
-            </button>
-            <button
-              type="button"
-              className={`dc-mode-chip ${
-                isNewChatBurner ? 'is-active is-burner' : ''
-              }`}
-              onClick={() => setIsNewChatBurner(true)}
-            >
-              🔥 Burner (20s Cascade)
-            </button>
-          </div>
-
-          {isNewChatBurner && (
-            <div className="dc-burner-modal-notice">
-              <Flame size={15} className="dc-flame-fire-icon" />
-              <span>
-                <strong>Sequential Cascade Burner:</strong> Each message
-                permanently deletes 20 seconds after viewed. The next
-                message&apos;s 20s countdown starts only when the previous
-                message is deleted (e.g. 3 messages take 60s total). Cannot be
-                deactivated once created.
-              </span>
+          {newChatType !== 'broadcast-channel' && (
+            <div className="dc-chat-mode-toggle">
+              <button
+                type="button"
+                className={`dc-mode-chip ${!isNewChatBurner ? 'is-active' : ''}`}
+                onClick={() => setIsNewChatBurner(false)}
+              >
+                <MessageCircle size={14} /> Regular Chat
+              </button>
+              <button
+                type="button"
+                className={`dc-mode-chip ${
+                  isNewChatBurner ? 'is-active is-burner' : ''
+                }`}
+                onClick={() => setIsNewChatBurner(true)}
+              >
+                <Flame size={14} className="dc-flame-fire-icon" /> Burner (20s)
+              </button>
             </div>
           )}
 
@@ -9821,9 +10395,39 @@ export function App() {
             className="dc-modal-form"
             onSubmit={handleCreateNewChannelOrDm}
           >
-            {newChatType === 'workspace-channel' ? (
+            {newChatType === 'broadcast-channel' ? (
+              <>
+                <div className="dc-form-group">
+                  <label htmlFor="new-broadcast-name">
+                    <Radio size={12} /> Channel Handle
+                  </label>
+                  <input
+                    id="new-broadcast-name"
+                    type="text"
+                    value={newChatName}
+                    onChange={(e) => setNewChatName(e.target.value)}
+                    placeholder="skate-clips-daily"
+                    required
+                  />
+                </div>
+                <div className="dc-form-group">
+                  <label htmlFor="new-broadcast-desc">
+                    <Tag size={12} /> Bio / Topic
+                  </label>
+                  <input
+                    id="new-broadcast-desc"
+                    type="text"
+                    value={newChannelDescription}
+                    onChange={(e) => setNewChannelDescription(e.target.value)}
+                    placeholder="Daily photos & clips • BCC anonymous"
+                  />
+                </div>
+              </>
+            ) : newChatType === 'workspace-channel' ? (
               <div className="dc-form-group">
-                <label htmlFor="new-channel-name">🏷️ Group Name</label>
+                <label htmlFor="new-channel-name">
+                  <Users size={12} /> Group Name
+                </label>
                 <input
                   id="new-channel-name"
                   type="text"
@@ -9832,14 +10436,26 @@ export function App() {
                   placeholder={
                     isNewChatBurner ? 'secret-squad-burner' : 'squad-chat'
                   }
-                  required
+                  required={selectedGroupMemberEmails.length === 0}
                 />
               </div>
             ) : (
               <div className="dc-form-group">
-                <label htmlFor="new-dm-email">
-                  ✉️ Friend&apos;s Email
-                </label>
+                <div className="dc-label-with-action">
+                  <label htmlFor="new-dm-email">
+                    <Mail size={12} /> Friend&apos;s Email
+                  </label>
+                  <button
+                    type="button"
+                    className="dc-contact-picker-toggle-btn"
+                    onClick={() =>
+                      setShowNewChatContactPicker((prev) => !prev)
+                    }
+                    title="Add Friend from Contacts"
+                  >
+                    <Users size={13} /> Contacts
+                  </button>
+                </div>
                 <input
                   id="new-dm-email"
                   type="email"
@@ -9851,6 +10467,77 @@ export function App() {
               </div>
             )}
 
+            {/* Add Friend from Contacts Quick Strip */}
+            {(newChatType === 'dm' ||
+              newChatType === 'workspace-channel') && (
+              <div className="dc-new-chat-contacts-strip">
+                <div className="dc-contacts-strip-header">
+                  <span>
+                    <UserPlus size={12} /> Add Friend from Contacts
+                  </span>
+                </div>
+                <div className="dc-contacts-chips-row">
+                  {users
+                    .filter((u) => u.email !== activeUser.email)
+                    .map((contact) => {
+                      const isSelected =
+                        newChatType === 'dm'
+                          ? newChatRecipientEmail.toLowerCase() ===
+                            contact.email.toLowerCase()
+                          : selectedGroupMemberEmails.some(
+                              (em) =>
+                                em.toLowerCase() === contact.email.toLowerCase()
+                            );
+                      return (
+                        <button
+                          key={contact.email}
+                          type="button"
+                          className={`dc-contact-pick-chip ${
+                            isSelected ? 'is-selected' : ''
+                          }`}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            if (newChatType === 'dm') {
+                              setNewChatRecipientEmail((prev) =>
+                                prev.toLowerCase() ===
+                                contact.email.toLowerCase()
+                                  ? ''
+                                  : contact.email
+                              );
+                            } else {
+                              setSelectedGroupMemberEmails((prev) => {
+                                const exists = prev.some(
+                                  (em) =>
+                                    em.toLowerCase() ===
+                                    contact.email.toLowerCase()
+                                );
+                                const next = exists
+                                  ? prev.filter(
+                                      (em) =>
+                                        em.toLowerCase() !==
+                                        contact.email.toLowerCase()
+                                    )
+                                  : [...prev, contact.email];
+                                return next;
+                              });
+                            }
+                          }}
+                        >
+                          {renderUserAvatar(
+                            contact,
+                            contact.displayName,
+                            'dc-contact-chip-avatar'
+                          )}
+                          <span>
+                            {contact.displayName.replace(' (No App Yet)', '')}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             <div className="dc-modal-actions">
               <button
                 type="submit"
@@ -9858,16 +10545,335 @@ export function App() {
                   isNewChatBurner ? 'dc-btn-burner-send' : ''
                 }`}
               >
-                {newChatType === 'workspace-channel'
-                  ? isNewChatBurner
-                    ? '🔥 Create Burner Group'
-                    : '🚀 Create Group'
-                  : isNewChatBurner
-                  ? '🔥 Start Burner Chat'
-                  : '🚀 Start Chat'}
+                {newChatType === 'broadcast-channel' ? (
+                  <>
+                    <Radio size={15} /> Launch Channel
+                  </>
+                ) : isNewChatBurner ? (
+                  <>
+                    <Flame size={15} className="dc-flame-fire-icon" /> Start
+                    Burner
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} /> Start
+                  </>
+                )}
               </button>
             </div>
           </form>
+        </div>
+      </dialog>
+
+      {/* =====================================================================
+          MODAL 6B: CRYPTO-INSPIRED PEER-TO-PEER IOU WALLET & LEDGER (`IOUs`)
+         ===================================================================== */}
+      <dialog
+        ref={iouDialogRef}
+        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
+        aria-labelledby={iouDialogTitleId}
+        className="dc-modal-dialog dc-modal-md"
+      >
+        <div className="dc-modal-inner">
+          <div className="dc-modal-header">
+            <h2 id={iouDialogTitleId}>
+              <Coins size={18} /> IOUs
+            </h2>
+            <div className="dc-profile-modal-tabs">
+              <button
+                type="button"
+                className={`dc-profile-step-tab ${
+                  showIouIssueForm ? 'active' : ''
+                }`}
+                onClick={() => setShowIouIssueForm((prev) => !prev)}
+                title="Send or Log IOU"
+                aria-label="Send or Log IOU"
+              >
+                <Plus size={14} /> IOU
+              </button>
+              <form method="dialog">
+                <button
+                  type="submit"
+                  className="dc-icon-btn"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div className="dc-iou-wallet-body">
+            {/* Crypto-Style Net Balance Hero Card */}
+            <div className="dc-iou-hero-card">
+              <div className="dc-iou-hero-top">
+                <span className="dc-iou-token-pill">
+                  <Coins size={12} /> P2P IOU LEDGER
+                </span>
+              </div>
+              <div className="dc-iou-net-balance">
+                <strong
+                  className={
+                    iouLedgerSummary.netBalance > 0
+                      ? 'is-positive'
+                      : iouLedgerSummary.netBalance < 0
+                      ? 'is-negative'
+                      : ''
+                  }
+                >
+                  {iouLedgerSummary.netBalance > 0
+                    ? `+${iouLedgerSummary.netBalance}`
+                    : iouLedgerSummary.netBalance}
+                </strong>
+                <span>Net Position</span>
+              </div>
+              <div className="dc-iou-stats-split">
+                <div className="dc-iou-stat-box is-owed">
+                  <small>Friends Owe You</small>
+                  <strong>+{iouLedgerSummary.owedToMeTotal}</strong>
+                </div>
+                <div className="dc-iou-stat-box is-owing">
+                  <small>Outstanding IOUs</small>
+                  <strong>-{iouLedgerSummary.iOweTotal}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Send IOU Form (You can only Send IOUs that you owe) */}
+            {showIouIssueForm && (
+              <form
+                className="dc-iou-issue-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const amt = Math.max(
+                    1,
+                    Math.floor(Number(iouSendAmount) || 0)
+                  );
+                  void handleSendOrSettleIou({
+                    action: 'send-iou',
+                    peerEmail: iouSendPeerEmail,
+                    amount: amt,
+                    note: iouSendNote.trim() || undefined,
+                  });
+                }}
+              >
+                <div className="dc-form-row">
+                  <div className="dc-form-group">
+                    <label htmlFor="iou-friend-select">Send IOU To</label>
+                    <select
+                      id="iou-friend-select"
+                      value={iouSendPeerEmail}
+                      onChange={(e) => setIouSendPeerEmail(e.target.value)}
+                    >
+                      {users
+                        .filter((u) => u.email !== activeUser.email)
+                        .map((u) => (
+                          <option key={u.email} value={u.email}>
+                            {u.displayName.replace(' (No App Yet)', '')} (
+                            {u.handle || u.email})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="dc-form-group">
+                    <label htmlFor="iou-amount-input">Amount</label>
+                    <input
+                      id="iou-amount-input"
+                      type="number"
+                      min={1}
+                      max={9999}
+                      step={1}
+                      value={iouSendAmount}
+                      onChange={(e) =>
+                        setIouSendAmount(
+                          e.target.value.replace(/[^0-9]/g, '')
+                        )
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="dc-inline-input-btn">
+                  <input
+                    type="text"
+                    value={iouSendNote}
+                    onChange={(e) => setIouSendNote(e.target.value)}
+                    placeholder="Note (e.g. pizza slice, arcade tokens)…"
+                  />
+                  <button type="submit" className="dc-btn-send">
+                    <Send size={14} /> Send IOU
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* 2-Column Split Ledger: People That Owe You (Left) vs Outstanding IOUs (Right) */}
+            <div className="dc-iou-split-ledger-grid">
+              {/* LEFT COLUMN: People That Owe You (Clickable -> Recognize Collection Popup) */}
+              <div className="dc-iou-ledger-column is-left-owed">
+                <div className="dc-iou-column-header is-owed">
+                  <span>Owe You</span>
+                  <strong>+{iouLedgerSummary.owedToMeTotal}</strong>
+                </div>
+
+                {iouLedgerSummary.rows.filter((r) => r.netAmount > 0).length ===
+                0 ? (
+                  <div className="dc-iou-column-empty">0</div>
+                ) : (
+                  iouLedgerSummary.rows
+                    .filter((r) => r.netAmount > 0)
+                    .map((row) => {
+                      const isSelected = selectedIouPeerEmail === row.peerEmail;
+                      return (
+                        <div
+                          key={row.peerEmail}
+                          className={`dc-iou-peer-card ${
+                            isSelected ? 'is-expanded' : ''
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="dc-iou-peer-row-btn"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedIouPeerEmail(null);
+                              } else {
+                                setSelectedIouPeerEmail(row.peerEmail);
+                                setIouCollectAmountInput('1');
+                              }
+                            }}
+                            title={`Click to recognize collection from ${row.displayName}`}
+                          >
+                            <div className="dc-iou-peer-left">
+                              {renderUserAvatar(
+                                row.peerUser || row.peerEmail,
+                                row.displayName
+                              )}
+                              <div>
+                                <strong>{row.displayName}</strong>
+                                <span>{row.handle}</span>
+                              </div>
+                            </div>
+
+                            <div className="dc-iou-peer-total is-owed-to-me">
+                              <strong>+{row.netAmount}</strong>
+                            </div>
+                          </button>
+
+                          {isSelected && (
+                            <div className="dc-iou-collect-popup">
+                              <div className="dc-iou-collect-popup-head">
+                                <span>Recognize Collection</span>
+                                <button
+                                  type="button"
+                                  className="dc-iou-collect-all-btn"
+                                  onClick={() =>
+                                    void handleSendOrSettleIou({
+                                      action: 'collect',
+                                      peerEmail: row.peerEmail,
+                                      amount: row.netAmount,
+                                      note: 'Collected all',
+                                    })
+                                  }
+                                >
+                                  All ({row.netAmount})
+                                </button>
+                              </div>
+
+                              <form
+                                className="dc-iou-collect-partial-form"
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  const cleanWhole = Math.min(
+                                    row.netAmount,
+                                    Math.max(
+                                      1,
+                                      Math.floor(
+                                        Number(iouCollectAmountInput) || 1
+                                      )
+                                    )
+                                  );
+                                  void handleSendOrSettleIou({
+                                    action: 'collect',
+                                    peerEmail: row.peerEmail,
+                                    amount: cleanWhole,
+                                    note: 'Recognized collection',
+                                  });
+                                }}
+                              >
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={row.netAmount}
+                                  step={1}
+                                  value={iouCollectAmountInput}
+                                  onChange={(e) =>
+                                    setIouCollectAmountInput(
+                                      e.target.value.replace(/[^0-9]/g, '')
+                                    )
+                                  }
+                                  placeholder={`1–${row.netAmount}`}
+                                  aria-label="Whole number amount collected"
+                                  required
+                                />
+                                <button
+                                  type="submit"
+                                  className="dc-btn-send dc-iou-accept-btn"
+                                  title="Accept collection amount"
+                                  aria-label="Accept collection amount"
+                                >
+                                  <Check size={14} />
+                                </button>
+                              </form>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+              {/* RIGHT COLUMN: Outstanding IOUs (People You Owe — Read-Only) */}
+              <div className="dc-iou-ledger-column is-right-owing">
+                <div className="dc-iou-column-header is-owing">
+                  <span>Outstanding</span>
+                  <strong>-{iouLedgerSummary.iOweTotal}</strong>
+                </div>
+
+                {iouLedgerSummary.rows.filter((r) => r.netAmount < 0).length ===
+                0 ? (
+                  <div className="dc-iou-column-empty">0</div>
+                ) : (
+                  iouLedgerSummary.rows
+                    .filter((r) => r.netAmount < 0)
+                    .map((row) => (
+                      <div
+                        key={row.peerEmail}
+                        className="dc-iou-peer-card is-readonly-owing"
+                      >
+                        <div className="dc-iou-peer-row-btn is-static">
+                          <div className="dc-iou-peer-left">
+                            {renderUserAvatar(
+                              row.peerUser || row.peerEmail,
+                              row.displayName
+                            )}
+                            <div>
+                              <strong>{row.displayName}</strong>
+                              <span>{row.handle}</span>
+                            </div>
+                          </div>
+
+                          <div className="dc-iou-peer-total is-i-owe">
+                            <strong>{row.netAmount}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </dialog>
 
@@ -10099,8 +11105,8 @@ export function App() {
       >
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
-            <h2 id={cameraDialogTitleId}>
-              📷 Camera
+            <h2 id={cameraDialogTitleId} aria-label="Camera">
+              <Camera size={18} />
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">
@@ -10110,13 +11116,99 @@ export function App() {
           </div>
 
           <div className="dc-camera-modal-body">
-            <div className="dc-camera-viewport">
+            <div
+              ref={cameraViewportRef}
+              className="dc-camera-viewport"
+              onPointerMove={(e) => {
+                const drag = draggingStampRef.current;
+                if (!drag || !cameraViewportRef.current) return;
+                const rect = cameraViewportRef.current.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return;
+                const nextX = Math.min(
+                  95,
+                  Math.max(5, ((e.clientX - rect.left) / rect.width) * 100)
+                );
+                const nextY = Math.min(
+                  95,
+                  Math.max(5, ((e.clientY - rect.top) / rect.height) * 100)
+                );
+                setCameraStamps((prev) =>
+                  prev.map((s) =>
+                    s.id === drag.stampId
+                      ? { ...s, xPct: nextX, yPct: nextY }
+                      : s
+                  )
+                );
+              }}
+              onPointerUp={() => {
+                draggingStampRef.current = null;
+              }}
+              onPointerCancel={() => {
+                draggingStampRef.current = null;
+              }}
+            >
               {capturedPhotoDataUrl ? (
-                <img
-                  src={capturedPhotoDataUrl}
-                  alt="Captured preview"
-                  className="dc-camera-preview-img"
-                />
+                <>
+                  <img
+                    src={capturedPhotoDataUrl}
+                    alt="Captured preview"
+                    className="dc-camera-preview-img"
+                    draggable={false}
+                    onClick={() => setSelectedCameraStampId(null)}
+                  />
+
+                  {/* Interactive Draggable & Resizable Emoji Stamps Layer */}
+                  {cameraStamps.map((st) => {
+                    const isSelected = selectedCameraStampId === st.id;
+                    return (
+                      <div
+                        key={st.id}
+                        className={`dc-camera-emoji-stamp ${
+                          isSelected ? 'is-selected' : ''
+                        }`}
+                        style={{
+                          left: `${st.xPct}%`,
+                          top: `${st.yPct}%`,
+                          fontSize: `${st.sizePx}px`,
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          setSelectedCameraStampId(st.id);
+                          draggingStampRef.current = {
+                            stampId: st.id,
+                            pointerId: e.pointerId,
+                          };
+                          try {
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                          } catch {
+                            // Ignore pointer capture errors
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Emoji stamp ${st.emoji}`}
+                        title="Drag to move stamp"
+                      >
+                        <span className="dc-camera-stamp-glyph">{st.emoji}</span>
+                        {isSelected && (
+                          <button
+                            type="button"
+                            className="dc-camera-stamp-delete-badge"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCameraStamp(st.id);
+                            }}
+                            title="Remove stamp"
+                            aria-label="Remove stamp"
+                          >
+                            <X size={11} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
               ) : (
                 <>
                   <video
@@ -10131,27 +11223,116 @@ export function App() {
                   {!isCameraStreaming && (
                     <div className="dc-camera-fallback-viewfinder">
                       <Camera size={38} />
-                      <strong>📸 Ready</strong>
-                      <span>🔒 App-only (not saved to phone)</span>
                     </div>
                   )}
                 </>
               )}
-              <span className="dc-camera-privacy-pill">
-                🔒 Encrypted in app only
+              <span
+                className="dc-camera-privacy-pill dc-camera-privacy-icon-only"
+                title="Encrypted in app only"
+                aria-label="Encrypted in app only"
+              >
+                <Lock size={13} />
               </span>
             </div>
+
+            {/* Emoji Stamp Picker & Size / Delete Controls (When Photo Is Captured) */}
+            {capturedPhotoDataUrl && isCameraStampPickerOpen && (
+              <div className="dc-camera-stamp-tray">
+                <div className="dc-camera-stamp-emoji-strip">
+                  {[
+                    '😎',
+                    '🤠',
+                    '👽',
+                    '🤖',
+                    '🐱',
+                    '🐶',
+                    '🦊',
+                    '🐼',
+                    '🐸',
+                    '🙈',
+                    '👻',
+                    '💀',
+                    '🥸',
+                    '🤩',
+                    '😷',
+                    '🎃',
+                    '👑',
+                    '🧢',
+                    '⭐',
+                    '❤️',
+                    '🔒',
+                    '🚫',
+                  ].map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="dc-camera-stamp-pick-btn"
+                      onClick={() => handleAddCameraEmojiStamp(emoji)}
+                      title={`Add ${emoji} stamp`}
+                      aria-label={`Add ${emoji} stamp`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedCameraStampId &&
+                  cameraStamps.some((s) => s.id === selectedCameraStampId) && (
+                    <div className="dc-camera-stamp-size-bar">
+                      <span className="dc-camera-active-stamp-preview">
+                        {
+                          cameraStamps.find(
+                            (s) => s.id === selectedCameraStampId
+                          )?.emoji
+                        }
+                      </span>
+                      <input
+                        type="range"
+                        min={28}
+                        max={220}
+                        value={
+                          cameraStamps.find(
+                            (s) => s.id === selectedCameraStampId
+                          )?.sizePx || 88
+                        }
+                        onChange={(e) =>
+                          handleUpdateCameraStampSize(
+                            selectedCameraStampId,
+                            Number(e.target.value)
+                          )
+                        }
+                        className="dc-camera-stamp-slider"
+                        aria-label="Stamp size"
+                        title="Adjust stamp size"
+                      />
+                      <button
+                        type="button"
+                        className="dc-camera-stamp-trash-btn"
+                        onClick={() =>
+                          handleDeleteCameraStamp(selectedCameraStampId)
+                        }
+                        title="Delete selected stamp"
+                        aria-label="Delete selected stamp"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
+              </div>
+            )}
 
             <div className="dc-camera-controls-row">
               {!capturedPhotoDataUrl ? (
                 <>
                   <button
                     type="button"
-                    className="dc-btn-secondary-action"
+                    className="dc-camera-icon-btn"
                     onClick={() => void handleFlipCamera()}
                     title="Flip camera"
+                    aria-label="Flip camera"
                   >
-                    🔄 Flip
+                    <RefreshCw size={18} />
                   </button>
                   <button
                     type="button"
@@ -10164,31 +11345,52 @@ export function App() {
                   </button>
                   <button
                     type="button"
-                    className="dc-btn-ghost"
+                    className="dc-camera-icon-btn"
                     onClick={() => cameraCaptureDialogRef.current?.close()}
+                    title="Close camera"
+                    aria-label="Close camera"
                   >
-                    Cancel
+                    <X size={18} />
                   </button>
                 </>
               ) : (
                 <>
                   <button
                     type="button"
-                    className="dc-btn-secondary-action"
+                    className="dc-camera-icon-btn"
                     onClick={() => {
                       setCapturedPhotoDataUrl(null);
+                      setCameraStamps([]);
+                      setSelectedCameraStampId(null);
                       void startCameraStream(cameraFacingMode);
                     }}
+                    title="Retake photo"
+                    aria-label="Retake photo"
                   >
-                    🔄 Retake
+                    <RefreshCw size={18} />
                   </button>
                   <button
                     type="button"
-                    className="dc-btn-send"
+                    className={`dc-camera-icon-btn dc-camera-stamp-toggle ${
+                      isCameraStampPickerOpen ? 'is-active' : ''
+                    }`}
+                    onClick={() =>
+                      setIsCameraStampPickerOpen((prev) => !prev)
+                    }
+                    title="Emoji Stamps"
+                    aria-label="Emoji Stamps"
+                  >
+                    <Smile size={19} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-imessage-send-btn dc-camera-send-icon-btn"
                     disabled={isSending}
                     onClick={() => void handleSendCapturedCameraPhoto()}
+                    title="Send photo"
+                    aria-label="Send photo"
                   >
-                    🚀 Send
+                    <Send size={17} />
                   </button>
                 </>
               )}

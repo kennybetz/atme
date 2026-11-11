@@ -1,19 +1,256 @@
 /**
- * Initial Seed Data, User Profiles (Avatar, Name, Handle), Channels, DMs, & Sample Regular Emails
+ * Initial Seed Data, Hand-Drawn Cartoon Sketch Avatars, First-Name Kid Profiles,
+ * Group Chats, Burner Chats, Broadcast Channels (BCC), and IOU Ledger Packets
  */
 
-import { DcpChannelMeta, RawTransportEmail, UserIdentity } from '../protocol/types';
+import {
+  encryptDcpPayloadAsymmetric,
+  encryptDcpPayloadWithInviteKey,
+  generateInviteSecret,
+} from '../crypto/openpgpService';
+import { createSignedComplianceAttestation } from '../crypto/complianceAndShredding';
+import { buildDcpMimeEmail } from '../protocol/mimeBuilder';
+import {
+  DCP_PROTOCOL_VERSION,
+  DcpChannelMeta,
+  DcpComplianceAttestation,
+  DcpPacket,
+  FilterInspectionResult,
+  RawTransportEmail,
+  UserIdentity,
+} from '../protocol/types';
 
-function makeSvgAvatarDataUrl(initials: string, bgStart: string, bgEnd: string): string {
+export interface CartoonAvatarPreset {
+  id: string;
+  label: string;
+  dataUrl: string;
+}
+
+/**
+ * Hand-drawn ink-sketch cartoon character portraits inspired by doodle portrait illustrations.
+ */
+export function makeCartoonSketchAvatarDataUrl(variantId: string): string {
+  const sketches: Record<string, string> = {
+    skater_curls: `
+      <!-- Messy skater curls + striped collar -->
+      <path d="M26 42 C24 22, 72 22, 70 42 C72 58, 62 70, 48 70 C34 70, 24 58, 26 42 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M22 38 C18 28, 28 18, 36 22 C40 14, 54 14, 58 22 C68 18, 78 28, 72 39 C76 33, 66 24, 58 28 C50 20, 42 22, 36 28 C28 25, 22 32, 22 38 Z" fill="#14171f" stroke="#14171f" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M26 34 C32 26, 44 26, 48 31 C54 25, 64 27, 69 35" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="39" cy="43" r="2.4" fill="#14171f"/>
+      <circle cx="57" cy="43" r="2.4" fill="#14171f"/>
+      <path d="M35 37 Q39 34 43 37" fill="none" stroke="#14171f" stroke-width="2" stroke-linecap="round"/>
+      <path d="M53 37 Q57 34 61 37" fill="none" stroke="#14171f" stroke-width="2" stroke-linecap="round"/>
+      <path d="M48 44 Q45 50 49 51" fill="none" stroke="#14171f" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M37 56 Q48 65 59 55" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M42 70 L41 78 M54 70 L55 78" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M26 90 C28 77, 68 77, 70 90" fill="#14171f" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M31 83 L65 83 M29 87 L67 87" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+    `,
+    spiky_grin: `
+      <!-- Spiky hair + big cheerful grin -->
+      <path d="M28 43 C27 25, 69 25, 68 43 C69 59, 60 70, 48 70 C36 70, 27 59, 28 43 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M25 36 L22 25 L32 29 L36 17 L44 26 L49 15 L54 26 L63 18 L64 29 L74 26 L69 37" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 44 C20 43, 20 51, 25 51 M72 44 C76 43, 76 51, 71 51" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="39" cy="44" r="2.4" fill="#14171f"/>
+      <circle cx="57" cy="44" r="2.4" fill="#14171f"/>
+      <path d="M48 45 L46 51 L50 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M36 56 Q48 66 60 56" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M42 70 L42 79 M54 70 L54 79" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M28 90 C32 78, 64 78, 68 90" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M41 78 L48 86 L55 78" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    `,
+    wavy_locks: `
+      <!-- Wavy locks + warm smile + freckles -->
+      <path d="M20 58 C17 34, 25 18, 48 18 C71 18, 79 34, 76 58 C74 66, 68 72, 64 74 C67 56, 67 34, 48 30 C29 34, 29 56, 32 74 C28 72, 22 66, 20 58 Z" fill="#14171f"/>
+      <path d="M29 44 C28 27, 68 27, 67 44 C68 59, 59 69, 48 69 C37 69, 28 59, 29 44 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
+      <path d="M29 36 C36 27, 46 27, 49 32 C53 27, 62 28, 67 36" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
+      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
+      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
+      <circle cx="34" cy="50" r="1" fill="#14171f"/>
+      <circle cx="37" cy="52" r="1" fill="#14171f"/>
+      <circle cx="62" cy="50" r="1" fill="#14171f"/>
+      <circle cx="59" cy="52" r="1" fill="#14171f"/>
+      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M38 56 Q48 64 58 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M29 90 C33 78, 63 78, 67 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+    `,
+    sunny_bangs: `
+      <!-- Straight bangs + shoulder hair + bright smile -->
+      <path d="M22 68 C21 34, 28 18, 48 18 C68 18, 75 34, 74 68" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M29 45 C29 28, 67 28, 67 45 C67 59, 59 69, 48 69 C37 69, 29 59, 29 45 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
+      <path d="M29 36 L35 28 L40 36 L46 27 L51 36 L57 28 L62 36 L67 32" fill="#14171f" stroke="#14171f" stroke-width="2.2" stroke-linejoin="round"/>
+      <circle cx="39" cy="45" r="2.3" fill="#14171f"/>
+      <circle cx="57" cy="45" r="2.3" fill="#14171f"/>
+      <path d="M48 46 Q46 51 49 52" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M38 56 Q48 64 58 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M30 90 C34 79, 62 79, 66 90" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
+    `,
+    messy_tuft: `
+      <!-- Tall sketch face + messy tuft -->
+      <path d="M30 42 C29 24, 67 24, 66 42 C67 60, 59 71, 48 71 C37 71, 29 60, 30 42 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
+      <path d="M28 34 C28 22, 68 22, 68 34 C62 27, 34 27, 28 34 Z" fill="#14171f" stroke="#14171f" stroke-width="2.4"/>
+      <path d="M35 24 L39 16 M45 23 L48 14 M55 24 L59 16" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="40" cy="43" r="2.3" fill="#14171f"/>
+      <circle cx="56" cy="43" r="2.3" fill="#14171f"/>
+      <path d="M48 43 L46 53 L50 53" fill="none" stroke="#14171f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M39 59 Q48 65 57 58" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M43 71 L43 79 M53 71 L53 79" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M28 90 C33 79, 63 79, 68 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+    `,
+    curly_bob: `
+      <!-- Bouncy curly bob doodle -->
+      <circle cx="25" cy="40" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="23" cy="51" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="71" cy="40" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="73" cy="51" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="34" cy="27" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="48" cy="24" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <circle cx="62" cy="27" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
+      <path d="M29 45 C29 29, 67 29, 67 45 C67 59, 59 69, 48 69 C37 69, 29 59, 29 45 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
+      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
+      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
+      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M37 56 Q48 64 59 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M30 90 C34 79, 62 79, 66 90" fill="none" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
+    `,
+    cool_part: `
+      <!-- Side-swept sketch hair + happy arc eyes -->
+      <path d="M28 43 C28 26, 68 26, 68 43 C68 59, 59 69, 48 69 C37 69, 28 59, 28 43 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
+      <path d="M26 39 C26 21, 68 19, 70 39 C58 29, 40 27, 26 39 Z" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M35 43 Q39 39 43 43" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M53 43 Q57 39 61 43" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M36 55 Q48 65 60 55 Z" fill="#14171f"/>
+      <path d="M42 69 L42 78 M54 69 L54 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M27 90 C31 78, 65 78, 69 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+    `,
+    puff_curls: `
+      <!-- Playful high curls + buttoned shirt -->
+      <circle cx="28" cy="25" r="9" fill="#14171f"/>
+      <circle cx="68" cy="25" r="9" fill="#14171f"/>
+      <path d="M28 44 C28 27, 68 27, 68 44 C68 59, 59 69, 48 69 C37 69, 28 59, 28 44 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
+      <path d="M29 36 C36 25, 60 25, 67 36" fill="#14171f" stroke="#14171f" stroke-width="2.4"/>
+      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
+      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
+      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M37 56 Q48 64 59 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M28 90 C32 78, 64 78, 68 90" fill="none" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
+      <circle cx="48" cy="83" r="1.4" fill="#14171f"/>
+      <circle cx="48" cy="87" r="1.4" fill="#14171f"/>
+    `,
+  };
+
+  const inner = sketches[variantId] || sketches.skater_curls;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+    <rect width="96" height="96" rx="48" fill="#f8fafc"/>
+    <circle cx="48" cy="48" r="45" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+    ${inner}
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export const CARTOON_SKETCH_AVATARS: CartoonAvatarPreset[] = [
+  {
+    id: 'skater_curls',
+    label: 'Curls',
+    dataUrl: makeCartoonSketchAvatarDataUrl('skater_curls'),
+  },
+  {
+    id: 'spiky_grin',
+    label: 'Spiky',
+    dataUrl: makeCartoonSketchAvatarDataUrl('spiky_grin'),
+  },
+  {
+    id: 'wavy_locks',
+    label: 'Wavy',
+    dataUrl: makeCartoonSketchAvatarDataUrl('wavy_locks'),
+  },
+  {
+    id: 'sunny_bangs',
+    label: 'Bangs',
+    dataUrl: makeCartoonSketchAvatarDataUrl('sunny_bangs'),
+  },
+  {
+    id: 'messy_tuft',
+    label: 'Tuft',
+    dataUrl: makeCartoonSketchAvatarDataUrl('messy_tuft'),
+  },
+  {
+    id: 'curly_bob',
+    label: 'Bob',
+    dataUrl: makeCartoonSketchAvatarDataUrl('curly_bob'),
+  },
+  {
+    id: 'cool_part',
+    label: 'Smile',
+    dataUrl: makeCartoonSketchAvatarDataUrl('cool_part'),
+  },
+  {
+    id: 'puff_curls',
+    label: 'Puffs',
+    dataUrl: makeCartoonSketchAvatarDataUrl('puff_curls'),
+  },
+];
+
+function makeStoryIllustrationDataUrl(
+  theme: 'skate' | 'pixel' | 'meme'
+): string {
+  if (theme === 'skate') {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0f172a"/>
+          <stop offset="55%" stop-color="#1e1b4b"/>
+          <stop offset="100%" stop-color="#0d9488"/>
+        </linearGradient>
+      </defs>
+      <rect width="560" height="320" rx="20" fill="url(#bg)"/>
+      <circle cx="450" cy="82" r="42" fill="#f59e0b" opacity="0.85"/>
+      <path d="M0 250 Q180 210 340 245 T560 220 L560 320 L0 320 Z" fill="#090d16"/>
+      <g transform="translate(185, 130) rotate(-14)">
+        <rect x="0" y="30" width="170" height="16" rx="8" fill="#ff6b4a" stroke="#ffffff" stroke-width="2.5"/>
+        <circle cx="34" cy="54" r="9" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="136" cy="54" r="9" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+      </g>
+      <text x="28" y="46" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="18" font-weight="700">SKATE CLIPS DAILY • LIVE FEED</text>
+      <text x="28" y="292" fill="#99f6e4" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">Sunset 5-stair kickflip landed on 3rd try</text>
+    </svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
+  if (theme === 'pixel') {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
+      <defs>
+        <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#311042"/>
+          <stop offset="100%" stop-color="#4f46e5"/>
+        </linearGradient>
+      </defs>
+      <rect width="560" height="320" rx="20" fill="url(#bg2)"/>
+      <rect x="190" y="70" width="180" height="130" rx="16" fill="#0f172a" stroke="#a855f7" stroke-width="3"/>
+      <circle cx="245" cy="125" r="14" fill="#22d3ee"/>
+      <circle cx="315" cy="125" r="14" fill="#22d3ee"/>
+      <path d="M245 162 L315 162" stroke="#f472b6" stroke-width="6" stroke-linecap="round"/>
+      <text x="28" y="46" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="18" font-weight="700">PIXEL ART &amp; ARCADE DROPS</text>
+      <text x="28" y="292" fill="#e9d5ff" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">New boss sprite finished during study hall</text>
+    </svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
     <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="${bgStart}"/>
-        <stop offset="100%" stop-color="${bgEnd}"/>
+      <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#0f172a"/>
+        <stop offset="100%" stop-color="#1d4ed8"/>
       </linearGradient>
     </defs>
-    <rect width="96" height="96" rx="48" fill="url(#g)"/>
-    <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="36" font-weight="700">${initials}</text>
+    <rect width="560" height="320" rx="20" fill="url(#bg3)"/>
+    <rect x="130" y="68" width="300" height="150" rx="18" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+    <text x="280" y="135" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="22" font-weight="800">CHROMEBOOK BATTERY: 2%</text>
+    <text x="280" y="170" text-anchor="middle" fill="#38bdf8" font-family="-apple-system, sans-serif" font-size="16" font-weight="600">Right when Kahoot starts in 6th period</text>
+    <text x="28" y="292" fill="#bae6fd" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">Broadcast via BCC • Anonymous reactions</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -21,38 +258,50 @@ function makeSvgAvatarDataUrl(initials: string, bgStart: string, bgEnd: string):
 export const INITIAL_USERS: UserIdentity[] = [
   {
     email: 'alex.rivera@gmail.com',
-    displayName: 'Alex Rivera',
-    handle: '@alexrivera',
-    avatarDataUrl: makeSvgAvatarDataUrl('AR', '#0a84ff', '#5e5ce6'),
-    bio: '',
+    displayName: 'Alex',
+    handle: '@alex',
+    avatarDataUrl: makeCartoonSketchAvatarDataUrl('skater_curls'),
+    bio: 'Skateboarding & building @me 🛹',
     profileUpdatedAt: '2026-10-25T03:00:00.000Z',
     provider: 'gmail',
     hasAppInstalled: true,
   },
   {
     email: 'sam.chen@outlook.com',
-    displayName: 'Sam Chen',
-    handle: '@samchen',
-    avatarDataUrl: makeSvgAvatarDataUrl('SC', '#30d158', '#0a84ff'),
-    bio: '',
+    displayName: 'Sam',
+    handle: '@sam',
+    avatarDataUrl: makeCartoonSketchAvatarDataUrl('spiky_grin'),
+    bio: 'Robotics club & drumline 🥁',
     profileUpdatedAt: '2026-10-25T03:05:00.000Z',
     provider: 'outlook',
     hasAppInstalled: true,
   },
   {
     email: 'elena.vogt@proton.me',
-    displayName: 'Elena Vogt',
-    handle: '@elenavogt',
-    avatarDataUrl: makeSvgAvatarDataUrl('EV', '#6d4aff', '#c084fc'),
-    bio: '',
+    displayName: 'Elena',
+    handle: '@elena',
+    avatarDataUrl: makeCartoonSketchAvatarDataUrl('wavy_locks'),
+    bio: 'Pixel art & Mario Kart champ 🎮',
     profileUpdatedAt: '2026-10-25T03:10:00.000Z',
     provider: 'proton',
     hasAppInstalled: true,
   },
   {
+    email: 'maya.lin@icloud.com',
+    displayName: 'Maya',
+    handle: '@maya',
+    avatarDataUrl: makeCartoonSketchAvatarDataUrl('sunny_bangs'),
+    bio: 'Track team & late night Minecraft ⚡',
+    profileUpdatedAt: '2026-10-25T03:12:00.000Z',
+    provider: 'custom-domain',
+    hasAppInstalled: true,
+  },
+  {
     email: 'jordan.taylor@yahoo.com',
-    displayName: 'Jordan Taylor',
-    handle: '@jordantaylor',
+    displayName: 'Jordan',
+    handle: '@jordan',
+    avatarDataUrl: makeCartoonSketchAvatarDataUrl('messy_tuft'),
+    bio: 'BMX & arcade high scores 🕹️',
     provider: 'yahoo',
     hasAppInstalled: false,
   },
@@ -67,33 +316,85 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
       'alex.rivera@gmail.com',
       'sam.chen@outlook.com',
       'elena.vogt@proton.me',
+      'maya.lin@icloud.com',
+    ],
+  },
+  {
+    id: 'burner_ch_lunch_table',
+    type: 'workspace-channel',
+    name: 'lunch-table-secrets',
+    isBurner: true,
+    ephemeralTimerSeconds: 20,
+    participants: [
+      'alex.rivera@gmail.com',
+      'sam.chen@outlook.com',
+      'elena.vogt@proton.me',
+      'maya.lin@icloud.com',
+    ],
+  },
+  {
+    id: 'ch_broadcast_skate_clips',
+    type: 'broadcast-channel',
+    name: 'skate-clips-daily',
+    creatorEmail: 'elena.vogt@proton.me',
+    description:
+      'Daily skatepark clips & pixel art drops by Elena • Anonymous BCC broadcast',
+    participants: [
+      'elena.vogt@proton.me',
+      'alex.rivera@gmail.com',
+      'sam.chen@outlook.com',
+      'maya.lin@icloud.com',
+    ],
+  },
+  {
+    id: 'ch_broadcast_meme_radar',
+    type: 'broadcast-channel',
+    name: 'school-meme-radar',
+    creatorEmail: 'alex.rivera@gmail.com',
+    description:
+      'Live hallway stories & Chromebook memes by Alex • Subscribers hidden via BCC',
+    participants: [
+      'alex.rivera@gmail.com',
+      'sam.chen@outlook.com',
+      'elena.vogt@proton.me',
+      'maya.lin@icloud.com',
     ],
   },
   {
     id: 'ch_security_ops',
     type: 'workspace-channel',
-    name: 'gaming-squad',
+    name: 'minecraft-realm',
     participants: [
       'alex.rivera@gmail.com',
+      'sam.chen@outlook.com',
       'elena.vogt@proton.me',
+      'maya.lin@icloud.com',
     ],
+  },
+  {
+    id: 'burner_dm_alex_sam',
+    type: 'dm',
+    name: 'Sam',
+    isBurner: true,
+    ephemeralTimerSeconds: 20,
+    participants: ['alex.rivera@gmail.com', 'sam.chen@outlook.com'],
   },
   {
     id: 'dm_alex_elena',
     type: 'dm',
-    name: 'Elena Vogt',
+    name: 'Elena',
     participants: ['alex.rivera@gmail.com', 'elena.vogt@proton.me'],
   },
   {
-    id: 'dm_alex_sam',
+    id: 'dm_alex_maya',
     type: 'dm',
-    name: 'Sam Chen',
-    participants: ['alex.rivera@gmail.com', 'sam.chen@outlook.com'],
+    name: 'Maya',
+    participants: ['alex.rivera@gmail.com', 'maya.lin@icloud.com'],
   },
   {
     id: 'dm_alex_jordan',
     type: 'dm',
-    name: 'Jordan Taylor',
+    name: 'Jordan',
     participants: ['alex.rivera@gmail.com', 'jordan.taylor@yahoo.com'],
   },
   {
@@ -113,6 +414,12 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
     type: 'vault',
     name: 'Notes (@me)',
     participants: ['elena.vogt@proton.me'],
+  },
+  {
+    id: 'vault_maya.lin@icloud.com',
+    type: 'vault',
+    name: 'Notes (@me)',
+    participants: ['maya.lin@icloud.com'],
   },
 ];
 
@@ -193,24 +500,41 @@ export function createSampleRegularEmails(): RawTransportEmail[] {
         '',
         'Your flight departs in 24 hours. Confirmation #H8K9LP.',
       ].join('\r\n'),
-      textFallbackPart: 'Your flight departs in 24 hours. Confirmation #H8K9LP.',
+      textFallbackPart:
+        'Your flight departs in 24 hours. Confirmation #H8K9LP.',
     },
   ];
 }
 
 /**
- * Synchronous initial inspection previews so the first paint (before async WebWorker/OpenPGP
- * key generation finishes ~350ms later) renders the full conversation threads and messages immediately.
+ * Builds the canonical list of demo DCP/1.0 packets using only first names, kid-centric topics,
+ * zero inline replies, multi-user group chats, Group & 1-on-1 Burner Chats, Broadcast Channels, and IOUs.
  */
-export function createInitialSeedInspections(): import('../protocol/types').FilterInspectionResult[] {
-  const alex = INITIAL_USERS[0];
-  const sam = INITIAL_USERS[1];
-  const elena = INITIAL_USERS[2];
+export function buildDemoSeedPackets(
+  usersList: UserIdentity[],
+  attestByEmail?: Record<string, DcpComplianceAttestation>
+): DcpPacket[] {
+  const alex = usersList[0] || INITIAL_USERS[0];
+  const sam = usersList[1] || INITIAL_USERS[1];
+  const elena = usersList[2] || INITIAL_USERS[2];
+  const maya = usersList[3] || INITIAL_USERS[3];
   const now = Date.now();
 
-  const makeAttest = (iso: string): import('../protocol/types').DcpComplianceAttestation => ({
+  const chFridayHangout = INITIAL_CHANNELS[0]; // #friday-hangout
+  const chBurnerLunch = INITIAL_CHANNELS[1]; // lunch-table-secrets (Group Burner)
+  const chBroadcastSkate = INITIAL_CHANNELS[2]; // skate-clips-daily (Elena's Broadcast Channel)
+  const chBroadcastMeme = INITIAL_CHANNELS[3]; // school-meme-radar (Alex's Broadcast Channel)
+  const chMinecraft = INITIAL_CHANNELS[4]; // #minecraft-realm
+  const dmBurnerSam = INITIAL_CHANNELS[5]; // Sam (1-on-1 Burner)
+  const dmElena = INITIAL_CHANNELS[6]; // Elena (1-on-1 DM)
+  const dmMaya = INITIAL_CHANNELS[7]; // Maya (1-on-1 DM)
+  const dmJordanInvite = INITIAL_CHANNELS[8]; // Jordan (1-on-1 Invite DM)
+  const vaultAlex = INITIAL_CHANNELS[9]; // Notes (@me)
+
+  const fallbackAttest = (iso: string): DcpComplianceAttestation => ({
     buildVersion: '1.4.0-compliant',
-    bundleSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    bundleSha256:
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     signatureSuite: 'Ed25519',
     publicKeyBase64: 'MCowBQYDK2VwAyEA',
     signatureBase64: 'verified-seed-sig',
@@ -219,380 +543,203 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
     attestedAt: iso,
   });
 
-  const pkt1: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_01',
+  const getAttest = (email: string, minutesAgo: number) =>
+    attestByEmail?.[email] ||
+    fallbackAttest(new Date(now - 1000 * 60 * minutesAgo).toISOString());
+
+  const makeSender = (
+    u: UserIdentity,
+    fallbackFp: string,
+    includeCard = false
+  ): DcpPacket['sender'] => ({
+    email: u.email,
+    displayName: u.displayName,
+    handle: u.handle,
+    provider: u.provider,
+    pgpFingerprint: u.pgpKeyPair?.fingerprint || fallbackFp,
+    publicKeyArmored:
+      u.pgpKeyPair?.publicKeyArmored ||
+      '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
+    ...(includeCard
+      ? {
+          profileCard: {
+            displayName: u.displayName,
+            handle: u.handle || `@${u.displayName.toLowerCase()}`,
+            avatarDataUrl: u.avatarDataUrl,
+            bio: u.bio,
+            updatedAt: u.profileUpdatedAt || new Date().toISOString(),
+          },
+        }
+      : {}),
+  });
+
+  const fpAlex = '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21';
+  const fpSam = '7C1D4F92A6B83E117C1D4F92A6B83E117C1D4F92';
+  const fpElena = '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50';
+  const fpMaya = '5E2C8B14F0A96D335E2C8B14F0A96D335E2C8B14';
+
+  // =========================================================================
+  // 1. MULTI-USER GROUP CHAT: #friday-hangout (Alex, Sam, Elena, Maya)
+  // =========================================================================
+  const pktFh1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_01',
     type: 'chat.message',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: alex.email,
-      displayName: alex.displayName,
-      handle: alex.handle,
-      provider: alex.provider,
-      pgpFingerprint: '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-      profileCard: {
-        displayName: alex.displayName,
-        handle: alex.handle || '@alexrivera',
-        avatarDataUrl: alex.avatarDataUrl,
-        bio: alex.bio,
-        updatedAt: alex.profileUpdatedAt || new Date().toISOString(),
-      },
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 42).toISOString()),
+    channel: chFridayHangout,
+    sender: makeSender(alex, fpAlex, true),
+    complianceAttestation: getAttest(alex.email, 45),
     payload: {
       messageId: 'msg_seed_01',
-      text: 'Yo! Welcome to @me 👋',
+      text: 'Yo everyone! School Wi-Fi blocked every other app on our Chromebooks, so we are officially on @me now 🛹',
       formatting: 'markdown',
     },
-    sentAt: new Date(now - 1000 * 60 * 42).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 45).toISOString(),
   };
 
-  const pkt2: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_02',
+  const pktFh2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_02',
     type: 'chat.message',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-      profileCard: {
-        displayName: elena.displayName,
-        handle: elena.handle || '@elenavogt',
-        avatarDataUrl: elena.avatarDataUrl,
-        bio: elena.bio,
-        updatedAt: elena.profileUpdatedAt || new Date().toISOString(),
-      },
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 30).toISOString()),
+    channel: chFridayHangout,
+    sender: makeSender(elena, fpElena, true),
+    complianceAttestation: getAttest(elena.email, 38),
     payload: {
       messageId: 'msg_seed_02',
-      text: 'Just scanned your QR! Ready for Friday? 🎮',
+      text: 'Wait this is so cool!! And no phone number needed so Maya can text from her iPad too 🎮',
       formatting: 'markdown',
     },
-    sentAt: new Date(now - 1000 * 60 * 30).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 38).toISOString(),
   };
 
-  const pktReceipt: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_rcpt_01',
+  const pktFhReceipt1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_rcpt_01',
     type: 'chat.receipt',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
+    channel: chFridayHangout,
+    sender: makeSender(elena, fpElena),
     payload: {
-      messageId: 'msg_seed_rcpt_01',
+      messageId: 'msg_seed_fh_rcpt_01',
       targetMessageId: 'msg_seed_01',
       receiptStatus: 'read',
       text: 'Read msg_seed_01',
     },
-    sentAt: new Date(now - 1000 * 60 * 28).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 37).toISOString(),
   };
 
-  const pktReaction: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_react_01',
+  const pktFhReact1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_react_01',
     type: 'chat.reaction',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: sam.email,
-      displayName: sam.displayName,
-      handle: sam.handle,
-      provider: sam.provider,
-      pgpFingerprint: '7C1D4F92A6B83E117C1D4F92A6B83E117C1D4F92',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam),
     payload: {
-      messageId: 'msg_seed_react_01',
+      messageId: 'msg_seed_fh_react_01',
       targetMessageId: 'msg_seed_02',
-      reactionEmoji: '🔥',
-      text: 'Reacted 🔥',
+      reactionEmoji: '❤️',
+      text: 'Reacted ❤️',
+    },
+    sentAt: new Date(now - 1000 * 60 * 35).toISOString(),
+  };
+
+  const pktFh3: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_03',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam, true),
+    complianceAttestation: getAttest(sam.email, 31),
+    payload: {
+      messageId: 'msg_seed_fh_03',
+      text: 'Are we still hitting the skatepark right after 7th period on Friday? 🛹',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 31).toISOString(),
+  };
+
+  const pktFh4: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_04',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chFridayHangout,
+    sender: makeSender(maya, fpMaya, true),
+    complianceAttestation: getAttest(maya.email, 26),
+    payload: {
+      messageId: 'msg_seed_fh_04',
+      text: '100%! My mom said we can set up the basement projector for a Mario Kart tournament after 🏎️💨',
+      formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 26).toISOString(),
   };
 
-  const pktReply: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_reply_01',
+  const pktFh5: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_05',
     type: 'chat.message',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: sam.email,
-      displayName: sam.displayName,
-      handle: sam.handle,
-      provider: sam.provider,
-      pgpFingerprint: '7C1D4F92A6B83E117C1D4F92A6B83E117C1D4F92',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-      profileCard: {
-        displayName: sam.displayName,
-        handle: sam.handle || '@samchen',
-        avatarDataUrl: sam.avatarDataUrl,
-        bio: sam.bio,
-        updatedAt: sam.profileUpdatedAt || new Date().toISOString(),
-      },
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 20).toISOString()),
+    channel: chFridayHangout,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 22),
     payload: {
-      messageId: 'msg_seed_reply_01',
-      replyToMessageId: 'msg_seed_01',
-      text: 'Let’s gooo 🔥',
+      messageId: 'msg_seed_fh_05',
+      text: 'Dibs on Yoshi!! Nobody is beating my Rainbow Road shortcut this time 🏆',
       formatting: 'markdown',
     },
-    sentAt: new Date(now - 1000 * 60 * 20).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 22).toISOString(),
   };
 
-  const pktInvite: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_invite_03',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-invite-key',
-    channel: INITIAL_CHANNELS[4],
-    sender: {
-      email: alex.email,
-      displayName: alex.displayName,
-      handle: alex.handle,
-      provider: alex.provider,
-      pgpFingerprint: '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    payload: {
-      messageId: 'msg_seed_03',
-      text: 'Hey Jordan! Scan my @me QR so we can chat 🛹',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 60 * 5).toISOString(),
-  };
-
-  const pktDmElena: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_elena_01',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-      profileCard: {
-        displayName: elena.displayName,
-        handle: elena.handle || '@elenavogt',
-        avatarDataUrl: elena.avatarDataUrl,
-        bio: elena.bio,
-        updatedAt: elena.profileUpdatedAt || new Date().toISOString(),
-      },
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 3).toISOString()),
-    payload: {
-      messageId: 'msg_seed_dm_elena_01',
-      text: 'Hey Alex! Are we meeting after school? 🎧',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 60 * 3).toISOString(),
-  };
-
-  const pktDmAlexReply: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_alex_02',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: alex.email,
-      displayName: alex.displayName,
-      handle: alex.handle,
-      provider: alex.provider,
-      pgpFingerprint: '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 1).toISOString()),
-    payload: {
-      messageId: 'msg_seed_dm_alex_02',
-      replyToMessageId: 'msg_seed_dm_elena_01',
-      text: 'Yep! See you at 4pm 🚀',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 60 * 1).toISOString(),
-  };
-
-  const pktDmElenaReact: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_elena_react_03',
-    type: 'chat.reaction',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    payload: {
-      messageId: 'msg_seed_dm_elena_react_03',
-      targetMessageId: 'msg_seed_dm_alex_02',
-      reactionEmoji: '🔥',
-      text: 'Reacted 🔥',
-    },
-    sentAt: new Date(now - 1000 * 40).toISOString(),
-  };
-
-  const pktDmElenaRead: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_elena_rcpt_04',
+  const pktFhReceipt2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_rcpt_05',
     type: 'chat.receipt',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam),
     payload: {
-      messageId: 'msg_seed_dm_elena_rcpt_04',
-      targetMessageId: 'msg_seed_dm_alex_02',
+      messageId: 'msg_seed_fh_rcpt_05',
+      targetMessageId: 'msg_seed_fh_05',
       receiptStatus: 'read',
-      text: 'Read msg_seed_dm_alex_02',
+      text: 'Read msg_seed_fh_05',
     },
-    sentAt: new Date(now - 1000 * 30).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 21).toISOString(),
   };
 
-  const pktDmElenaUnread1: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_elena_unread_01',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 20).toISOString()),
-    payload: {
-      messageId: 'msg_seed_dm_elena_unread_01',
-      text: 'Can you bring your portable speaker? 🔊',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 20).toISOString(),
-  };
-
-  const pktDmElenaUnread2: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_elena_unread_02',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[2],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 8).toISOString()),
-    payload: {
-      messageId: 'msg_seed_dm_elena_unread_02',
-      text: 'Setting up the music playlist now 🎶',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 8).toISOString(),
-  };
-
-  const pktDmSamUnread: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_dm_sam_unread_01',
-    type: 'chat.message',
-    encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[3],
-    sender: {
-      email: sam.email,
-      displayName: sam.displayName,
-      handle: sam.handle,
-      provider: sam.provider,
-      pgpFingerprint: '7A1B2C3D4E5F67897A1B2C3D4E5F67897A1B2C3D',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 12).toISOString()),
-    payload: {
-      messageId: 'msg_seed_dm_sam_unread_01',
-      text: 'Security audit passed with zero errors! 🛡️',
-      formatting: 'markdown',
-    },
-    sentAt: new Date(now - 1000 * 12).toISOString(),
-  };
-
-  // Seed Poll in #friday-hangout
-  const pktPoll: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
+  const pktPoll: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
     packetId: 'pkt_seed_poll_01',
     type: 'chat.poll',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: elena.email,
-      displayName: elena.displayName,
-      handle: elena.handle,
-      provider: elena.provider,
-      pgpFingerprint: '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 14).toISOString()),
+    channel: chFridayHangout,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 18),
     payload: {
       messageId: 'msg_seed_poll_01',
-      text: '📊 Food for Friday?',
+      text: '📊 What snacks are we getting for Friday night?',
       poll: {
         pollId: 'poll_release_01',
-        question: 'Food for Friday?',
+        question: 'What snacks are we getting for Friday night?',
         options: [
-          { id: 'opt_shred', text: '🍕 Pizza' },
-          { id: 'opt_vault', text: '🌮 Tacos' },
-          { id: 'opt_alias', text: '🧋 Boba' },
+          { id: 'opt_shred', text: '🍕 Pepperoni Pizza' },
+          { id: 'opt_vault', text: '🌮 Doritos Locos Tacos' },
+          { id: 'opt_alias', text: '🧋 Brown Sugar Boba' },
         ],
       },
     },
-    sentAt: new Date(now - 1000 * 60 * 14).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 18).toISOString(),
   };
 
-  const pktPollVote1: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
+  const pktPollVote1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
     packetId: 'pkt_seed_poll_vote_01',
     type: 'chat.poll-vote',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: alex.email,
-      displayName: alex.displayName,
-      handle: alex.handle,
-      provider: alex.provider,
-      pgpFingerprint: '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
+    channel: chFridayHangout,
+    sender: makeSender(alex, fpAlex),
     payload: {
       messageId: 'msg_seed_poll_vote_01',
       targetMessageId: 'msg_seed_poll_01',
@@ -600,25 +747,18 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
         pollId: 'poll_release_01',
         optionId: 'opt_shred',
       },
-      text: 'Voted for 🍕 Pizza',
+      text: 'Voted for 🍕 Pepperoni Pizza',
     },
-    sentAt: new Date(now - 1000 * 60 * 13).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 17).toISOString(),
   };
 
-  const pktPollVote2: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
+  const pktPollVote2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
     packetId: 'pkt_seed_poll_vote_02',
     type: 'chat.poll-vote',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[0],
-    sender: {
-      email: sam.email,
-      displayName: sam.displayName,
-      handle: sam.handle,
-      provider: sam.provider,
-      pgpFingerprint: '7C1D4F92A6B83E117C1D4F92A6B83E117C1D4F92',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam),
     payload: {
       messageId: 'msg_seed_poll_vote_02',
       targetMessageId: 'msg_seed_poll_01',
@@ -626,88 +766,676 @@ export function createInitialSeedInspections(): import('../protocol/types').Filt
         pollId: 'poll_release_01',
         optionId: 'opt_vault',
       },
-      text: 'Voted for 🌮 Tacos',
+      text: 'Voted for 🌮 Doritos Locos Tacos',
     },
-    sentAt: new Date(now - 1000 * 60 * 12).toISOString(),
+    sentAt: new Date(now - 1000 * 60 * 16).toISOString(),
   };
 
-  // Seed Personal Encrypted Vault item for Alex
-  const pktVault1: import('../protocol/types').DcpPacket = {
-    protocol: 'DCP/1.0',
-    packetId: 'pkt_seed_vault_01',
-    type: 'chat.message',
+  const pktPollVote3: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_poll_vote_03',
+    type: 'chat.poll-vote',
     encryptionMode: 'openpgp-asymmetric',
-    channel: INITIAL_CHANNELS[5],
-    sender: {
-      email: alex.email,
-      displayName: alex.displayName,
-      handle: alex.handle,
-      provider: alex.provider,
-      pgpFingerprint: '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21',
-      publicKeyArmored: '-----BEGIN PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----',
-    },
-    complianceAttestation: makeAttest(new Date(now - 1000 * 60 * 15).toISOString()),
+    channel: chFridayHangout,
+    sender: makeSender(maya, fpMaya),
     payload: {
-      messageId: 'msg_seed_vault_01',
-      vaultCategory: 'note',
-      text: '📌 Locker combo: 24-18-09',
-      formatting: 'markdown',
+      messageId: 'msg_seed_poll_vote_03',
+      targetMessageId: 'msg_seed_poll_01',
+      pollVote: {
+        pollId: 'poll_release_01',
+        optionId: 'opt_shred',
+      },
+      text: 'Voted for 🍕 Pepperoni Pizza',
     },
     sentAt: new Date(now - 1000 * 60 * 15).toISOString(),
   };
 
-  const seedPackets = [
-    pkt1,
-    pkt2,
-    pktReceipt,
-    pktReaction,
-    pktReply,
+  const pktFhUnread1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_unread_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam),
+    complianceAttestation: getAttest(sam.email, 4),
+    payload: {
+      messageId: 'msg_seed_fh_unread_01',
+      text: 'Bring your extra Switch Joy-Cons if you have them, my blue one has stick drift 😭',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 4).toISOString(),
+  };
+
+  const pktFhUnread2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_fh_unread_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chFridayHangout,
+    sender: makeSender(maya, fpMaya),
+    complianceAttestation: getAttest(maya.email, 2),
+    payload: {
+      messageId: 'msg_seed_fh_unread_02',
+      text: 'I packed two extra controllers in my backpack already! Meet by the bike racks at 3:15 🚲',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 2).toISOString(),
+  };
+
+  // =========================================================================
+  // 2. MULTI-USER GROUP BURNER CHAT: lunch-table-secrets (Alex, Sam, Elena, Maya)
+  // =========================================================================
+  const pktBurnerGroup1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bg_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBurnerLunch,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 9),
+    payload: {
+      messageId: 'msg_seed_bg_01',
+      ephemeralTtlSeconds: 20,
+      text: 'Psst! Mr. Davis left the pop quiz topics on the whiteboard during 3rd period—it is all on photosynthesis 🌱',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 9).toISOString(),
+  };
+
+  const pktBurnerGroup2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bg_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBurnerLunch,
+    sender: makeSender(sam, fpSam),
+    complianceAttestation: getAttest(sam.email, 8),
+    payload: {
+      messageId: 'msg_seed_bg_02',
+      ephemeralTtlSeconds: 20,
+      text: 'You are a lifesaver!! Also I stashed two bags of Takis in the band room cubby for lunch 🌶️',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 8).toISOString(),
+  };
+
+  const pktBurnerGroup3: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bg_03',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBurnerLunch,
+    sender: makeSender(maya, fpMaya),
+    complianceAttestation: getAttest(maya.email, 7),
+    payload: {
+      messageId: 'msg_seed_bg_03',
+      ephemeralTtlSeconds: 20,
+      text: 'Save me some!! New treehouse padlock code is 7-3-9-1 before this message self-destructs 🗝️',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 7).toISOString(),
+  };
+
+  // =========================================================================
+  // 3. BROADCAST CHANNELS (BCC Newsletter / Story Live Feeds)
+  //    - skate-clips-daily (Creator: Elena -> Subscribers: Alex, Sam, Maya via BCC)
+  //    - school-meme-radar (Creator: Alex -> Subscribers: Sam, Elena, Maya via BCC)
+  // =========================================================================
+  const pktBroadcastSkate1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bcast_skate_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBroadcastSkate,
+    sender: makeSender(elena, fpElena, true),
+    complianceAttestation: getAttest(elena.email, 32),
+    payload: {
+      messageId: 'msg_seed_bcast_skate_01',
+      text: 'Landed my first clean kickflip down the 5-stair behind the library!! Watch the clip frame 👇',
+      formatting: 'markdown',
+      storyCard: {
+        imageDataUrl: makeStoryIllustrationDataUrl('skate'),
+        caption: '5-Stair Kickflip • Behind Oakridge Library',
+        badgeText: 'BCC STORY DROP #14',
+      },
+      channelReactionTotals: {
+        msg_seed_bcast_skate_01: { '❤️': 29, '😂': 8, '⚡': 19 },
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 32).toISOString(),
+  };
+
+  const pktBroadcastSkate2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bcast_skate_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBroadcastSkate,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 6),
+    payload: {
+      messageId: 'msg_seed_bcast_skate_02',
+      text: 'Finished the final boss pixel sprite during 4th period study hall! React below to vote on the neon palette 🎨 (previous post reaction counts updated!)',
+      formatting: 'markdown',
+      storyCard: {
+        imageDataUrl: makeStoryIllustrationDataUrl('pixel'),
+        caption: 'Arcade Boss Sprite v2 • 64x64 Pixel Grid',
+        badgeText: 'BCC STORY DROP #15',
+      },
+      channelReactionTotals: {
+        msg_seed_bcast_skate_01: { '❤️': 34, '😂': 11, '⚡': 27 },
+        msg_seed_bcast_skate_02: { '❤️': 16, '⚡': 14 },
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 6).toISOString(),
+  };
+
+  const pktBroadcastMeme1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bcast_meme_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chBroadcastMeme,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 19),
+    payload: {
+      messageId: 'msg_seed_bcast_meme_01',
+      text: 'Every single day in 6th period science when the teacher launches Kahoot and nobody brought a charger 😭🔌',
+      formatting: 'markdown',
+      storyCard: {
+        imageDataUrl: makeStoryIllustrationDataUrl('meme'),
+        caption: '6th Period Kahoot Survival Guide',
+        badgeText: 'CREATOR CHANNEL • BCC',
+      },
+      channelReactionTotals: {
+        msg_seed_bcast_meme_01: { '😂': 41, '😭': 23, '💀': 18 },
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 19).toISOString(),
+  };
+
+  // =========================================================================
+  // 4. MULTI-USER GROUP CHAT: #minecraft-realm (Alex, Sam, Elena, Maya)
+  // =========================================================================
+  const pktMc1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_mc_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chMinecraft,
+    sender: makeSender(sam, fpSam),
+    complianceAttestation: getAttest(sam.email, 55),
+    payload: {
+      messageId: 'msg_seed_mc_01',
+      text: 'Who lured a Creeper right next to our automatic cow farm?? Half the oak fence is gone 💀',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 55).toISOString(),
+  };
+
+  const pktMc2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_mc_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chMinecraft,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 50),
+    payload: {
+      messageId: 'msg_seed_mc_02',
+      text: 'I rebuilt the bridge with obsidian and hid 32 diamonds in the barrel under the waterfall 💎',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 50).toISOString(),
+  };
+
+  const pktMc3: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_mc_03',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chMinecraft,
+    sender: makeSender(maya, fpMaya),
+    complianceAttestation: getAttest(maya.email, 11),
+    payload: {
+      messageId: 'msg_seed_mc_03',
+      text: 'Hopping on the server right after dinner so we can finally beat the Ender Dragon 🐉⚔️',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 11).toISOString(),
+  };
+
+  // =========================================================================
+  // 5. 1-ON-1 BURNER CHAT: Sam (Alex -> Sam)
+  // =========================================================================
+  const pktBurnerSam1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bsam_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmBurnerSam,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 6),
+    payload: {
+      messageId: 'msg_seed_bsam_01',
+      ephemeralTtlSeconds: 20,
+      text: 'Secret Minecraft base coordinates: X: -420, Y: 64, Z: 1180 behind the lava waterfall 🌋',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 6).toISOString(),
+  };
+
+  const pktBurnerSam2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bsam_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmBurnerSam,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 5),
+    payload: {
+      messageId: 'msg_seed_bsam_02',
+      ephemeralTtlSeconds: 20,
+      text: 'Flip the hidden lever behind the bookshelf to open the Redstone vault door (lever #3)',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 5).toISOString(),
+  };
+
+  const pktBurnerSam3: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_bsam_03',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmBurnerSam,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 4),
+    payload: {
+      messageId: 'msg_seed_bsam_03',
+      ephemeralTtlSeconds: 20,
+      text: 'Do not tell Elena or Maya yet, we are surprising them with full Netherite armor tonight 🛡️',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 4).toISOString(),
+  };
+
+  // =========================================================================
+  // 6. 1-ON-1 DM: Elena (Alex & Elena — NO replies, 2 unread at bottom)
+  // =========================================================================
+  const pktDmElena1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_elena_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena, true),
+    complianceAttestation: getAttest(elena.email, 14),
+    payload: {
+      messageId: 'msg_seed_dm_elena_01',
+      text: 'Hey Alex! Are we still walking to the skatepark after last bell? 🎧',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 14).toISOString(),
+  };
+
+  const pktDmAlex2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_alex_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 12),
+    payload: {
+      messageId: 'msg_seed_dm_alex_02',
+      text: 'Yep! Grabbing my board from my locker right at 3:10 🛹',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 12).toISOString(),
+  };
+
+  const pktDmElenaReact: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_elena_react_03',
+    type: 'chat.reaction',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena),
+    payload: {
+      messageId: 'msg_seed_dm_elena_react_03',
+      targetMessageId: 'msg_seed_dm_alex_02',
+      reactionEmoji: '❤️',
+      text: 'Reacted ❤️',
+    },
+    sentAt: new Date(now - 1000 * 60 * 11).toISOString(),
+  };
+
+  const pktDmElenaRead: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_elena_rcpt_04',
+    type: 'chat.receipt',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena),
+    payload: {
+      messageId: 'msg_seed_dm_elena_rcpt_04',
+      targetMessageId: 'msg_seed_dm_alex_02',
+      receiptStatus: 'read',
+      text: 'Read msg_seed_dm_alex_02',
+    },
+    sentAt: new Date(now - 1000 * 60 * 10).toISOString(),
+  };
+
+  const pktDmElenaUnread1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_elena_unread_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 1),
+    payload: {
+      messageId: 'msg_seed_dm_elena_unread_01',
+      text: 'Can you bring your mini Bluetooth speaker too? 🔊',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 35).toISOString(),
+  };
+
+  const pktDmElenaUnread2: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_elena_unread_02',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 0),
+    payload: {
+      messageId: 'msg_seed_dm_elena_unread_02',
+      text: 'Also I brought that holographic Charizard card to trade you! ✨',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 12).toISOString(),
+  };
+
+  // =========================================================================
+  // 7. 1-ON-1 DM: Maya (Alex & Maya)
+  // =========================================================================
+  const pktDmMayaUnread: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_dm_maya_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmMaya,
+    sender: makeSender(maya, fpMaya, true),
+    complianceAttestation: getAttest(maya.email, 3),
+    payload: {
+      messageId: 'msg_seed_dm_maya_01',
+      text: 'Did Mrs. Parker assign page 42 or 45 for math homework? My Chromebook died before the bell 😅',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 3).toISOString(),
+  };
+
+  // =========================================================================
+  // 8. PEER-TO-PEER CRYPTO-STYLE IOU LEDGER PACKETS (`chat.iou`)
+  // =========================================================================
+  const pktIouSam: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_iou_sam_01',
+    type: 'chat.iou',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: chFridayHangout,
+    sender: makeSender(sam, fpSam),
+    complianceAttestation: getAttest(sam.email, 29),
+    payload: {
+      messageId: 'msg_seed_iou_sam_01',
+      text: 'Sent 12 IOU to Alex (Pizza slices + arcade tokens)',
+      iou: {
+        iouId: 'iou_seed_sam_01',
+        action: 'send-iou',
+        amount: 12,
+        unit: 'IOU',
+        note: 'Pizza slices + arcade tokens 🍕',
+        debtorEmail: sam.email,
+        creditorEmail: alex.email,
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 29).toISOString(),
+  };
+
+  const pktIouElena: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_iou_elena_01',
+    type: 'chat.iou',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmElena,
+    sender: makeSender(elena, fpElena),
+    complianceAttestation: getAttest(elena.email, 24),
+    payload: {
+      messageId: 'msg_seed_iou_elena_01',
+      text: 'Sent 5 IOU to Alex (Brown sugar boba)',
+      iou: {
+        iouId: 'iou_seed_elena_01',
+        action: 'send-iou',
+        amount: 5,
+        unit: 'IOU',
+        note: 'Brown sugar boba 🧋',
+        debtorEmail: elena.email,
+        creditorEmail: alex.email,
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 24).toISOString(),
+  };
+
+  const pktIouMaya: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_iou_maya_01',
+    type: 'chat.iou',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: dmMaya,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 21),
+    payload: {
+      messageId: 'msg_seed_iou_maya_01',
+      text: 'Sent 4 IOU to Maya (Cafeteria ice cream)',
+      iou: {
+        iouId: 'iou_seed_maya_01',
+        action: 'send-iou',
+        amount: 4,
+        unit: 'IOU',
+        note: 'Cafeteria ice cream 🍦',
+        debtorEmail: alex.email,
+        creditorEmail: maya.email,
+      },
+    },
+    sentAt: new Date(now - 1000 * 60 * 21).toISOString(),
+  };
+
+  // =========================================================================
+  // 9. FIRST-CONTACT INVITE DM: Jordan (No App Installed Yet)
+  // =========================================================================
+  const pktInviteJordan: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_invite_03',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-invite-key',
+    channel: dmJordanInvite,
+    sender: makeSender(alex, fpAlex, true),
+    payload: {
+      messageId: 'msg_seed_03',
+      text: 'Yo Jordan! Scan my @me QR pass at lunch so we can chat from our school Chromebooks 🛹',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 5).toISOString(),
+  };
+
+  // =========================================================================
+  // 10. PERSONAL ENCRYPTED VAULT: Notes (@me)
+  // =========================================================================
+  const pktVault1: DcpPacket = {
+    protocol: DCP_PROTOCOL_VERSION,
+    packetId: 'pkt_seed_vault_01',
+    type: 'chat.message',
+    encryptionMode: 'openpgp-asymmetric',
+    channel: vaultAlex,
+    sender: makeSender(alex, fpAlex),
+    complianceAttestation: getAttest(alex.email, 20),
+    payload: {
+      messageId: 'msg_seed_vault_01',
+      vaultCategory: 'note',
+      text: '📌 Hallway locker combo: 24-18-09 • Kickflip tip: flick off the nose corner!',
+      formatting: 'markdown',
+    },
+    sentAt: new Date(now - 1000 * 60 * 20).toISOString(),
+  };
+
+  return [
+    pktFh1,
+    pktFh2,
+    pktFhReceipt1,
+    pktFhReact1,
+    pktFh3,
+    pktFh4,
+    pktFh5,
+    pktFhReceipt2,
     pktPoll,
     pktPollVote1,
     pktPollVote2,
-    pktInvite,
-    pktVault1,
-    pktDmElena,
-    pktDmAlexReply,
+    pktPollVote3,
+    pktFhUnread1,
+    pktFhUnread2,
+    pktBurnerGroup1,
+    pktBurnerGroup2,
+    pktBurnerGroup3,
+    pktBroadcastSkate1,
+    pktBroadcastSkate2,
+    pktBroadcastMeme1,
+    pktMc1,
+    pktMc2,
+    pktMc3,
+    pktBurnerSam1,
+    pktBurnerSam2,
+    pktBurnerSam3,
+    pktDmElena1,
+    pktDmAlex2,
     pktDmElenaReact,
     pktDmElenaRead,
     pktDmElenaUnread1,
     pktDmElenaUnread2,
-    pktDmSamUnread,
+    pktDmMayaUnread,
+    pktIouSam,
+    pktIouElena,
+    pktIouMaya,
+    pktInviteJordan,
+    pktVault1,
   ];
+}
 
-  const accepted: import('../protocol/types').FilterInspectionResult[] = seedPackets.map(
-    (pkt) => ({
-      emailId: `eml_${pkt.packetId}`,
-      subject: `[@me] Encrypted packet (${pkt.channel.name})`,
-      from: `"${pkt.sender.displayName}" <${pkt.sender.email}>`,
-      receivedAt: pkt.sentAt,
-      accepted: true,
-      reason: 'Matched header X-DontCall-Protocol: DCP/1.0 & verified OpenPGP signature',
-      detectedHeaders: {
-        'X-DontCall-Protocol': 'DCP/1.0',
-        'X-DontCall-Type': pkt.type,
-        'X-DontCall-Channel': pkt.channel.id,
-      },
-      packetType: pkt.type,
-      encryptionMode: pkt.encryptionMode,
-      decryptedPacket: pkt,
-      signatureVerified: true,
-      compliantBuildVerified: true,
-      decryptionTimeMs: 4.2,
-    })
+/**
+ * Encrypts the canonical demo seed packets with real OpenPGP keys for IndexedDB persistence.
+ */
+export async function createEncryptedSeedEmailsForUsers(
+  hydratedUsers: UserIdentity[]
+): Promise<RawTransportEmail[]> {
+  const appUsers = hydratedUsers.filter((u) => u.pgpKeyPair);
+  if (appUsers.length === 0) return [];
+
+  const allAppKeys = appUsers.map((u) => u.pgpKeyPair!.publicKeyArmored);
+  const attestByEmail: Record<string, DcpComplianceAttestation> = {};
+
+  for (const u of appUsers) {
+    attestByEmail[u.email] = await createSignedComplianceAttestation({
+      senderEmail: u.email,
+      senderPgpFingerprint: u.pgpKeyPair!.fingerprint,
+    });
+  }
+
+  const packets = buildDemoSeedPackets(hydratedUsers, attestByEmail);
+  const userByEmail = new Map(
+    hydratedUsers.map((u) => [u.email.toLowerCase(), u])
   );
+  const seedDcpEmails: RawTransportEmail[] = [];
 
-  const rejected: import('../protocol/types').FilterInspectionResult[] =
-    createSampleRegularEmails().map((reg) => ({
+  for (const pkt of packets) {
+    const senderUser =
+      userByEmail.get(pkt.sender.email.toLowerCase()) || appUsers[0];
+    if (!senderUser?.pgpKeyPair) continue;
+
+    if (pkt.encryptionMode === 'openpgp-invite-key') {
+      const inviteSecret = generateInviteSecret();
+      const encInvite = await encryptDcpPayloadWithInviteKey({
+        cleartextJson: JSON.stringify(pkt),
+        inviteSecret,
+        senderPublicKeyArmored: senderUser.pgpKeyPair.publicKeyArmored,
+        senderPrivateKeyArmored: senderUser.pgpKeyPair.privateKeyArmored,
+      });
+      seedDcpEmails.push(
+        buildDcpMimeEmail({
+          packet: pkt,
+          encryptedPacketArmored: encInvite,
+          inviteKeyFragment: inviteSecret,
+        })
+      );
+    } else {
+      const encAsym = await encryptDcpPayloadAsymmetric({
+        cleartextJson: JSON.stringify(pkt),
+        recipientPublicKeysArmored: allAppKeys,
+        senderPublicKeyArmored: senderUser.pgpKeyPair.publicKeyArmored,
+        senderPrivateKeyArmored: senderUser.pgpKeyPair.privateKeyArmored,
+      });
+      seedDcpEmails.push(
+        buildDcpMimeEmail({
+          packet: pkt,
+          encryptedPacketArmored: encAsym,
+        })
+      );
+    }
+  }
+
+  return seedDcpEmails;
+}
+
+/**
+ * Synchronous initial inspection previews so the first paint (before async WebWorker/OpenPGP
+ * key generation finishes ~350ms later) renders the full conversation threads and messages immediately.
+ */
+export function createInitialSeedInspections(): FilterInspectionResult[] {
+  const seedPackets = buildDemoSeedPackets(INITIAL_USERS);
+
+  const accepted: FilterInspectionResult[] = seedPackets.map((pkt) => ({
+    emailId: `eml_${pkt.packetId}`,
+    subject: `[@me] Encrypted packet (${pkt.channel.name})`,
+    from: `"${pkt.sender.displayName}" <${pkt.sender.email}>`,
+    receivedAt: pkt.sentAt,
+    accepted: true,
+    reason:
+      'Matched header X-DontCall-Protocol: DCP/1.0 & verified OpenPGP signature',
+    detectedHeaders: {
+      'X-DontCall-Protocol': 'DCP/1.0',
+      'X-DontCall-Type': pkt.type,
+      'X-DontCall-Channel': pkt.channel.id,
+    },
+    packetType: pkt.type,
+    encryptionMode: pkt.encryptionMode,
+    decryptedPacket: pkt,
+    signatureVerified: true,
+    compliantBuildVerified: true,
+    decryptionTimeMs: 4.2,
+  }));
+
+  const rejected: FilterInspectionResult[] = createSampleRegularEmails().map(
+    (reg) => ({
       emailId: reg.id,
       subject: reg.subject,
       from: reg.from,
       receivedAt: reg.date,
       accepted: false,
-      reason: 'Missing required X-DontCall-Protocol: DCP/1.0 header — Ignored',
+      reason:
+        'Missing required X-DontCall-Protocol: DCP/1.0 header — Ignored',
       detectedHeaders: reg.headers,
-    }));
+    })
+  );
 
   return [...accepted, ...rejected];
 }
