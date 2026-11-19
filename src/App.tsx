@@ -144,8 +144,10 @@ import {
   getSavedGoogleClientId,
   launchRealOAuthPopup,
   loadGoogleOAuthSession,
+  sanitizeGoogleClientId,
   saveGoogleClientId,
   saveGoogleOAuthSession,
+  validateGoogleClientId,
 } from './transport/oauthPortal';
 import { safeSetInviteHTML } from './utils/safeHtml';
 
@@ -5287,13 +5289,32 @@ export function App() {
     prefillEmail?: string
   ) {
     setConnectorStatusMsg('');
+    if (provider === 'google') {
+      const check = validateGoogleClientId(googleClientId);
+      if (check.sanitized !== googleClientId) {
+        setGoogleClientId(check.sanitized);
+        saveGoogleClientId(check.sanitized);
+      }
+      if (check.sanitized && !check.valid) {
+        setShowAdvancedOAuthConfig(true);
+        setConnectorStatusMsg(
+          `⚠️ Invalid Google Client ID ("${check.sanitized.slice(0, 28)}…"): ${
+            check.reason || 'Must end with .apps.googleusercontent.com'
+          }`
+        );
+        return;
+      }
+    }
+
     const configuredClientId =
       provider === 'google'
-        ? googleClientId.trim()
+        ? sanitizeGoogleClientId(googleClientId)
         : microsoftClientId.trim();
 
     if (configuredClientId) {
-      saveGoogleClientId(googleClientId.trim());
+      if (provider === 'google') {
+        saveGoogleClientId(configuredClientId);
+      }
       try {
         const result = await launchRealOAuthPopup({
           provider,
@@ -9679,17 +9700,90 @@ export function App() {
                 </div>
               )}
 
+              {/* Inline Google OAuth Client ID Inspector & Quick Editor */}
+              {(showAdvancedOAuthConfig || Boolean(googleClientId)) && (
+                <div className="dc-oauth-consent-card dc-google-chooser-card">
+                  <div className="dc-oauth-consent-header">
+                    <strong>🔑 Google Cloud OAuth Web Client ID</strong>
+                    <button
+                      type="button"
+                      className="dc-icon-btn"
+                      onClick={() => setShowAdvancedOAuthConfig(false)}
+                      aria-label="Hide Client ID Box"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="dc-form-group">
+                    <label htmlFor="easy-google-client-id">
+                      Paste your Client ID ending in{' '}
+                      <code>.apps.googleusercontent.com</code> (not the{' '}
+                      <code>GOCSPX-</code> secret)
+                    </label>
+                    <div className="dc-inline-input-btn">
+                      <input
+                        id="easy-google-client-id"
+                        type="text"
+                        value={googleClientId}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setGoogleClientId(raw);
+                          saveGoogleClientId(raw);
+                        }}
+                        placeholder="1234567890-abcdefg.apps.googleusercontent.com"
+                      />
+                      {googleClientId && (
+                        <button
+                          type="button"
+                          className="dc-btn-ghost"
+                          onClick={() => {
+                            setGoogleClientId('');
+                            saveGoogleClientId('');
+                            setConnectorStatusMsg(
+                              'Cleared saved Google Client ID. Using built-in 1-Tap Google Account Chooser.'
+                            );
+                          }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <small className="dc-form-hint">
+                      Authorized JavaScript Origin to add in Google Cloud
+                      Console:{' '}
+                      <code>
+                        {typeof window !== 'undefined'
+                          ? window.location.origin
+                          : 'http://localhost:5173'}
+                      </code>
+                    </small>
+                  </div>
+                </div>
+              )}
+
               {/* Bottom Bar with Advanced Button */}
               <div className="dc-connect-modal-footer">
-                <span>
-                  Have a Google Cloud Client ID or custom IMAP server?
-                </span>
                 <button
                   type="button"
                   className="dc-btn-ghost"
-                  onClick={() => setConnectModalMode('advanced')}
+                  onClick={() =>
+                    setShowAdvancedOAuthConfig(!showAdvancedOAuthConfig)
+                  }
                 >
-                  <Terminal size={13} /> OAuth Client ID &amp; Advanced
+                  <KeyRound size={13} />{' '}
+                  {googleClientId
+                    ? 'Edit / Clear Google Client ID'
+                    : 'Set Google OAuth Client ID'}
+                </button>
+                <button
+                  type="button"
+                  className="dc-btn-ghost"
+                  onClick={() => {
+                    setWizardProvider('gmail');
+                    setConnectModalMode('advanced');
+                  }}
+                >
+                  <Terminal size={13} /> Advanced &amp; Custom IMAP
                 </button>
               </div>
             </div>

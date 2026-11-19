@@ -60,19 +60,84 @@ export const GOOGLE_OAUTH_SCOPES = [
 const GOOGLE_CLIENT_ID_STORAGE_KEY = 'atme_google_oauth_client_id';
 const GOOGLE_TOKEN_SESSION_KEY = 'atme_google_oauth_session';
 
+const PLACEHOLDER_CLIENT_IDS = new Set([
+  '1234567890-abcdefg.apps.googleusercontent.com',
+  '123456789-abc.apps.googleusercontent.com',
+  'your-google-oauth-client-id.apps.googleusercontent.com',
+]);
+
+/**
+ * Strips common copy-paste artifacts from a Google OAuth Client ID:
+ * - `VITE_GOOGLE_CLIENT_ID=` prefix (if pasted into Cloudflare env value by mistake)
+ * - Surrounding single/double quotes or backticks
+ * - Accidental whitespace or newlines
+ */
+export function sanitizeGoogleClientId(raw: string): string {
+  if (!raw) return '';
+  let clean = raw.trim();
+  if (/^VITE_GOOGLE_CLIENT_ID\s*=/i.test(clean)) {
+    clean = clean.replace(/^VITE_GOOGLE_CLIENT_ID\s*=/i, '').trim();
+  }
+  clean = clean.replace(/^["'`]+|["'`]+$/g, '').trim();
+  clean = clean.replace(/\s+/g, '');
+  return clean;
+}
+
+export function validateGoogleClientId(raw: string): {
+  valid: boolean;
+  sanitized: string;
+  reason?: string;
+} {
+  const sanitized = sanitizeGoogleClientId(raw);
+  if (!sanitized) {
+    return { valid: false, sanitized: '' };
+  }
+  if (PLACEHOLDER_CLIENT_IDS.has(sanitized.toLowerCase())) {
+    return {
+      valid: false,
+      sanitized,
+      reason:
+        'That is the example placeholder Client ID. Replace it with your real Client ID from Google Cloud Console.',
+    };
+  }
+  if (sanitized.startsWith('GOCSPX-')) {
+    return {
+      valid: false,
+      sanitized,
+      reason:
+        'That starts with "GOCSPX-", which is a Google Client Secret. Please paste the Client ID (ends with .apps.googleusercontent.com).',
+    };
+  }
+  if (!sanitized.endsWith('.apps.googleusercontent.com')) {
+    return {
+      valid: false,
+      sanitized,
+      reason:
+        'A Google Web Client ID must end with ".apps.googleusercontent.com".',
+    };
+  }
+  return { valid: true, sanitized };
+}
+
 export function getSavedGoogleClientId(): string {
   try {
-    const fromEnv = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || '';
-    const fromStorage = localStorage.getItem(GOOGLE_CLIENT_ID_STORAGE_KEY) || '';
-    return (fromStorage || fromEnv).trim();
+    const fromEnv = sanitizeGoogleClientId(
+      (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || ''
+    );
+    const fromStorage = sanitizeGoogleClientId(
+      localStorage.getItem(GOOGLE_CLIENT_ID_STORAGE_KEY) || ''
+    );
+    return fromStorage || fromEnv;
   } catch {
-    return (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || '';
+    return sanitizeGoogleClientId(
+      (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || ''
+    );
   }
 }
 
 export function saveGoogleClientId(clientId: string): void {
   try {
-    const clean = clientId.trim();
+    const clean = sanitizeGoogleClientId(clientId);
     if (clean) {
       localStorage.setItem(GOOGLE_CLIENT_ID_STORAGE_KEY, clean);
     } else {
