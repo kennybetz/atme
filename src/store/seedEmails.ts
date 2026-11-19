@@ -20,181 +20,7 @@ import {
   UserIdentity,
 } from '../protocol/types';
 
-export interface CartoonAvatarPreset {
-  id: string;
-  label: string;
-  dataUrl: string;
-}
 
-/**
- * Hand-drawn ink-sketch cartoon character portraits inspired by doodle portrait illustrations.
- */
-export function makeCartoonSketchAvatarDataUrl(variantId: string): string {
-  const sketches: Record<string, string> = {
-    skater_curls: `
-      <!-- Messy skater curls + striped collar -->
-      <path d="M26 42 C24 22, 72 22, 70 42 C72 58, 62 70, 48 70 C34 70, 24 58, 26 42 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M22 38 C18 28, 28 18, 36 22 C40 14, 54 14, 58 22 C68 18, 78 28, 72 39 C76 33, 66 24, 58 28 C50 20, 42 22, 36 28 C28 25, 22 32, 22 38 Z" fill="#14171f" stroke="#14171f" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M26 34 C32 26, 44 26, 48 31 C54 25, 64 27, 69 35" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
-      <circle cx="39" cy="43" r="2.4" fill="#14171f"/>
-      <circle cx="57" cy="43" r="2.4" fill="#14171f"/>
-      <path d="M35 37 Q39 34 43 37" fill="none" stroke="#14171f" stroke-width="2" stroke-linecap="round"/>
-      <path d="M53 37 Q57 34 61 37" fill="none" stroke="#14171f" stroke-width="2" stroke-linecap="round"/>
-      <path d="M48 44 Q45 50 49 51" fill="none" stroke="#14171f" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M37 56 Q48 65 59 55" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M42 70 L41 78 M54 70 L55 78" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M26 90 C28 77, 68 77, 70 90" fill="#14171f" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M31 83 L65 83 M29 87 L67 87" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
-    `,
-    spiky_grin: `
-      <!-- Spiky hair + big cheerful grin -->
-      <path d="M28 43 C27 25, 69 25, 68 43 C69 59, 60 70, 48 70 C36 70, 27 59, 28 43 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M25 36 L22 25 L32 29 L36 17 L44 26 L49 15 L54 26 L63 18 L64 29 L74 26 L69 37" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M24 44 C20 43, 20 51, 25 51 M72 44 C76 43, 76 51, 71 51" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="39" cy="44" r="2.4" fill="#14171f"/>
-      <circle cx="57" cy="44" r="2.4" fill="#14171f"/>
-      <path d="M48 45 L46 51 L50 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M36 56 Q48 66 60 56" fill="none" stroke="#14171f" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M42 70 L42 79 M54 70 L54 79" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M28 90 C32 78, 64 78, 68 90" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M41 78 L48 86 L55 78" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    `,
-    wavy_locks: `
-      <!-- Wavy locks + warm smile + freckles -->
-      <path d="M20 58 C17 34, 25 18, 48 18 C71 18, 79 34, 76 58 C74 66, 68 72, 64 74 C67 56, 67 34, 48 30 C29 34, 29 56, 32 74 C28 72, 22 66, 20 58 Z" fill="#14171f"/>
-      <path d="M29 44 C28 27, 68 27, 67 44 C68 59, 59 69, 48 69 C37 69, 28 59, 29 44 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
-      <path d="M29 36 C36 27, 46 27, 49 32 C53 27, 62 28, 67 36" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
-      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
-      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
-      <circle cx="34" cy="50" r="1" fill="#14171f"/>
-      <circle cx="37" cy="52" r="1" fill="#14171f"/>
-      <circle cx="62" cy="50" r="1" fill="#14171f"/>
-      <circle cx="59" cy="52" r="1" fill="#14171f"/>
-      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M38 56 Q48 64 58 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M29 90 C33 78, 63 78, 67 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-    `,
-    sunny_bangs: `
-      <!-- Straight bangs + shoulder hair + bright smile -->
-      <path d="M22 68 C21 34, 28 18, 48 18 C68 18, 75 34, 74 68" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M29 45 C29 28, 67 28, 67 45 C67 59, 59 69, 48 69 C37 69, 29 59, 29 45 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
-      <path d="M29 36 L35 28 L40 36 L46 27 L51 36 L57 28 L62 36 L67 32" fill="#14171f" stroke="#14171f" stroke-width="2.2" stroke-linejoin="round"/>
-      <circle cx="39" cy="45" r="2.3" fill="#14171f"/>
-      <circle cx="57" cy="45" r="2.3" fill="#14171f"/>
-      <path d="M48 46 Q46 51 49 52" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M38 56 Q48 64 58 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M30 90 C34 79, 62 79, 66 90" fill="none" stroke="#14171f" stroke-width="2.8" stroke-linecap="round"/>
-    `,
-    messy_tuft: `
-      <!-- Tall sketch face + messy tuft -->
-      <path d="M30 42 C29 24, 67 24, 66 42 C67 60, 59 71, 48 71 C37 71, 29 60, 30 42 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
-      <path d="M28 34 C28 22, 68 22, 68 34 C62 27, 34 27, 28 34 Z" fill="#14171f" stroke="#14171f" stroke-width="2.4"/>
-      <path d="M35 24 L39 16 M45 23 L48 14 M55 24 L59 16" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <circle cx="40" cy="43" r="2.3" fill="#14171f"/>
-      <circle cx="56" cy="43" r="2.3" fill="#14171f"/>
-      <path d="M48 43 L46 53 L50 53" fill="none" stroke="#14171f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M39 59 Q48 65 57 58" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M43 71 L43 79 M53 71 L53 79" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M28 90 C33 79, 63 79, 68 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-    `,
-    curly_bob: `
-      <!-- Bouncy curly bob doodle -->
-      <circle cx="25" cy="40" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="23" cy="51" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="71" cy="40" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="73" cy="51" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="34" cy="27" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="48" cy="24" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <circle cx="62" cy="27" r="8" fill="none" stroke="#14171f" stroke-width="2.5"/>
-      <path d="M29 45 C29 29, 67 29, 67 45 C67 59, 59 69, 48 69 C37 69, 29 59, 29 45 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
-      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
-      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
-      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M37 56 Q48 64 59 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M30 90 C34 79, 62 79, 66 90" fill="none" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
-    `,
-    cool_part: `
-      <!-- Side-swept sketch hair + happy arc eyes -->
-      <path d="M28 43 C28 26, 68 26, 68 43 C68 59, 59 69, 48 69 C37 69, 28 59, 28 43 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
-      <path d="M26 39 C26 21, 68 19, 70 39 C58 29, 40 27, 26 39 Z" fill="#14171f" stroke="#14171f" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M35 43 Q39 39 43 43" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M53 43 Q57 39 61 43" fill="none" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M36 55 Q48 65 60 55 Z" fill="#14171f"/>
-      <path d="M42 69 L42 78 M54 69 L54 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M27 90 C31 78, 65 78, 69 90" fill="#14171f" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-    `,
-    puff_curls: `
-      <!-- Playful high curls + buttoned shirt -->
-      <circle cx="28" cy="25" r="9" fill="#14171f"/>
-      <circle cx="68" cy="25" r="9" fill="#14171f"/>
-      <path d="M28 44 C28 27, 68 27, 68 44 C68 59, 59 69, 48 69 C37 69, 28 59, 28 44 Z" fill="#ffffff" stroke="#14171f" stroke-width="2.7"/>
-      <path d="M29 36 C36 25, 60 25, 67 36" fill="#14171f" stroke="#14171f" stroke-width="2.4"/>
-      <circle cx="39" cy="44" r="2.3" fill="#14171f"/>
-      <circle cx="57" cy="44" r="2.3" fill="#14171f"/>
-      <path d="M48 45 Q46 50 49 51" fill="none" stroke="#14171f" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M37 56 Q48 64 59 56" fill="none" stroke="#14171f" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M43 69 L43 78 M53 69 L53 78" stroke="#14171f" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M28 90 C32 78, 64 78, 68 90" fill="none" stroke="#14171f" stroke-width="2.7" stroke-linecap="round"/>
-      <circle cx="48" cy="83" r="1.4" fill="#14171f"/>
-      <circle cx="48" cy="87" r="1.4" fill="#14171f"/>
-    `,
-  };
-
-  const inner = sketches[variantId] || sketches.skater_curls;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-    <rect width="96" height="96" rx="48" fill="#f8fafc"/>
-    <circle cx="48" cy="48" r="45" fill="none" stroke="#e2e8f0" stroke-width="2"/>
-    ${inner}
-  </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-export const CARTOON_SKETCH_AVATARS: CartoonAvatarPreset[] = [
-  {
-    id: 'skater_curls',
-    label: 'Curls',
-    dataUrl: makeCartoonSketchAvatarDataUrl('skater_curls'),
-  },
-  {
-    id: 'spiky_grin',
-    label: 'Spiky',
-    dataUrl: makeCartoonSketchAvatarDataUrl('spiky_grin'),
-  },
-  {
-    id: 'wavy_locks',
-    label: 'Wavy',
-    dataUrl: makeCartoonSketchAvatarDataUrl('wavy_locks'),
-  },
-  {
-    id: 'sunny_bangs',
-    label: 'Bangs',
-    dataUrl: makeCartoonSketchAvatarDataUrl('sunny_bangs'),
-  },
-  {
-    id: 'messy_tuft',
-    label: 'Tuft',
-    dataUrl: makeCartoonSketchAvatarDataUrl('messy_tuft'),
-  },
-  {
-    id: 'curly_bob',
-    label: 'Bob',
-    dataUrl: makeCartoonSketchAvatarDataUrl('curly_bob'),
-  },
-  {
-    id: 'cool_part',
-    label: 'Smile',
-    dataUrl: makeCartoonSketchAvatarDataUrl('cool_part'),
-  },
-  {
-    id: 'puff_curls',
-    label: 'Puffs',
-    dataUrl: makeCartoonSketchAvatarDataUrl('puff_curls'),
-  },
-];
 
 function makeStoryIllustrationDataUrl(
   theme: 'skate' | 'pixel' | 'meme'
@@ -260,7 +86,6 @@ export const INITIAL_USERS: UserIdentity[] = [
     email: 'alex.rivera@gmail.com',
     displayName: 'Alex',
     handle: '@alex',
-    avatarDataUrl: makeCartoonSketchAvatarDataUrl('skater_curls'),
     bio: 'Skateboarding & building @me 🛹',
     profileUpdatedAt: '2026-10-25T03:00:00.000Z',
     provider: 'gmail',
@@ -270,7 +95,6 @@ export const INITIAL_USERS: UserIdentity[] = [
     email: 'sam.chen@outlook.com',
     displayName: 'Sam',
     handle: '@sam',
-    avatarDataUrl: makeCartoonSketchAvatarDataUrl('spiky_grin'),
     bio: 'Robotics club & drumline 🥁',
     profileUpdatedAt: '2026-10-25T03:05:00.000Z',
     provider: 'outlook',
@@ -280,7 +104,6 @@ export const INITIAL_USERS: UserIdentity[] = [
     email: 'elena.vogt@proton.me',
     displayName: 'Elena',
     handle: '@elena',
-    avatarDataUrl: makeCartoonSketchAvatarDataUrl('wavy_locks'),
     bio: 'Pixel art & Mario Kart champ 🎮',
     profileUpdatedAt: '2026-10-25T03:10:00.000Z',
     provider: 'proton',
@@ -290,7 +113,6 @@ export const INITIAL_USERS: UserIdentity[] = [
     email: 'maya.lin@icloud.com',
     displayName: 'Maya',
     handle: '@maya',
-    avatarDataUrl: makeCartoonSketchAvatarDataUrl('sunny_bangs'),
     bio: 'Track team & late night Minecraft ⚡',
     profileUpdatedAt: '2026-10-25T03:12:00.000Z',
     provider: 'custom-domain',
@@ -300,7 +122,6 @@ export const INITIAL_USERS: UserIdentity[] = [
     email: 'jordan.taylor@yahoo.com',
     displayName: 'Jordan',
     handle: '@jordan',
-    avatarDataUrl: makeCartoonSketchAvatarDataUrl('messy_tuft'),
     bio: 'BMX & arcade high scores 🕹️',
     provider: 'yahoo',
     hasAppInstalled: false,
@@ -532,7 +353,7 @@ export function buildDemoSeedPackets(
   const vaultAlex = INITIAL_CHANNELS[9]; // Notes (@me)
 
   const fallbackAttest = (iso: string): DcpComplianceAttestation => ({
-    buildVersion: '1.4.0-compliant',
+    buildVersion: '1.5.0-atme-compliant',
     bundleSha256:
       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     signatureSuite: 'Ed25519',

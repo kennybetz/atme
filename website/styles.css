@@ -1971,10 +1971,468 @@ code {
   .journey-stepper {
     grid-template-columns: 1fr;
   }
-  .journey-display {
+  .journey-Display {
     padding: 20px;
   }
   .mockup-body {
     padding: 16px;
+  }
+}
+
+/* =====================================================================
+   ATME/1.0 — AI-Branchable Squad Messenger Infographic Styles
+   ===================================================================== */
+
+.grad-accent {
+  background: linear-gradient(95deg, #30d158 0%, #0a84ff 55%, #ff9f0a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-flow-strip {
+  display: flex;
+  flex-wrap: wrap;
+  flex-wrap: balance;
+  align-items: safe center;
+  gap: 10px;
+  margin-block-start: 24px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(17, 22, 30, 0.78);
+  border: 1px solid var(--line-2);
+}
+
+.flow-step {
+  flex: 1 1 135px;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.flow-icon {
+  font-size: 1.25rem;
+}
+
+.flow-step strong {
+  font-size: 0.88rem;
+  color: #fff;
+}
+
+.flow-step small {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.flow-arrow {
+  color: var(--flame);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+/* Phone Mod Widget Preview */
+.mod-widget-preview {
+  align-self: flex-start;
+  inline-size: 88%;
+  padding: 9px 11px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.25), rgba(10, 132, 255, 0.18));
+  border: 1px solid rgba(10, 132, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mod-widget-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: safe center;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #7dd3fc;
+}
+
+.mod-widget-preview strong {
+  font-size: 11px;
+  color: #fff;
+}
+
+.mod-widget-btns {
+  display: flex;
+  gap: 6px;
+  margin-block-start: 2px;
+}
+
+.mod-widget-btns span {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* Dunbar Micro-Group Infographic */
+.dunbar-infographic {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-auto-rows: auto;
+  gap: 18px;
+}
+
+.dunbar-ring {
+  container: dunbar-card / inline-size;
+  grid-row: span 4;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: subgrid;
+  gap: 10px;
+  padding: 24px 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+}
+
+.ring-core {
+  border-color: rgba(48, 209, 88, 0.45);
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.12), var(--bg-2));
+}
+
+.ring-squad {
+  border-color: rgba(10, 132, 255, 0.42);
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.1), var(--bg-2));
+}
+
+.ring-channel {
+  border-color: rgba(255, 159, 10, 0.4);
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.1), var(--bg-2));
+}
+
+.ring-bigtech {
+  border-color: rgba(255, 69, 58, 0.35);
+  opacity: 0.85;
+}
+
+.ring-head {
+  display: flex;
+  align-items: safe center;
+  justify-content: space-between;
+}
+
+.ring-icon {
+  font-size: 1.7rem;
+}
+
+.ring-count {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.dunbar-ring h3 {
+  font-size: clamp(1.08rem, 4.5cqi, 1.25rem);
+}
+
+.dunbar-ring p {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.ring-tag {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--green);
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--line);
+}
+
+/* Squad Branches Showcase Grid (Subgrid + Container Queries) */
+.branch-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  grid-auto-rows: auto;
+  gap: 20px;
+}
+
+.branch-card {
+  container: branch-card / inline-size;
+  grid-row: span 4;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: subgrid;
+  gap: 12px;
+  padding: 26px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+}
+
+.branch-card.featured-branch {
+  border-color: rgba(48, 209, 88, 0.5);
+  box-shadow: 0 16px 40px rgba(48, 209, 88, 0.08);
+}
+
+.branch-card-head {
+  display: flex;
+  align-items: safe center;
+  gap: 12px;
+}
+
+.branch-emoji {
+  font-size: 1.9rem;
+  inline-size: 46px;
+  block-size: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.branch-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.branch-pill {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--blue);
+}
+
+.branch-card h3 {
+  font-size: clamp(1.12rem, 4.5cqi, 1.3rem);
+}
+
+.branch-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.icon-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  flex-wrap: balance;
+  gap: 6px;
+}
+
+.icon-feature-pills span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.prompt-box {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--line-2);
+}
+
+.branch-footer {
+  display: flex;
+  align-items: safe center;
+  justify-content: space-between;
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--line);
+}
+
+.compat-badge {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* Visual Git Branch Diagram */
+.git-diagram-card {
+  padding: 26px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  margin-block-end: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.git-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.git-track-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.git-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: safe center;
+  gap: 8px;
+}
+
+.git-node {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.14);
+  border: 1px solid rgba(10, 132, 255, 0.4);
+  color: #93c5fd;
+}
+
+.git-node.squad-node {
+  background: rgba(48, 209, 88, 0.15);
+  border-color: rgba(48, 209, 88, 0.45);
+  color: #86efac;
+}
+
+.git-line {
+  inline-size: 22px;
+  block-size: 2px;
+  background: rgba(10, 132, 255, 0.45);
+}
+
+.git-line.squad-line {
+  background: rgba(48, 209, 88, 0.5);
+}
+
+.git-fork-connector {
+  padding-inline-start: 28px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--flame);
+}
+
+/* AI Steps Grid */
+.ai-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  grid-auto-rows: auto;
+  gap: 18px;
+}
+
+.ai-step-card {
+  grid-row: span 4;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: subgrid;
+  gap: 10px;
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ai-step-head {
+  display: flex;
+  align-items: safe center;
+  justify-content: space-between;
+}
+
+.ai-step-num {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--flame);
+}
+
+.ai-step-icon {
+  font-size: 1.5rem;
+}
+
+.ai-step-card h3 {
+  font-size: 1.1rem;
+}
+
+.ai-step-card p {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+/* $0 Toolchain Grid */
+.toolchain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-auto-rows: auto;
+  gap: 18px;
+}
+
+.tool-card {
+  grid-row: span 4;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: subgrid;
+  gap: 8px;
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+}
+
+.tool-icon {
+  font-size: 1.8rem;
+}
+
+.tool-card h3 {
+  font-size: 1.08rem;
+}
+
+.tool-card p {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.tool-tag {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--blue);
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--line);
+}
+
+/* Final CTA Banner */
+.final-cta-banner {
+  margin-block-start: 36px;
+  padding: 28px 30px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(10, 132, 255, 0.38);
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.14), rgba(48, 209, 88, 0.08));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: safe center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.final-cta-banner .cta-row {
+  margin-block-start: 0;
+}
+
+@media (max-width: 860px) {
+  .recycle-showcase {
+    grid-template-columns: 1fr;
   }
 }

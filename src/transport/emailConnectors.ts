@@ -57,10 +57,10 @@ export class GmailDirectTransport {
   }
 
   /**
-   * Queries Gmail strictly for DontCall protocol messages, ignoring 100% of normal emails
+   * Queries Gmail strictly for @me (ATME/1.0) protocol messages, ignoring 100% of normal emails
    */
   static getStrictGmailSearchQuery(): string {
-    return `subject:"${DCP_SUBJECT_PREFIX}" "dontcall-packet.pgp"`;
+    return `subject:"${DCP_SUBJECT_PREFIX}" ("atme-packet.pgp" OR "dontcall-packet.pgp")`;
   }
 
   /**
@@ -233,9 +233,9 @@ export function getProviderTechnicalSpecs() {
       id: 'gmail',
       name: 'Google Gmail API (OAuth2 PKCE)',
       protocol: 'HTTPS REST v1 (Direct Browser-to-Google)',
-      strictFilterQuery: `q=subject:"${DCP_SUBJECT_PREFIX}" "dontcall-packet.pgp"`,
+      strictFilterQuery: `q=subject:"${DCP_SUBJECT_PREFIX}" ("atme-packet.pgp" OR "dontcall-packet.pgp")`,
       inboxIsolationRule:
-        'Auto-creates Gmail Filter removing INBOX label & applying label "DontCall" so chat packets never clutter normal email.',
+        'Auto-creates Gmail Filter removing INBOX label & applying label "@me" so chat packets never clutter normal email.',
       e2eeSupport:
         'On-Device OpenPGP (Curve25519). Google servers only see encrypted ASCII armor.',
     },

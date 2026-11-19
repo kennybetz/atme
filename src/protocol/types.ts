@@ -1,11 +1,24 @@
 /**
- * @me Messaging Protocol (DCP/1.0)
- * Core technical types for Email-as-a-Backend E2EE Messaging
+ * @me Open Micro-Messaging Protocol (ATME/1.0)
+ * Core technical types for Email-as-a-Backend E2EE Squad Messaging & AI Branching
  */
 
-export const DCP_PROTOCOL_VERSION = 'DCP/1.0';
-export const DCP_MIME_PACKET_TYPE = 'application/vnd.dontcall.packet+pgp';
-export const DCP_SUBJECT_PREFIX = '[@me]';
+export const ATME_PROTOCOL_VERSION = 'ATME/1.0';
+export const ATME_MIME_PACKET_TYPE = 'application/vnd.atme.packet+pgp';
+export const ATME_SUBJECT_PREFIX = '[@me]';
+
+/** Legacy aliases retained so existing imports and tests continue to work seamlessly */
+export const DCP_PROTOCOL_VERSION = ATME_PROTOCOL_VERSION;
+export const DCP_MIME_PACKET_TYPE = ATME_MIME_PACKET_TYPE;
+export const DCP_SUBJECT_PREFIX = ATME_SUBJECT_PREFIX;
+
+/** Accepted protocol versions & MIME types during parsing (ATME/1.0 + legacy DCP/1.0 fallback) */
+export const ACCEPTED_ATME_PROTOCOL_VERSIONS = ['ATME/1.0', 'DCP/1.0'] as const;
+export const ACCEPTED_ATME_MIME_TYPES = [
+  'application/vnd.atme.packet+pgp',
+  'application/vnd.dontcall.packet+pgp',
+] as const;
+
 /** Hard cap on group and broadcast-channel participants to prevent personal email provider spam/rate blocks */
 export const MAX_CHANNEL_AND_GROUP_USERS = 99;
 
@@ -14,9 +27,11 @@ export const MAX_CHANNEL_AND_GROUP_USERS = 99;
  * Used during messaging to verify the peer is running an unmodified compliant build
  * that honors Remote Key Shredding (`chat.shred-request`) and Zero-Plaintext IndexedDB rules.
  */
-export const DCP_COMPLIANT_BUILD_VERSION = '1.4.0-compliant';
-export const DCP_COMPLIANT_BUNDLE_SHA256 =
+export const ATME_COMPLIANT_BUILD_VERSION = '1.5.0-atme-compliant';
+export const ATME_COMPLIANT_BUNDLE_SHA256 =
   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+export const DCP_COMPLIANT_BUILD_VERSION = ATME_COMPLIANT_BUILD_VERSION;
+export const DCP_COMPLIANT_BUNDLE_SHA256 = ATME_COMPLIANT_BUNDLE_SHA256;
 
 export type EmailProviderType =
   | 'gmail'
@@ -40,7 +55,23 @@ export type DcpPacketType =
   | 'chat.poll-vote'
   | 'chat.pin'
   | 'chat.key-rotation'
-  | 'chat.iou';
+  | 'chat.iou'
+  | 'chat.branch-mod';
+
+export type AtmePacketType = DcpPacketType;
+
+/**
+ * Plug-and-play payload slot for AI-coded squad branches (`@me/arcade-squad`, `@me/lunch-table`, etc.).
+ * Any branch can attach custom interactive state in `data` while providing `fallbackBody` so peers on
+ * other ATME/1.0 branches can still read the message cleanly.
+ */
+export interface AtmeBranchModPayload {
+  branchId: string;
+  modId: string;
+  title: string;
+  fallbackBody: string;
+  data: Record<string, unknown>;
+}
 
 /**
  * Self-destructing / Burn-After-Reading timer policy (in seconds after read receipt or send).
@@ -253,13 +284,17 @@ export interface DcpPacketPayload {
   };
   shredRequest?: DcpShredRequestPayload;
   shredAck?: DcpShredAckPayload;
+  /** Optional custom AI-coded squad branch module payload */
+  branchMod?: AtmeBranchModPayload;
 }
 
+export type AtmePacketPayload = DcpPacketPayload;
+
 /**
- * The JSON structure serialized and encrypted inside `application/vnd.dontcall.packet+pgp`
+ * The JSON structure serialized and encrypted inside `application/vnd.atme.packet+pgp`
  */
 export interface DcpPacket {
-  protocol: typeof DCP_PROTOCOL_VERSION;
+  protocol: 'ATME/1.0' | 'DCP/1.0';
   packetId: string;
   type: DcpPacketType;
   encryptionMode: EncryptionMode;
@@ -279,6 +314,8 @@ export interface DcpPacket {
   payload: DcpPacketPayload;
   sentAt: string;
 }
+
+export type AtmePacket = DcpPacket;
 
 /**
  * Raw RFC 5322 Email representation traveling across Gmail / Outlook / IMAP / Proton servers
@@ -325,4 +362,6 @@ export interface FilterInspectionResult {
 }
 
 export * from './burner';
+export * from './branchManifest';
+
 

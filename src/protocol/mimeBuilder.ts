@@ -1,26 +1,27 @@
 /**
- * RFC 5322 Multipart MIME Builder & Non-App Invite Fallback Generator (`DCP/1.0`)
+ * RFC 5322 Multipart MIME Builder & Non-App Invite Fallback Generator (`ATME/1.0`)
  *
- * Every outbound chat action (message, reply, emoji reaction, edit, read receipt, attachment)
+ * Every outbound chat action (message, reply, emoji reaction, edit, read receipt, attachment, or squad mod)
  * is formatted as a standards-compliant Multipart Email containing:
- *   1. Strict `X-DontCall-*` headers so the app can query/filter ONLY messaging packets
- *      and completely ignore regular emails.
+ *   1. Strict `X-ATME-*` headers (plus `X-DontCall-*` compatibility mirrors) so the app can query/filter
+ *      ONLY messaging packets and completely ignore regular emails.
  *   2. `text/html` & `text/plain` Fallback Card: When a recipient does NOT have the app
  *      installed (or views the message in standard Gmail/Outlook/Apple Mail), it displays an
  *      encrypted notification card with a message to download the app and links to the
  *      iOS App Store, Google Play Store, and Instant Web App.
- *   3. `application/vnd.dontcall.packet+pgp` MIME part: The OpenPGP-encrypted JSON packet.
+ *   3. `application/vnd.atme.packet+pgp` MIME part: The OpenPGP-encrypted JSON packet.
  *   4. `application/pgp-keys` MIME part: The sender's public key for automatic zero-friction E2EE.
  */
 
 import {
-  DCP_MIME_PACKET_TYPE,
-  DCP_PROTOCOL_VERSION,
-  DCP_SUBJECT_PREFIX,
+  ATME_MIME_PACKET_TYPE,
+  ATME_PROTOCOL_VERSION,
+  ATME_SUBJECT_PREFIX,
   MAX_CHANNEL_AND_GROUP_USERS,
   DcpPacket,
   RawTransportEmail,
 } from './types';
+import { ACTIVE_BRANCH_MANIFEST } from './branchManifest';
 import { formatFingerprint } from '../crypto/openpgpService';
 
 export interface BuildMimeEmailOptions {
@@ -94,7 +95,7 @@ export function buildNonAppInviteHtmlCard(options: {
     <a class="dc-btn-tertiary" href="${escapeHtml(webAppDeepLink)}" target="_blank" rel="noopener noreferrer">Decrypt in @me Web App</a>
   </div>
   <p class="dc-fallback-footer">
-    Powered by @me Zero-Server Email Messaging &bull; Protocol ${DCP_PROTOCOL_VERSION}
+    Powered by @me Zero-Server Email Messaging &bull; Protocol ${ATME_PROTOCOL_VERSION}
   </p>
 </div>`;
 }
@@ -114,8 +115,8 @@ export function buildDcpMimeEmail(
     webAppBaseUrl = 'https://app.atme.chat',
   } = options;
 
-  const boundaryMixed = `----=_DontCall_Mixed_${packet.packetId}`;
-  const boundaryAlt = `----=_DontCall_Alt_${packet.packetId}`;
+  const boundaryMixed = `----=_ATME_Mixed_${packet.packetId}`;
+  const boundaryAlt = `----=_ATME_Alt_${packet.packetId}`;
 
   const isBroadcastChannel = packet.channel.type === 'broadcast-channel';
   const creatorEmail = (
@@ -141,7 +142,7 @@ export function buildDcpMimeEmail(
     ? `${webAppBaseUrl}/#packet=${encodeURIComponent(packet.packetId)}&inviteKey=${encodeURIComponent(inviteKeyFragment)}`
     : `${webAppBaseUrl}/#packet=${encodeURIComponent(packet.packetId)}`;
 
-  const subject = `${DCP_SUBJECT_PREFIX} Encrypted ${packet.type.replace('chat.', '')} (${packet.channel.name}) [${packet.channel.id}]`;
+  const subject = `${ATME_SUBJECT_PREFIX} Encrypted ${packet.type.replace('chat.', '')} (${packet.channel.name}) [${packet.channel.id}]`;
 
   const headers: Record<string, string> = {
     'MIME-Version': '1.0',
@@ -153,13 +154,22 @@ export function buildDcpMimeEmail(
     ...(isBroadcastChannel && isSenderCreator
       ? {
           Bcc: recipients.join(', '),
+          'X-ATME-Broadcast-Bcc': 'anonymous-subscriber-shield',
           'X-DontCall-Broadcast-Bcc': 'anonymous-subscriber-shield',
         }
       : {}),
     Subject: subject,
     Date: new Date(packet.sentAt).toUTCString(),
-    'Message-ID': `<${packet.payload.messageId}@dontcall.local>`,
-    'X-DontCall-Protocol': DCP_PROTOCOL_VERSION,
+    'Message-ID': `<${packet.payload.messageId}@atme.local>`,
+    'X-ATME-Protocol': ATME_PROTOCOL_VERSION,
+    'X-ATME-Branch': packet.payload.branchMod?.branchId || ACTIVE_BRANCH_MANIFEST.branchId,
+    'X-ATME-Packet-Id': packet.packetId,
+    'X-ATME-Packet-Type': packet.type,
+    'X-ATME-Channel-Id': packet.channel.id,
+    'X-ATME-Channel-Type': packet.channel.type,
+    'X-ATME-Encryption': packet.encryptionMode,
+    'X-ATME-Sender-FP': packet.sender.pgpFingerprint,
+    'X-DontCall-Protocol': ATME_PROTOCOL_VERSION,
     'X-DontCall-Packet-Id': packet.packetId,
     'X-DontCall-Packet-Type': packet.type,
     'X-DontCall-Channel-Id': packet.channel.id,
@@ -167,7 +177,7 @@ export function buildDcpMimeEmail(
     'X-DontCall-Encryption': packet.encryptionMode,
     'X-DontCall-Sender-FP': packet.sender.pgpFingerprint,
     'X-DontCall-Compliant-Build':
-      packet.complianceAttestation?.buildVersion || '1.4.0-compliant',
+      packet.complianceAttestation?.buildVersion || '1.5.0-atme-compliant',
     'X-DontCall-Bundle-SHA256':
       packet.complianceAttestation?.bundleSha256 ||
       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
@@ -177,14 +187,14 @@ export function buildDcpMimeEmail(
   if (packet.payload.replyToMessageId || packet.payload.targetMessageId) {
     const refId =
       packet.payload.replyToMessageId || packet.payload.targetMessageId;
-    headers['In-Reply-To'] = `<${refId}@dontcall.local>`;
-    headers['References'] = `<${packet.channel.id}@dontcall.local> <${refId}@dontcall.local>`;
+    headers['In-Reply-To'] = `<${refId}@atme.local>`;
+    headers['References'] = `<${packet.channel.id}@atme.local> <${refId}@atme.local>`;
   } else {
-    headers['References'] = `<${packet.channel.id}@dontcall.local>`;
+    headers['References'] = `<${packet.channel.id}@atme.local>`;
   }
 
   const textFallbackPart = [
-    `[LOCKED END-TO-END ENCRYPTED MESSAGE — @me (${DCP_PROTOCOL_VERSION})]`,
+    `[LOCKED END-TO-END ENCRYPTED MESSAGE — @me (${ATME_PROTOCOL_VERSION})]`,
     `From: ${packet.sender.displayName} <${packet.sender.email}>`,
     `Channel: #${packet.channel.name}`,
     `PGP Fingerprint: ${formatFingerprint(packet.sender.pgpFingerprint)}`,
@@ -230,9 +240,9 @@ export function buildDcpMimeEmail(
     `--${boundaryAlt}--`,
     ``,
     `--${boundaryMixed}`,
-    `Content-Type: ${DCP_MIME_PACKET_TYPE}; name="dontcall-packet.pgp"`,
-    `Content-Disposition: attachment; filename="dontcall-packet.pgp"`,
-    `Content-Description: Dont Call Encrypted Messaging Packet (DCP/1.0)`,
+    `Content-Type: ${ATME_MIME_PACKET_TYPE}; name="atme-packet.pgp"`,
+    `Content-Disposition: attachment; filename="atme-packet.pgp"`,
+    `Content-Description: @me Encrypted Messaging Packet (ATME/1.0)`,
     ``,
     encryptedPacketArmored.trim(),
     ``,

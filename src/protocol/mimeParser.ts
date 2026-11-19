@@ -1,22 +1,24 @@
 /**
- * Strict Inbox Filter & RFC 5322 MIME Packet Parser (`DCP/1.0`)
+ * Strict Inbox Filter & RFC 5322 MIME Packet Parser (`ATME/1.0`)
  *
  * Core requirement:
  *   "Then the format email needs to be read from the app, ignoring anything that is a regular email."
  *
  * This module inspects raw incoming emails (either from Gmail/Outlook API queries or raw MIME streams)
  * and enforces a strict 3-gate protocol validation:
- *   Gate 1: Header Check (`X-DontCall-Protocol: DCP/1.0`)
- *   Gate 2: Subject / MIME Part Check (`application/vnd.dontcall.packet+pgp` & PGP ASCII Armor)
+ *   Gate 1: Header Check (`X-ATME-Protocol: ATME/1.0` or legacy `X-DontCall-Protocol`)
+ *   Gate 2: Subject / MIME Part Check (`application/vnd.atme.packet+pgp` & PGP ASCII Armor)
  *   Gate 3: Cryptographic Decryption & Signature Verification via `openpgp.js`
  *
- * Any newsletter, receipt, work email, or personal email lacking the exact `DCP/1.0` headers
+ * Any newsletter, receipt, work email, or personal email lacking the exact `ATME/1.0` headers
  * and encrypted packet is immediately rejected and never touches the app state.
  */
 
 import {
-  DCP_MIME_PACKET_TYPE,
-  DCP_PROTOCOL_VERSION,
+  ACCEPTED_ATME_MIME_TYPES,
+  ACCEPTED_ATME_PROTOCOL_VERSIONS,
+  ATME_MIME_PACKET_TYPE,
+  ATME_PROTOCOL_VERSION,
   DcpPacket,
   DcpPacketType,
   EncryptionMode,
@@ -85,27 +87,37 @@ export function isDontCallFormattedEmail(email: RawTransportEmail): {
     ...email.headers,
   };
 
-  // Case-insensitive lookup for X-DontCall-* headers
+  // Case-insensitive lookup for X-ATME-* and legacy X-DontCall-* headers
   const dcpHeaders: Record<string, string> = {};
   for (const [key, val] of Object.entries(mergedHeaders)) {
-    if (key.toLowerCase().startsWith('x-dontcall-')) {
+    const lower = key.toLowerCase();
+    if (lower.startsWith('x-atme-') || lower.startsWith('x-dontcall-')) {
       dcpHeaders[key] = val;
     }
   }
 
   const protocolHeader =
+    mergedHeaders['X-ATME-Protocol'] ||
+    mergedHeaders['x-atme-protocol'] ||
     mergedHeaders['X-DontCall-Protocol'] ||
     mergedHeaders['x-dontcall-protocol'];
 
-  if (protocolHeader !== DCP_PROTOCOL_VERSION) {
+  if (
+    !protocolHeader ||
+    !(ACCEPTED_ATME_PROTOCOL_VERSIONS as readonly string[]).includes(
+      protocolHeader
+    )
+  ) {
     return {
       valid: false,
-      reason: `Ignored Regular Email: Missing 'X-DontCall-Protocol: ${DCP_PROTOCOL_VERSION}' header`,
+      reason: `Ignored Regular Email: Missing 'X-ATME-Protocol: ${ATME_PROTOCOL_VERSION}' header`,
       detectedHeaders: dcpHeaders,
     };
   }
 
-  const hasMimeType = email.rawMime.includes(DCP_MIME_PACKET_TYPE);
+  const hasMimeType = ACCEPTED_ATME_MIME_TYPES.some((mime) =>
+    email.rawMime.includes(mime)
+  );
   const hasPgpBlock = Boolean(
     email.encryptedPacketArmored || parsed.encryptedPacketArmored
   );
@@ -113,16 +125,19 @@ export function isDontCallFormattedEmail(email: RawTransportEmail): {
   if (!hasMimeType || !hasPgpBlock) {
     return {
       valid: false,
-      reason: `Rejected Malformed Packet: Missing '${DCP_MIME_PACKET_TYPE}' or OpenPGP ciphertext block`,
+      reason: `Rejected Malformed Packet: Missing '${ATME_MIME_PACKET_TYPE}' or OpenPGP ciphertext block`,
       detectedHeaders: dcpHeaders,
     };
   }
 
+  const detectedPacketType =
+    mergedHeaders['X-ATME-Packet-Type'] ||
+    mergedHeaders['X-DontCall-Packet-Type'] ||
+    'chat.message';
+
   return {
     valid: true,
-    reason: `Accepted DCP/1.0 Encrypted Messaging Packet (${
-      mergedHeaders['X-DontCall-Packet-Type'] || 'chat.message'
-    })`,
+    reason: `Accepted ATME/1.0 Encrypted Messaging Packet (${detectedPacketType})`,
     detectedHeaders: dcpHeaders,
   };
 }
@@ -158,9 +173,11 @@ export async function inspectAndDecryptEmail(params: {
   const senderPublicKeyArmored =
     email.attachedPublicKeyArmored || parsedMime.attachedPublicKeyArmored;
 
-  const packetType = (gateCheck.detectedHeaders['X-DontCall-Packet-Type'] ||
+  const packetType = (gateCheck.detectedHeaders['X-ATME-Packet-Type'] ||
+    gateCheck.detectedHeaders['X-DontCall-Packet-Type'] ||
     'chat.message') as DcpPacketType;
-  const encryptionMode = (gateCheck.detectedHeaders['X-DontCall-Encryption'] ||
+  const encryptionMode = (gateCheck.detectedHeaders['X-ATME-Encryption'] ||
+    gateCheck.detectedHeaders['X-DontCall-Encryption'] ||
     'openpgp-asymmetric') as EncryptionMode;
 
   if (!encryptedArmored) {
@@ -219,7 +236,7 @@ export async function inspectAndDecryptEmail(params: {
       from: email.from,
       receivedAt: email.date,
       accepted: true,
-      reason: `DCP/1.0 Packet recognized, awaiting recipient PGP key or invite secret (${message})`,
+      reason: `ATME/1.0 Packet recognized, awaiting recipient PGP key or invite secret (${message})`,
       detectedHeaders: gateCheck.detectedHeaders,
       packetType,
       encryptionMode,

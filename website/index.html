@@ -1,1155 +1,627 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>@me — Built by Kids, for Kids · Private Messaging on Recycled Email Tech</title>
-  <meta name="description" content="@me is the end-to-end encrypted messenger built by kids, for kids. We recycled 50-year-old email technology into a zero-server private chat network with 20s sequential cascade Burner Chats, QR passes, and zero phone numbers." />
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#07090d" />
-  <link rel="icon" href="assets/favicon.png" type="image/png" />
-  <link rel="icon" href="assets/atme-icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="assets/atme-app-icon.png" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <!-- ============ NAV ============ -->
-  <header class="site-header">
-    <nav class="nav container" aria-label="Primary">
-      <a href="#top" class="brand" aria-label="@me home">
-        <img src="assets/atme-app-icon.png" alt="@me logo" width="28" height="28" />
-        <span>@me</span>
-        <span class="brand-pill">BY KIDS · FOR KIDS</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="#why-kids">Why We Built It</a></li>
-        <li><a href="#upcycled-email">Recycled Email Tech</a></li>
-        <li><a href="#burner-cascade">🔥 20s Burner Cascade</a></li>
-        <li><a href="#journey">How Invites Work</a></li>
-        <li><a href="#adoption">Youth Adoption</a></li>
-        <li><a href="#faq">FAQ</a></li>
-      </ul>
-      <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-small btn-primary">Launch App</a>
-    </nav>
-  </header>
-
-  <main id="top">
-    <!-- ============ HERO ============ -->
-    <section class="hero container">
-      <div class="hero-copy">
-        <p class="eyebrow">
-          <span class="dot" aria-hidden="true"></span>
-          Built by kids, for kids · 100% Private · Upcycled Email Protocol
-        </p>
-        <h1>Our chats shouldn’t belong to trillion-dollar adults.</h1>
-        <p class="lede">
-          <strong>@me</strong> is a private messenger built by kids, for kids. Instead of begging for a phone number or trusting another creepy corporate server, we <strong>recycled old email technology</strong> into an unstoppable, end-to-end encrypted chat network—complete with <strong>🔥 20-second sequential cascade Burner Chats</strong> that only start counting down when your friend actually reads them.
-        </p>
-        <div class="cta-row" id="hero-cta">
-          <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-primary">
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
-            Launch @me Live App
-          </a>
-          <a href="#burner-cascade" class="btn btn-burner">
-            🔥 See 20s Burner Cascade
-          </a>
-          <a href="#upcycled-email" class="btn btn-ghost">How We Recycled Email</a>
-        </div>
-        <ul class="trust-row" aria-label="Works on any email or device">
-          <li>No Phone Number Needed</li>
-          <li>Works on iPads &amp; Chromebooks</li>
-          <li>Gmail · iCloud · Proton · Outlook</li>
-          <li>Zero Central Chat Servers</li>
-        </ul>
-      </div>
-
-      <!-- Phone mockup showcasing Burner Chat & Unseen Dotted Line -->
-      <div class="hero-visual" aria-hidden="true">
-        <div class="glow"></div>
-        <div class="phone">
-          <div class="phone-notch"></div>
-          <div class="phone-screen">
-            <div class="chat-head">
-              <span class="avatar a-group">🔥</span>
-              <div class="chat-head-meta">
-                <strong>🔥 #friday-hangout</strong>
-                <small><span class="flame-dot"></span> Burner Group · 20s Cascade Locked</small>
-              </div>
-              <span class="locked-pill">🔒 20s</span>
-            </div>
-            <div class="chat-body">
-              <div class="sys-pill">🔥 Sequential Burner: 20s per message once viewed</div>
-
-              <div class="bubble in">
-                <span class="b-author">Elena Vogt · @elenavogt</span>
-                Are we still meeting at the skatepark at 4? 🛹
-              </div>
-              <div class="burn-tag active-flame">🔥 14s (burning now)</div>
-
-              <div class="unseen-dotted-divider">
-                <span>NEW UNSEEN · FADES IN 5S</span>
-              </div>
-
-              <div class="bubble in">
-                <span class="b-author">Sam Chen · @samchen</span>
-                Yeah bringing the speaker + snacks 🎮
-              </div>
-              <div class="burn-tag queued-flame">⏳ queued (20s — starts after msg #1)</div>
-
-              <div class="bubble out">
-                Bet! Don’t tell my little brother the secret code: 8492
-              </div>
-              <div class="burn-tag sender-flame">🔥 Elena (18s) • ⏳ Sam unread ✓✓</div>
-            </div>
-            <div class="chat-burn-lock-bar">
-              <span>🔥 Burner Chat (20s Cascade)</span>
-              <span class="lock-tag">🔒 Locked</span>
-            </div>
-            <div class="chat-input">
-              <span class="plus-btn">+</span>
-              <span>Message #friday-hangout…</span>
-              <span class="send">↑</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ PROOF STRIP ============ -->
-    <section class="proof container reveal" aria-label="Key facts">
-      <div><strong>Built by Kids</strong><span>Designed for how we actually talk &amp; group chat</span></div>
-      <div><strong>Recycled SMTP</strong><span>50-year-old email tech reborn as E2EE packets</span></div>
-      <div><strong>20s × N Cascade</strong><span>3 messages = 60s total, triggered only on view</span></div>
-      <div><strong>0 Servers</strong><span>Nothing to hack, sell, or hand over to data brokers</span></div>
-    </section>
-
-    <!-- ============ MANIFESTO: BUILT BY KIDS, FOR KIDS ============ -->
-    <section id="why-kids" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">The Manifesto</p>
-        <h2>Why we built our own messenger instead of using yours.</h2>
-        <p class="sub">
-          Every messaging app today was built by 40-year-old ad executives trying to monetize our attention, harvest our social graphs, or lock us into expensive phone plans. So we built <strong>@me</strong> for ourselves.
-        </p>
-      </div>
-
-      <div class="manifesto-grid">
-        <article class="manifesto-card reveal">
-          <div class="m-badge">01 · NO SIM CARD GATEKEEPING</div>
-          <h3>Not everyone has a phone plan—everyone has an email.</h3>
-          <p>
-            Whether you’re on a Wi-Fi iPad, a school laptop, an old iPhone without a SIM card, or an Android, you shouldn't need a cellular contract or give out your personal phone number just to text your friends.
-          </p>
-          <span class="m-footer-tag">✓ Instant @handle &amp; QR Code Passes</span>
-        </article>
-
-        <article class="manifesto-card reveal">
-          <div class="m-badge">02 · PRIVACY WITHOUT ADULTS SNOOPING</div>
-          <h3>Jokes shouldn’t live on a cloud server forever.</h3>
-          <p>
-            When you talk with friends in real life, your words don't get saved in a permanent corporate database to be analyzed by AI. Our <strong>🔥 Burner Chats</strong> make digital conversations work like real-life conversations again.
-          </p>
-          <span class="m-footer-tag">✓ OpenPGP Curve25519 On-Device Keys</span>
-        </article>
-
-        <article class="manifesto-card reveal">
-          <div class="m-badge">03 · NO APP STORE PERMISSION SLIPS</div>
-          <h3>Runs straight from the web in 2 taps.</h3>
-          <p>
-            No begging for Apple ID passwords, no waiting on App Store review boards, and no 30% corporate tax. Add <strong>@me</strong> straight to your home screen from Safari or Chrome with FaceID/TouchID lock built in.
-          </p>
-          <span class="m-footer-tag">✓ Zero Telemetry Progressive Web App</span>
-        </article>
-      </div>
-    </section>
-
-    <!-- ============ RECYCLING OLD EMAIL TECH ============ -->
-    <section id="upcycled-email" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">Upcycled Infrastructure</p>
-        <h2>How we recycled “boring” 1970s email into a stealth encrypted network.</h2>
-        <p class="sub">
-          Adults think email is for tax receipts, airline tickets, and spam. We realized email is actually a <strong>free, global, unstoppable packet router</strong> that every kid already has access to.
-        </p>
-      </div>
-
-      <div class="recycle-showcase reveal">
-        <div class="recycle-col old-tech">
-          <div class="r-header">
-            <span class="r-icon">📬</span>
-            <div>
-              <strong>Old-School Email (1971)</strong>
-              <small>What we started with</small>
-            </div>
-          </div>
-          <ul class="r-list">
-            <li><span>❌</span> Cluttered with Stripe receipts, GitHub alerts, and promos</li>
-            <li><span>❌</span> Plaintext messages that email providers scan</li>
-            <li><span>❌</span> Slow subject lines and formal signatures</li>
-            <li><span>✅</span> <strong>Wait—it's decentralized, free, and already on 4 billion devices!</strong></li>
-          </ul>
-        </div>
-
-        <div class="recycle-arrow" aria-hidden="true">
-          <div class="recycle-badge">♻️ DCP/1.0 ENGINE</div>
-          <div class="arrow-line">→</div>
-        </div>
-
-        <div class="recycle-col new-tech">
-          <div class="r-header">
-            <span class="r-icon">⚡</span>
-            <div>
-              <strong>@me Encrypted Chat (2026)</strong>
-              <small>What we turned it into</small>
-            </div>
-          </div>
-          <ul class="r-list">
-            <li><span>🛡️</span> <strong>Strict Inbox Gatekeeper:</strong> 100% of regular emails are ignored—only <code>application/vnd.dontcall.packet+pgp</code> enters the app.</li>
-            <li><span>🔐</span> <strong>On-Device OpenPGP:</strong> Every text, poll, reaction, and voice note is encrypted before it ever touches Gmail, Outlook, or Proton.</li>
-            <li><span>🎯</span> <strong>Centered Unseen Stream:</strong> Opens directly on your latest unseen message with a 5-second dissolving dotted line.</li>
-            <li><span>🔥</span> <strong>Zero Server Bills:</strong> Because it rides on existing email rails, @me costs $0 to run and can never be shut down.</li>
-          </ul>
-        </div>
-      </div>
-
-      <ol class="steps">
-        <li class="step reveal">
-          <span class="step-num">STEP 01</span>
-          <h3>Connect the email you already have</h3>
-          <p>Sign in with 1 click. Your browser generates non-extractable Curve25519 keys right on your device in under 250ms.</p>
-        </li>
-        <li class="step reveal">
-          <span class="step-num">STEP 02</span>
-          <h3>Encrypted packets ride over SMTP</h3>
-          <p>When you send a text, reaction, or poll, @me wraps it in a signed OpenPGP MIME envelope. To Gmail or Yahoo, it looks like random scrambled bytes.</p>
-        </li>
-        <li class="step reveal">
-          <span class="step-num">STEP 03</span>
-          <h3>Pure chat UI—zero email clutter</h3>
-          <p>Our strict filter blocks 100% of normal emails. You only see fast chat bubbles, unread badges, emoji reactions, and burner timers.</p>
-        </li>
-      </ol>
-    </section>
-
-    <!-- ============ 20s SEQUENTIAL CASCADE BURNER CHATS ============ -->
-    <section id="burner-cascade" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">🔥 Our Signature Innovation</p>
-        <h2>20-Second Sequential Cascade Burner Chats.</h2>
-        <p class="sub">
-          Other apps start deleting messages before you even finish reading the first one—or worse, start the timer when the sender hits send! We fixed disappearing messages for good.
-        </p>
-      </div>
-
-      <div class="burner-explainer-grid reveal">
-        <div class="burner-rules-col">
-          <div class="burner-rule-card">
-            <span class="br-num">1</span>
-            <div>
-              <h3>Activates ONLY when the recipient views it</h3>
-              <p>
-                When you send 3 messages to Elena, <strong>nothing burns while she’s offline</strong>. Your screen shows <code>⏳ Unread by Elena (burns 20s once viewed)</code>. The first 20-second clock only starts the exact millisecond Elena opens the chat in @me.
-              </p>
-            </div>
-          </div>
-
-          <div class="burner-rule-card">
-            <span class="br-num">2</span>
-            <div>
-              <h3>One-after-another sequential cascade (20s × N)</h3>
-              <p>
-                Have 3 messages waiting? Message #1 burns for <strong>20s</strong> while Messages #2 and #3 sit safely in queue (<code>⏳ queued (20s)</code>). Only when Message #1 deletes does Message #2 start its 20s timer. <strong>3 messages = 60 full seconds to read!</strong>
-              </p>
-            </div>
-          </div>
-
-          <div class="burner-rule-card">
-            <span class="br-num">3</span>
-            <div>
-              <h3>Independent read times in Group Chats</h3>
-              <p>
-                In group burner chats, every friend gets their own personal 20s cascade! If Elena opens the group at 4:00 PM, her copy burns in 60 seconds. If Sam opens the group at 4:30 PM, all 3 messages are still waiting for him and run his own 60-second cascade. And on the sender's screen, the message only vanishes once <strong>every</strong> group member has finished burning it!
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Interactive Live Cascade Simulator -->
-        <div class="burner-sim-card" id="cascade-simulator">
-          <div class="sim-top-bar">
-            <div class="sim-title">
-              <span class="flame-pulse">🔥</span>
-              <strong>Interactive 20s Cascade Simulator</strong>
-            </div>
-            <div class="sim-controls" role="tablist" aria-label="Perspective">
-              <button type="button" class="sim-mode-btn is-active" data-sim-mode="sender" role="tab" aria-selected="true">
-                Sender (Alex)
-              </button>
-              <button type="button" class="sim-mode-btn" data-sim-mode="elena" role="tab" aria-selected="false">
-                Recipient 1 (Elena)
-              </button>
-              <button type="button" class="sim-mode-btn" data-sim-mode="sam" role="tab" aria-selected="false">
-                Recipient 2 (Sam)
-              </button>
-            </div>
-          </div>
-
-          <div class="sim-stage" id="sim-stage-messages">
-            <!-- Populated and updated by interactive script -->
-          </div>
-
-          <div class="sim-footer">
-            <div class="sim-timeline-status" id="sim-status-text">
-              State: Alex just sent 3 messages to #friday-hangout. Neither Elena nor Sam has viewed yet.
-            </div>
-            <div class="sim-action-btns">
-              <button type="button" class="btn btn-small btn-burner" id="sim-btn-elena-view">
-                👁 Simulate Elena Viewing Now
-              </button>
-              <button type="button" class="btn btn-small btn-ghost" id="sim-btn-sam-view">
-                👁 Simulate Sam Viewing Later
-              </button>
-              <button type="button" class="btn btn-small btn-ghost" id="sim-btn-reset">
-                ↺ Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ FIRST-CONTACT CUSTOMER JOURNEY ============ -->
-    <section id="journey" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">Zero-Friction Invites</p>
-        <h2>What happens when you text a friend who doesn’t have @me yet?</h2>
-        <p class="sub">You don’t have to beg them to download an app first. Just message their regular email address—here is what happens next.</p>
-      </div>
-
-      <div class="journey-card reveal">
-        <nav class="journey-stepper" aria-label="Customer Journey Steps" role="tablist">
-          <button type="button" class="journey-step-btn is-active" role="tab" aria-selected="true" data-step="1" id="tab-1" aria-controls="pane-1">
-            <span class="j-num">01</span>
-            <span class="j-text">
-              <strong>Sealed Invite</strong>
-              <small>Lands in their inbox</small>
-            </span>
-          </button>
-          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="2" id="tab-2" aria-controls="pane-2">
-            <span class="j-num">02</span>
-            <span class="j-text">
-              <strong>1-Tap Keygen</strong>
-              <small>240ms in browser</small>
-            </span>
-          </button>
-          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="3" id="tab-3" aria-controls="pane-3">
-            <span class="j-num">03</span>
-            <span class="j-text">
-              <strong>Cascade Starts</strong>
-              <small>20s burn on view</small>
-            </span>
-          </button>
-          <button type="button" class="journey-step-btn" role="tab" aria-selected="false" data-step="4" id="tab-4" aria-controls="pane-4">
-            <span class="j-num">04</span>
-            <span class="j-text">
-              <strong>Instant Reply</strong>
-              <small>Full E2EE squad</small>
-            </span>
-          </button>
-        </nav>
-
-        <div class="journey-display">
-          <!-- STAGE 1 -->
-          <div class="journey-stage-pane is-active" id="pane-1" role="tabpanel" aria-labelledby="tab-1">
-            <div class="mockup-window">
-              <div class="mockup-header">
-                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
-                <span class="mockup-title">Inbox — 1 sealed @me burner invite from Alex</span>
-              </div>
-              <div class="mockup-body gmail-layout">
-                <div class="gmail-meta-bar">
-                  <div class="gmail-sender">
-                    <span class="avatar-mini a-alex">AR</span>
-                    <div>
-                      <strong>Alex Rivera (@alexrivera)</strong> <small>via @me Encrypted Bridge</small>
-                      <div class="gmail-to">to <span>jordan.taylor@yahoo.com</span></div>
-                    </div>
-                  </div>
-                  <div class="gmail-time">3:45 PM</div>
-                </div>
-
-                <div class="gmail-subject-row">
-                  <span class="security-badge-lock">🔒 DCP/1.0 Ephemeral Invite Packet</span>
-                  <h3>Alex sent you a 🔥 Burner Message on @me</h3>
-                </div>
-
-                <div class="invite-email-card">
-                  <div class="invite-card-top">
-                    <img src="assets/atme-app-icon.png" alt="@me" width="36" height="36" class="invite-icon" />
-                    <div>
-                      <h4>Sealed 20s Burner Message Waiting</h4>
-                      <p>Timer will NOT start until you open &amp; view it inside @me</p>
-                    </div>
-                  </div>
-                  <div class="invite-sealed-box">
-                    <div class="sealed-lock-icon">🔥</div>
-                    <div class="sealed-text">
-                      <strong>-----BEGIN PGP MESSAGE-----</strong>
-                      <p>Cleartext is never included in the email fallback. Only your browser can unlock this message using the ephemeral invite key.</p>
-                      <div class="burn-preview-pill">⏳ Waiting for Jordan to view (20s Cascade)</div>
-                    </div>
-                  </div>
-                  <div class="invite-action-row">
-                    <button type="button" class="btn btn-primary j-next-btn" data-target-step="2">
-                      Tap to Unlock in Browser →
-                    </button>
-                    <span class="invite-hint">No App Store download · No phone number · Opens instantly</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="journey-explainer">
-              <h4>Step 1: Text Any Friend’s Email</h4>
-              <p>Even if Jordan doesn’t have @me yet, Alex can start a regular or Burner Chat using Jordan’s email. The message is encrypted on Alex’s device with a first-contact invite key—zero cleartext ever leaks into the email body.</p>
-            </div>
-          </div>
-
-          <!-- STAGE 2 -->
-          <div class="journey-stage-pane" id="pane-2" role="tabpanel" aria-labelledby="tab-2">
-            <div class="mockup-window">
-              <div class="mockup-header">
-                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
-                <span class="mockup-title">app.atme.chat — On-Device Key Generation</span>
-              </div>
-              <div class="mockup-body oauth-layout">
-                <div class="oauth-box">
-                  <div class="oauth-brand-row">
-                    <span>⚡ Instant Web Onboarding · PKCE S256</span>
-                  </div>
-                  <h3>Welcome to @me, Jordan</h3>
-                  <div class="oauth-account-pill">
-                    <span class="avatar-mini a-maya">JT</span>
-                    <div>
-                      <strong>Jordan Taylor</strong>
-                      <small>@jordantaylor · jordan.taylor@yahoo.com</small>
-                    </div>
-                    <span class="check-green">✓</span>
-                  </div>
-
-                  <div class="keygen-terminal">
-                    <div class="terminal-line"><span class="t-green">✔</span> OAuth2 PKCE challenge verified locally</div>
-                    <div class="terminal-line"><span class="t-green">✔</span> Generating OpenPGP Curve25519 keypair on device...</div>
-                    <div class="terminal-line"><span class="t-green">✔</span> Strict Inbox Filter active (ignoring all regular emails)</div>
-                    <div class="terminal-line"><span class="t-blue">ℹ</span> 0 servers used · Keys sealed in local IndexedDB</div>
-                  </div>
-
-                  <button type="button" class="btn btn-primary j-next-btn" data-target-step="3">
-                    View Alex’s Burner Messages →
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="journey-explainer">
-              <h4>Step 2: Keys Created on Jordan’s Device in 240ms</h4>
-              <p>Jordan taps once. Her device creates her own OpenPGP encryption keys locally in WebCrypto. @me automatically filters out her normal school and promo emails so she only sees her chats.</p>
-            </div>
-          </div>
-
-          <!-- STAGE 3 -->
-          <div class="journey-stage-pane" id="pane-3" role="tabpanel" aria-labelledby="tab-3">
-            <div class="mockup-window">
-              <div class="mockup-header">
-                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
-                <span class="mockup-title">@me — 🔥 Alex Rivera (Burner Chat Active)</span>
-              </div>
-              <div class="mockup-body chat-layout">
-                <div class="chat-header-bar">
-                  <div class="chat-peer-info">
-                    <span class="avatar-mini a-alex">AR</span>
-                    <div>
-                      <strong>🔥 Alex Rivera</strong> <span class="pgp-badge">✓ Verified</span>
-                      <small>@alexrivera · 20s Sequential Cascade</small>
-                    </div>
-                  </div>
-                  <div class="chat-actions-mini">
-                    <span class="burn-status-badge">🔒 Locked (20s)</span>
-                  </div>
-                </div>
-
-                <div class="chat-messages-scroll">
-                  <div class="sys-notice">🔥 Viewing activated the 20s sequential cascade!</div>
-                  <div class="msg-row incoming">
-                    <div class="msg-bubble incoming">
-                      <p>Yo Jordan! Secret link to the private Minecraft server: play.atme.gg</p>
-                      <div class="msg-footer-info">
-                        <span class="burn-status-badge">🔥 19s</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="msg-row incoming">
-                    <div class="msg-bubble incoming">
-                      <p>Passcode is 9941 — don't screenshot 😂</p>
-                      <div class="msg-footer-info">
-                        <span>⏳ queued (20s — starts after msg #1 deletes)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="chat-reply-bar-demo">
-                  <button type="button" class="btn btn-primary j-next-btn" data-target-step="4">
-                    Send Encrypted Reply →
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="journey-explainer">
-              <h4>Step 3: Viewing Starts the Sequential Cascade</h4>
-              <p>Because Jordan is now viewing the chat in the app, Message #1 starts its 20-second burn while Message #2 waits in the queue. Jordan gets a full 40 seconds to read both messages without panic.</p>
-            </div>
-          </div>
-
-          <!-- STAGE 4 -->
-          <div class="journey-stage-pane" id="pane-4" role="tabpanel" aria-labelledby="tab-4">
-            <div class="mockup-window">
-              <div class="mockup-header">
-                <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
-                <span class="mockup-title">@me — Encrypted Reply Sent over Email</span>
-              </div>
-              <div class="mockup-body chat-layout">
-                <div class="chat-header-bar">
-                  <div class="chat-peer-info">
-                    <span class="avatar-mini a-alex">AR</span>
-                    <div>
-                      <strong>🔥 Alex Rivera</strong> <span class="pgp-badge">✓ Verified</span>
-                      <small>@alexrivera · Burner Chat</small>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="chat-messages-scroll">
-                  <div class="sys-notice">💨 Message #1 burned after 20s · Message #2 now active</div>
-                  <div class="msg-row incoming">
-                    <div class="msg-bubble incoming">
-                      <p>Passcode is 9941 — don't screenshot 😂</p>
-                      <div class="msg-footer-info">
-                        <span class="burn-status-badge">🔥 18s</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="msg-row outgoing animate-send">
-                    <div class="msg-bubble outgoing">
-                      <p>Joined!! This burner cascade is actually sick 🔥</p>
-                      <div class="msg-footer-info">
-                        <span>⏳ Unread by Alex (burns 20s once viewed) ✓</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="journey-complete-row">
-                  <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-primary">
-                    Try It Live in the App →
-                  </a>
-                  <button type="button" class="btn btn-ghost j-next-btn" data-target-step="1">
-                    ↺ Replay
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="journey-explainer">
-              <h4>Step 4: Full Squad Privacy</h4>
-              <p>Jordan’s reply automatically bundles her new public key and @handle card back to Alex. From now on, every DM, group chat, reaction, and burner thread between them is 100% end-to-end encrypted.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ FEATURES BUILT FOR HOW WE CHAT ============ -->
-    <section id="features" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">Built Different</p>
-        <h2>Packed with features we actually wanted in our group chats.</h2>
-      </div>
-      <div class="feature-grid">
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">🔥</div>
-          <h3>Permanent Burner Chats</h3>
-          <p>Start a dedicated Burner DM or Burner Group from the Friends list or <code>+</code> menu. Locked at 20s sequential cascade—cannot be turned off.</p>
-          <span class="f-tag">Recipient-Only Trigger</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">🎯</div>
-          <h3>Centered Unseen Focus</h3>
-          <p>Chats open centered right on the first unseen message with a subtle dotted line that dissolves in 5 seconds—never lose your place in a busy group.</p>
-          <span class="f-tag">Smart Viewport Scroll</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">🧨</div>
-          <h3>Remote Key Shredding</h3>
-          <p>Done with a thread? Hit Shred. Both apps cryptographically destroy the thread wrapping key, wipe local storage, and return a signed shred receipt.</p>
-          <span class="f-tag">Cryptographic Erasure</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">🕵️</div>
-          <h3>Duress PIN &amp; FaceID</h3>
-          <p>Someone forcing you to unlock your phone? Enter your Duress PIN—it looks like a normal unlock while silently wiping sensitive threads first.</p>
-          <span class="f-tag">Anti-Snooping Shield</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">🕶</div>
-          <h3>Shielded Burner Aliases</h3>
-          <p>Trading items, joining a server, or texting someone new? Generate a 1-tap disposable alias that hides your real email and revokes anytime.</p>
-          <span class="f-tag">Zero Identity Leak</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">📊</div>
-          <h3>Encrypted Group Polls &amp; Reactions</h3>
-          <p>Tap any bubble for quick emoji reactions or drop an encrypted group poll to vote on Friday plans without any server tracking votes.</p>
-          <span class="f-tag">Full Group Squads</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">📱</div>
-          <h3>@handle QR Passes</h3>
-          <p>Add friends at school or skateparks by flashing your in-app QR code—exchanges verified PGP fingerprints on the spot.</p>
-          <span class="f-tag">In-Person Verification</span>
-        </article>
-        <article class="feature reveal">
-          <div class="f-ico" aria-hidden="true">📌</div>
-          <h3>Saved Notes Vault (@me)</h3>
-          <p>Your personal end-to-end encrypted locker for codes, links, homework notes, and voice memos synced through your own inbox.</p>
-          <span class="f-tag">Self-Encrypted Vault</span>
-        </article>
-      </div>
-    </section>
-
-    <!-- ============ SECURITY / COMPARE ============ -->
-    <section id="security" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">Receipts</p>
-        <h2>How @me stacks up against adult messengers.</h2>
-        <p class="sub">When there’s no central server, there’s no database to breach and no company selling your metadata.</p>
-      </div>
-
-      <div class="table-wrap reveal">
-        <table class="compare">
-          <caption class="sr-only">Comparison of @me with Snapchat, iMessage, Discord, and Signal</caption>
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col" class="us">@me</th>
-              <th scope="col">Snapchat</th>
-              <th scope="col">iMessage</th>
-              <th scope="col">Discord</th>
-              <th scope="col">Signal</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">Built by kids, for kids</th>
-              <td class="us yes">Yes</td>
-              <td class="no">Ad Corp</td>
-              <td class="no">Big Tech</td>
-              <td class="no">VC Corp</td>
-              <td class="no">Nonprofit</td>
-            </tr>
-            <tr>
-              <th scope="row">Works without a Phone Number / SIM</th>
-              <td class="us yes">Yes (Any Email)</td>
-              <td class="yes">Yes</td>
-              <td class="yes">Apple ID</td>
-              <td class="yes">Yes</td>
-              <td class="no">Phone # Required</td>
-            </tr>
-            <tr>
-              <th scope="row">Default End-to-End Encrypted</th>
-              <td class="us yes">100% Always</td>
-              <td class="no">Text not E2EE</td>
-              <td class="yes">Yes</td>
-              <td class="no">No (Server reads all)</td>
-              <td class="yes">Yes</td>
-            </tr>
-            <tr>
-              <th scope="row">20s Sequential Cascade Burner (1-by-1)</th>
-              <td class="us yes">Yes (Recipient-activated)</td>
-              <td class="no">Deletes all at once</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-              <td class="no">Burns simultaneously</td>
-            </tr>
-            <tr>
-              <th scope="row">Central Company Chat Servers</th>
-              <td class="us yes">Zero (Recycled Email)</td>
-              <td class="no">Yes (Ad profiling)</td>
-              <td class="no">Yes (Apple Cloud)</td>
-              <td class="no">Yes (Permanent logs)</td>
-              <td class="no">Yes (Central AWS)</td>
-            </tr>
-            <tr>
-              <th scope="row">Works on Android + iOS + Chromebook</th>
-              <td class="us yes">Yes (Instant Web PWA)</td>
-              <td class="no">Mobile app required</td>
-              <td class="no">Apple only</td>
-              <td class="yes">Yes</td>
-              <td class="no">Phone required first</td>
-            </tr>
-            <tr>
-              <th scope="row">Remote Key Shred + Duress PIN</th>
-              <td class="us yes">Built-in</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ============ YOUTH ADOPTION ANALYSIS & GROWTH BLUEPRINT ============ -->
-    <section id="adoption" class="section container">
-      <div class="section-head reveal">
-        <p class="eyebrow">Strategy &amp; Outlook</p>
-        <h2>Youth Adoption Forecast &amp; How We Win the Next Generation</h2>
-        <p class="sub">
-          An honest assessment of why Gen Z &amp; Gen Alpha will adopt <strong>@me</strong>, the friction points we face, and the high-leverage moves that turn this into a viral movement.
-        </p>
-      </div>
-
-      <!-- Score Banner -->
-      <div class="adoption-score-banner reveal">
-        <div class="score-dial">
-          <span class="score-num">7.8<small>/10</small></span>
-          <span class="score-label">Organic Youth Adoption Potential</span>
-        </div>
-        <div class="score-summary">
-          <h3>Why the timing is electric—and what unlocks 9.5/10 viral velocity</h3>
-          <p>
-            Young users are experiencing intense <strong>“permanent record fatigue”</strong>—every screenshot, Discord log, and group chat feels archived forever. Positioning <strong>@me</strong> as <em>“built by kids, for kids”</em> + <em>“upcycling old email to outsmart adult tech platforms”</em> hits a massive cultural nerve, especially with the <strong>🔥 20s Sequential Cascade Burner</strong> and <strong>no-SIM-card access</strong> on iPads and Chromebooks.
-          </p>
-        </div>
-      </div>
-
-      <!-- Drivers vs Friction -->
-      <div class="adoption-two-col reveal">
-        <div class="adopt-box drivers">
-          <h3>🚀 Top 5 Adoption Tailwinds (Why Kids Will Switch)</h3>
-          <ul>
-            <li>
-              <strong>1. The “No Phone Plan / Chromebook” Superpower:</strong> Millions of kids ages 10–16 have school/personal emails and Wi-Fi devices (iPads, Chromebooks, Wi-Fi phones) before they get a cellular number or App Store install permissions. @me works immediately in the browser.
-            </li>
-            <li>
-              <strong>2. Burner Cascades That Actually Make Sense:</strong> Snapchat and Signal burn all messages simultaneously when opened, making multi-message stories impossible to read in time. Our <strong>20s × N sequential cascade</strong> (activated only on recipient view, per user in groups) solves a real daily annoyance.
-            </li>
-            <li>
-              <strong>3. The “Upcycled Tech” Rebel Identity:</strong> Gen Z and Gen Alpha love thrifting, upcycling, retro hardware, and clever hacks. Turning “boomer email” into a stealth encrypted underground messenger feels subversive and cool.
-            </li>
-            <li>
-              <strong>4. Cross-Ecosystem Bridge (Ending Green Bubble Shaming):</strong> Gives iPhone, Android, and Chromebook friends a shared dark-mode iMessage-grade home with reactions, polls, and burner groups.
-            </li>
-            <li>
-              <strong>5. Duress PIN &amp; Anti-Snooping Control:</strong> Word-of-mouth spreads fast in schools when an app has a secret Duress PIN and 1-tap Remote Key Shredding.
-            </li>
-          </ul>
-        </div>
-
-        <div class="adopt-box friction">
-          <h3>⚠️ Top 4 Adoption Hurdles (What Could Slow Us Down)</h3>
-          <ul>
-            <li>
-              <strong>1. Network Effect Gravity:</strong> Messaging is only fun if your friends are already there. A solo user has nobody to burner-chat with on Day 1.
-            </li>
-            <li>
-              <strong>2. “Email Sounds Like Homework”:</strong> If the onboarding feels like setting up an email client (SMTP/IMAP jargon), teens will bounce in 5 seconds. The email layer must stay 100% invisible behind <code>@handles</code> and QR codes.
-            </li>
-            <li>
-              <strong>3. School Email Firewalls:</strong> Many <code>.edu</code> or K-12 school Google accounts block external senders. Kids need a 1-tap way to link personal Gmail/iCloud/Proton addresses.
-            </li>
-            <li>
-              <strong>4. Instant Gratification vs. Polling Delay:</strong> Youth expect sub-second typing indicators and instant push notifications.
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- 6 Ways to Maximize Youth Adoption -->
-      <div class="section-head reveal" style="margin-top: 64px; margin-bottom: 32px;">
-        <p class="eyebrow">Actionable Playbook</p>
-        <h3>6 High-Impact Ways to Skyrocket Adoption Among Younger Generations</h3>
-      </div>
-
-      <div class="playbook-grid">
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">HIGHEST IMPACT · VIRAL LOOP</span>
-            <h4>1. “Secret Burner Drop” Share Links</h4>
-          </div>
-          <p>
-            Let users post a <strong>1-Time Burner Link</strong> on their Instagram Story, TikTok bio, or Snapchat: <em>“Drop me a 20s burner message on @me 🔥”</em>. Clicking opens @me in-browser and drops them straight into a 20s cascade chat—turning existing social media into our top acquisition funnel.
-          </p>
-          <span class="pb-metric">+3.4× Viral K-Factor</span>
-        </article>
-
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">SCHOOLYARD NETWORK EFFECT</span>
-            <h4>2. Lunch-Table QR Squad Spawning</h4>
-          </div>
-          <p>
-            Make creating a <strong>🔥 Burner Group</strong> in person take 3 seconds: one kid taps “Host Squad QR” and 5 friends scan the screen at the lunch table to join `#friday-hangout` simultaneously with auto-exchanged PGP keys.
-          </p>
-          <span class="pb-metric">Instant 5–8 Person Pods</span>
-        </article>
-
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">GAMIFICATION &amp; AESTHETICS</span>
-            <h4>3. Custom Flame Themes &amp; Burn Streaks</h4>
-          </div>
-          <p>
-            Give kids collectible visual flair that stays 100% local and private: neon blue/violet/emerald burner flames, custom bubble shaders, and encrypted <strong>🔥 Burn Counters</strong> (e.g., <em>“1,420 messages vanished into thin air”</em>) that reward privacy instead of surveillance.
-          </p>
-          <span class="pb-metric">+45% Daily Retention</span>
-        </article>
-
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">ZERO-JARGON ONBOARDING</span>
-            <h4>4. Hide All Crypto &amp; Email Jargon by Default</h4>
-          </div>
-          <p>
-            Lead with <strong>@handles</strong>, avatars, and 1-tap “Sign in with Google / Apple”. Keep the OpenPGP / RFC 5322 MIME inspector tucked inside a toggleable <strong>“Hacker Mode / Under the Hood”</strong> tab so curious teen coders can flex it while casual users just text.
-          </p>
-          <span class="pb-metric">-60% Onboarding Drop-Off</span>
-        </article>
-
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">CREATOR &amp; GAMING SEEDING</span>
-            <h4>5. Seed via Gaming Squads &amp; Youth Builders</h4>
-          </div>
-          <p>
-            Partner with teen Roblox/Minecraft/Valorant creators and high-school coding clubs (Hack Club). Position @me as the official <strong>“off-the-record squadcomms”</strong> where server codes and voice notes self-destruct 20s after each teammate reads them.
-          </p>
-          <span class="pb-metric">High-Trust Early Adopters</span>
-        </article>
-
-        <article class="playbook-card reveal">
-          <div class="pb-top">
-            <span class="pb-impact">ECO + REBEL STORYTELLING</span>
-            <h4>6. Lean Hard into “Digital Upcycling”</h4>
-          </div>
-          <p>
-            Run short-form TikTok/Reels demos showing side-by-side: <em>“What Gmail sees (scrambled PGP gibberish) vs. What @me sees (20s cascading burner chat).”</em> Seeing how old email tech is hijacked for total privacy is an instant shareable “Wait, how is that possible?!” moment.
-          </p>
-          <span class="pb-metric">Organic Short-Form Virality</span>
-        </article>
-      </div>
-    </section>
-
-    <!-- ============ FAQ ============ -->
-    <section id="faq" class="section container narrow">
-      <div class="section-head reveal">
-        <p class="eyebrow">FAQ</p>
-        <h2>Everything you’re wondering, answered straight.</h2>
-      </div>
-      <div class="faq">
-        <details name="faq" class="reveal" open>
-          <summary>How does the 20-second sequential cascade work in Burner Chats?</summary>
-          <p>When you send messages in a 🔥 Burner Chat, the timer does <strong>not</strong> start when you press send. It only activates when the receiving user actually opens and views the message in the app. Once viewed, Message #1 counts down for 20 seconds and deletes, which immediately triggers Message #2’s 20-second timer, and so on (3 messages = 60 seconds total). In group chats, every member has their own independent cascade based on when they personally view the chat!</p>
-        </details>
-        <details name="faq" class="reveal">
-          <summary>Wait—if it uses email, will my normal inbox get spammed?</summary>
-          <p>Zero clutter. @me uses a strict cryptographic packet gatekeeper that ignores 100% of regular emails (school updates, receipts, newsletters) and files encrypted <code>DCP/1.0</code> packets out of sight. Inside @me, you only ever see your friends and group chats.</p>
-        </details>
-        <details name="faq" class="reveal">
-          <summary>Can Google, Yahoo, my school, or @me read my messages?</summary>
-          <p>No. Every message, poll, reaction, and attachment is encrypted on your device using OpenPGP (Curve25519) before it ever leaves your screen. Email providers only transport scrambled ciphertext they have no key to unlock, and @me runs zero servers of its own.</p>
-        </details>
-        <details name="faq" class="reveal">
-          <summary>Why is “recycling old email technology” better than building a new server?</summary>
-          <p>Every startup chat app eventually runs out of server money, starts showing ads, sells user data, or gets blocked on school/home Wi-Fi. Because email is a 50-year-old universal protocol already allowed on every device on Earth, recycling it gives us an indestructible global network for $0.</p>
-        </details>
-        <details name="faq" class="reveal">
-          <summary>Can someone turn off the burner timer in a Burner Chat?</summary>
-          <p>No. A Burner Chat must be created from the start as a Burner Chat (via the 🔥 icon in Friends, Groups, or the <code>+</code> menu) and is permanently locked to the 20-second sequential cascade for everyone in that chat.</p>
-        </details>
-      </div>
-    </section>
-
-    <!-- ============ WEB INSTALL & LAUNCH SECTION ============ -->
-    <section id="install" class="download container reveal">
-      <img src="assets/atme-app-icon.png" alt="@me App Icon" width="80" height="80" class="dl-icon" />
-      <h2>Built by kids. Free forever. Launch right in your browser.</h2>
-      <p class="sub">No phone number. No App Store gatekeepers. No servers reading your chats.</p>
-
-      <div class="launch-cta-box">
-        <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener" class="btn btn-large btn-primary">
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6zm11-3v8h-2V5.414l-7.293 7.293-1.414-1.414L17.586 4H13V2h8a1 1 0 0 1 1 1z"/></svg>
-          Launch @me Live App (localhost:5173)
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#07090d" />
+    <title>@me (ATME/1.0) — Branch Your Squad Messenger with AI</title>
+    <meta
+      name="description"
+      content="Don't just download a chat app. Branch @me with AI for your 5 best friends. Powered by recycled 1982 email tech (SMTP/IMAP + OpenPGP) and the ATME/1.0 open protocol."
+    />
+    <link rel="icon" type="image/svg+xml" href="../public/favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Primary">
+        <a class="brand" href="#top">
+          <img
+            src="../public/favicon.svg"
+            alt="@me logo"
+            width="32"
+            height="32"
+          />
+          <span>@me</span>
+          <span class="brand-pill">ATME/1.0</span>
         </a>
-        <span class="launch-hint">Works on iPhone, Android, iPad, Mac, Windows &amp; Chromebooks</span>
-      </div>
-
-      <div class="install-guides-grid">
-        <div class="install-card">
-          <div class="install-platform-badge">
-            <span>📱 iPhone &amp; iPad</span>
-          </div>
-          <h4>Add to Home Screen</h4>
-          <ol>
-            <li>Open in <strong>Safari</strong></li>
-            <li>Tap <strong>Share</strong> (□↑)</li>
-            <li>Tap <strong>Add to Home Screen</strong></li>
-          </ol>
-          <span class="pwa-tag">✓ Fullscreen · FaceID Lock · Zero Store Tracking</span>
-        </div>
-
-        <div class="install-card">
-          <div class="install-platform-badge">
-            <span>🤖 Android</span>
-          </div>
-          <h4>1-Tap Web Install</h4>
-          <ol>
-            <li>Open in <strong>Chrome or Brave</strong></li>
-            <li>Tap <strong>Install App</strong></li>
-            <li>Or Menu (⋮) → <strong>Add to Home Screen</strong></li>
-          </ol>
-          <span class="pwa-tag">✓ Native App Drawer Icon · Biometric Lock</span>
-        </div>
-
-        <div class="install-card">
-          <div class="install-platform-badge">
-            <span>💻 Chromebook, Mac &amp; PC</span>
-          </div>
-          <h4>Standalone Desktop App</h4>
-          <ol>
-            <li>Click the <strong>Install</strong> icon in the URL bar</li>
-            <li>Or on macOS Safari: File → <strong>Add to Dock</strong></li>
-          </ol>
-          <span class="pwa-tag">✓ Split-Pane Desktop Layout · Fast Shortcuts</span>
-        </div>
-      </div>
-
-      <p class="fine">Built by kids, for kids · Powered by upcycled email (DCP/1.0) &amp; on-device OpenPGP</p>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <a href="#top" class="brand">
-        <img src="assets/atme-app-icon.png" alt="" width="24" height="24" />
-        <span>@me</span>
-      </a>
-      <nav aria-label="Footer">
-        <a href="#why-kids">Manifesto</a>
-        <a href="#upcycled-email">Recycled Email</a>
-        <a href="#burner-cascade">20s Burner</a>
-        <a href="#adoption">Adoption Strategy</a>
-        <a href="#faq">FAQ</a>
-        <a href="http://127.0.0.1:5173/" target="_blank" rel="noopener">Open App</a>
+        <ul class="nav-links">
+          <li><a href="#micro-groups">5-Friend Science</a></li>
+          <li><a href="#branches">🌿 Squad Branches</a></li>
+          <li><a href="#git-ai">🤖 Git + AI Flow</a></li>
+          <li><a href="#stack">🧰 $0 Stack</a></li>
+          <li><a href="#protocol">⚡ ATME/1.0</a></li>
+        </ul>
+        <a class="btn btn-small btn-primary" href="../index.html">Launch @me →</a>
       </nav>
-      <p>© 2026 @me · Built by kids, for kids on open protocols.</p>
-    </div>
-  </footer>
+    </header>
 
-  <!-- ============ Interactive Scripts (Journey + Live 20s Cascade Simulator) ============ -->
-  <script>
-    (function() {
-      // 1. Customer Journey Stepper
-      const stepButtons = document.querySelectorAll('.journey-step-btn');
-      const stagePanes = document.querySelectorAll('.journey-stage-pane');
-      const nextButtons = document.querySelectorAll('.j-next-btn');
+    <main id="top">
+      <!-- =================================================================
+           1. HERO: INFOGRAPHIC PIPELINE + LIVE SQUAD BRANCH PREVIEW
+           ================================================================= -->
+      <section class="hero container">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="dot" aria-hidden="true"></span>
+            AI-CODING SCAFFOLD &bull; RECYCLED EMAIL TECH &bull; ATME/1.0
+          </p>
+          <h1>
+            Don’t just download a chat app.<br />
+            <span class="grad-accent">Branch yours with AI.</span>
+          </h1>
+          <p class="lede">
+            Built for <strong>3–5 best friends</strong> &amp; <strong>15-person squads</strong>.
+            Fork the <code>@me</code> blueprint, tell AI what feature your friend group wants,
+            and run your own encrypted messenger on recycled email for <strong>$0/mo</strong>.
+          </p>
 
-      function goToStep(stepNum) {
-        stepButtons.forEach(btn => {
-          const isActive = btn.getAttribute('data-step') === String(stepNum);
-          btn.classList.toggle('is-active', isActive);
-          btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-        stagePanes.forEach(pane => {
-          const isTarget = pane.id === 'pane-' + stepNum;
-          pane.classList.toggle('is-active', isTarget);
-        });
-      }
+          <!-- Visual 3-Step Icon Flow -->
+          <div class="hero-flow-strip" aria-label="3 steps to build your branch">
+            <div class="flow-step">
+              <span class="flow-icon" aria-hidden="true">🌿</span>
+              <strong>1. Branch</strong>
+              <small><code>git checkout -b squad</code></small>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-step">
+              <span class="flow-icon" aria-hidden="true">🤖</span>
+              <strong>2. Prompt AI</strong>
+              <small>“Add a pixel duel mod”</small>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-step">
+              <span class="flow-icon" aria-hidden="true">📲</span>
+              <strong>3. QR Share</strong>
+              <small>Live for your 5 friends</small>
+            </div>
+          </div>
 
-      stepButtons.forEach(btn => {
-        btn.addEventListener('click', () => goToStep(btn.getAttribute('data-step')));
-      });
-      nextButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          goToStep(btn.getAttribute('data-target-step'));
-        });
-      });
+          <div class="cta-row">
+            <a class="btn btn-primary" href="../index.html">
+              Launch @me Live Demo
+            </a>
+            <a class="btn btn-burner" href="#branches">
+              🌿 Explore Squad Branches
+            </a>
+            <a class="btn btn-ghost" href="#git-ai">
+              🤖 How to AI Code It
+            </a>
+          </div>
 
-      // 2. Interactive 20s Sequential Cascade Simulator
-      const simStage = document.getElementById('sim-stage-messages');
-      const simStatusText = document.getElementById('sim-status-text');
-      const modeBtns = document.querySelectorAll('.sim-mode-btn');
-      const btnElenaView = document.getElementById('sim-btn-elena-view');
-      const btnSamView = document.getElementById('sim-btn-sam-view');
-      const btnReset = document.getElementById('sim-btn-reset');
+          <ul class="trust-row" aria-label="Core specs">
+            <li>✉️ Recycled 1982 Email</li>
+            <li>🔒 OpenPGP E2EE</li>
+            <li>🔥 20s Burners</li>
+            <li>🪙 Honor IOUs</li>
+            <li>📡 99-Cap Channels</li>
+          </ul>
+        </div>
 
-      const MESSAGES = [
-        { id: 'm1', text: 'Burner #1: Secret roof hangout after 5pm 🛹' },
-        { id: 'm2', text: 'Burner #2: Gate code is 4812 — don’t share!' },
-        { id: 'm3', text: 'Burner #3: Bring extra controllers 🎮' }
-      ];
+        <!-- Phone Mockup with Branch Badge -->
+        <div class="hero-visual" aria-label="Interactive branch preview">
+          <div class="glow" aria-hidden="true"></div>
+          <div class="phone">
+            <div class="phone-notch" aria-hidden="true"></div>
+            <div class="phone-screen">
+              <div class="chat-head">
+                <div class="avatar a-group" aria-hidden="true">🕹️</div>
+                <div class="chat-head-meta">
+                  <strong>#friday-hangout (4)</strong>
+                  <small><span class="flame-dot"></span> ATME/1.0 &bull; @me/arcade-squad</small>
+                </div>
+                <span class="locked-pill">🌿 Mod</span>
+              </div>
 
-      let currentMode = 'sender'; // 'sender' | 'elena' | 'sam'
-      let elenaViewedAt = null;
-      let samViewedAt = null;
+              <div class="chat-body">
+                <div class="sys-pill">
+                  🌿 Branch: <strong>@me/arcade-squad</strong> &bull; 4 Friends
+                </div>
 
-      function computeSingleCascade(viewedAt, now) {
-        if (!viewedAt) {
-          return MESSAGES.map((m) => ({
-            ...m,
-            isViewed: false,
-            isActive: false,
-            isQueued: false,
-            isExpired: false,
-            remaining: 20
-          }));
-        }
-        let prevExpire = 0;
-        return MESSAGES.map((m) => {
-          const start = Math.max(viewedAt, prevExpire);
-          const expire = start + 20000;
-          prevExpire = expire;
-          const isExpired = now >= expire;
-          const isActive = now >= start && now < expire;
-          const isQueued = now < start;
-          const remaining = isExpired ? 0 : isActive ? Math.max(1, Math.ceil((expire - now) / 1000)) : 20;
-          return { ...m, isViewed: true, isActive, isQueued, isExpired, remaining };
-        });
-      }
+                <div class="bubble in">
+                  <span class="b-author">Elena</span>
+                  I prompted AI to add a 1v1 Pixel Duel mod to our branch 🎮
+                </div>
 
-      function renderSimulation() {
-        if (!simStage) return;
-        const now = Date.now();
-        const elenaCascade = computeSingleCascade(elenaViewedAt, now);
-        const samCascade = computeSingleCascade(samViewedAt, now);
+                <div class="mod-widget-preview">
+                  <div class="mod-widget-top">
+                    <span>🕹️ PIXEL DUEL MOD</span>
+                    <code>ATME/1.0</code>
+                  </div>
+                  <strong>Elena challenged Alex &bull; 1 IOU Wager</strong>
+                  <div class="mod-widget-btns">
+                    <span>⚔️ Accept</span>
+                    <span>🎲 Roll d20</span>
+                  </div>
+                </div>
 
-        let html = '';
-        let visibleCount = 0;
+                <div class="bubble out">
+                  <span class="b-author">Alex (You)</span>
+                  No way that took 1 prompt?! Sending you 1 Boba IOU if you win 🧋
+                </div>
+                <div class="burn-tag sender-flame">
+                  🔥 20s (2)
+                </div>
 
-        MESSAGES.forEach((m, idx) => {
-          const eItem = elenaCascade[idx];
-          const sItem = samCascade[idx];
+                <div class="bubble in">
+                  <span class="b-author">Sam</span>
+                  Scanning the QR on my Chromebook right now!! ⚡
+                </div>
+              </div>
 
-          if (currentMode === 'elena') {
-            if (eItem.isExpired) return;
-            visibleCount++;
-            const badgeClass = eItem.isActive ? 'sim-badge-active' : eItem.isQueued ? 'sim-badge-queued' : 'sim-badge-unread';
-            const badgeText = eItem.isActive
-              ? '🔥 ' + eItem.remaining + 's (burning now)'
-              : eItem.isQueued
-              ? '⏳ queued (20s — starts when previous deletes)'
-              : '⏳ burns 20s once viewed';
-            html += '<div class="sim-msg incoming">' +
-              '<div class="sim-msg-text">' + m.text + '</div>' +
-              '<div class="sim-badge ' + badgeClass + '">' + badgeText + '</div>' +
-              '</div>';
-          } else if (currentMode === 'sam') {
-            if (sItem.isExpired) return;
-            visibleCount++;
-            const badgeClass = sItem.isActive ? 'sim-badge-active' : sItem.isQueued ? 'sim-badge-queued' : 'sim-badge-unread';
-            const badgeText = sItem.isActive
-              ? '🔥 ' + sItem.remaining + 's (burning now)'
-              : sItem.isQueued
-              ? '⏳ queued (20s — starts when previous deletes)'
-              : '⏳ burns 20s once viewed';
-            html += '<div class="sim-msg incoming">' +
-              '<div class="sim-msg-text">' + m.text + '</div>' +
-              '<div class="sim-badge ' + badgeClass + '">' + badgeText + '</div>' +
-              '</div>';
-          } else {
-            // Sender (Alex) view: only deletes when BOTH Elena and Sam have expired!
-            if (eItem.isExpired && sItem.isExpired) return;
-            visibleCount++;
-            const anyViewed = eItem.isViewed || sItem.isViewed;
-            const anyActive = eItem.isActive || sItem.isActive;
-            let label = '';
-            if (!anyViewed) {
-              label = '⏳ Unread by Elena, Sam (burns 20s once viewed)';
-            } else {
-              const ePart = eItem.isExpired ? 'Burned by Elena' : eItem.isActive ? '🔥 Elena (' + eItem.remaining + 's)' : eItem.isQueued ? '⏳ Elena queued' : '⏳ Elena unread';
-              const sPart = sItem.isExpired ? 'Burned by Sam' : sItem.isActive ? '🔥 Sam (' + sItem.remaining + 's)' : sItem.isQueued ? '⏳ Sam queued' : '⏳ Sam unread';
-              label = ePart + ' • ' + sPart;
-            }
-            const badgeClass = anyActive ? 'sim-badge-active' : !anyViewed ? 'sim-badge-unread' : 'sim-badge-queued';
-            html += '<div class="sim-msg outgoing">' +
-              '<div class="sim-msg-text">' + m.text + '</div>' +
-              '<div class="sim-badge ' + badgeClass + '">' + label + '</div>' +
-              '</div>';
-          }
-        });
+              <div class="chat-burn-lock-bar">
+                <span>✉️ SMTP/IMAP Zero-Server</span>
+                <span class="lock-tag">ATME/1.0</span>
+              </div>
 
-        if (visibleCount === 0) {
-          html = '<div class="sim-empty">💨 All 3 messages have completed their 60s sequential cascade and self-destructed for this view!</div>';
-        }
+              <div class="chat-input">
+                <span class="plus-btn">+</span>
+                <span>Message...</span>
+                <span class="send">↑</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        simStage.innerHTML = html;
+      <!-- =================================================================
+           2. PROOF STRIP: ICON + NUMBER INFOGRAPHICS
+           ================================================================= -->
+      <section class="proof container" aria-label="Key numbers">
+        <div>
+          <strong>👥 3 – 5</strong>
+          <span>Core daily friends (80% of all messages you send)</span>
+        </div>
+        <div>
+          <strong>🪑 10 – 15</strong>
+          <span>Extended squad (Lunch table, gaming crew, club)</span>
+        </div>
+        <div>
+          <strong>🛡️ 99 Max</strong>
+          <span>Hard cap per group/channel so personal email never flags spam</span>
+        </div>
+        <div>
+          <strong>♻️ $0 / mo</strong>
+          <span>Recycled email servers = zero backend bills forever</span>
+        </div>
+      </section>
 
-        if (simStatusText) {
-          if (!elenaViewedAt && !samViewedAt) {
-            simStatusText.textContent = 'Timer paused: Waiting for Elena or Sam to open the chat in the app.';
-          } else if (elenaViewedAt && !samViewedAt) {
-            simStatusText.textContent = 'Elena is burning messages sequentially (20s each). Sam hasn’t opened the app yet—his copies remain untouched!';
-          } else if (!elenaViewedAt && samViewedAt) {
-            simStatusText.textContent = 'Sam is burning messages sequentially (20s each). Elena hasn’t opened the app yet!';
-          } else {
-            simStatusText.textContent = 'Both Elena and Sam have independent 20s cascades running based on their own read times!';
-          }
-        }
-      }
+      <!-- =================================================================
+           3. THE HOMEWORK: MICRO-GROUPS VS BIG TECH (INFOGRAPHIC)
+           ================================================================= -->
+      <section id="micro-groups" class="section container">
+        <div class="section-head">
+          <p class="eyebrow">THE SOCIOLOGY HOMEWORK</p>
+          <h2>How many people do you <em>actually</em> message every day?</h2>
+          <p class="sub">
+            Anthropology (Dunbar’s number) &amp; Pew Research prove teen life happens in
+            <strong>tiny high-trust micro-groups</strong>—not 2-billion-stranger ad networks.
+          </p>
+        </div>
 
-      modeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentMode = btn.getAttribute('data-sim-mode');
-          modeBtns.forEach(b => {
-            const active = b === btn;
-            b.classList.toggle('is-active', active);
-            b.setAttribute('aria-selected', active ? 'true' : 'false');
-          });
-          renderSimulation();
-        });
-      });
+        <div class="dunbar-infographic">
+          <article class="dunbar-ring ring-core">
+            <header class="ring-head">
+              <span class="ring-icon" aria-hidden="true">💎</span>
+              <span class="ring-count">3 – 5</span>
+            </header>
+            <h3>Core Ride-or-Die Clique</h3>
+            <p>66% of teens have 1–4 best friends. Over 80% of your daily texts happen right here.</p>
+            <footer class="ring-tag">Daily High-Frequency Chat</footer>
+          </article>
 
-      if (btnElenaView) {
-        btnElenaView.addEventListener('click', () => {
-          if (!elenaViewedAt) elenaViewedAt = Date.now();
-          currentMode = 'elena';
-          modeBtns.forEach(b => b.classList.toggle('is-active', b.getAttribute('data-sim-mode') === 'elena'));
-          renderSimulation();
-        });
-      }
+          <article class="dunbar-ring ring-squad">
+            <header class="ring-head">
+              <span class="ring-icon" aria-hidden="true">🍕</span>
+              <span class="ring-count">10 – 15</span>
+            </header>
+            <h3>The Lunch Table / Squad</h3>
+            <p>Your gaming lobby, skate crew, band room, or robotics team. Tight enough to build together.</p>
+            <footer class="ring-tag">Group Burners &amp; IOUs</footer>
+          </article>
 
-      if (btnSamView) {
-        btnSamView.addEventListener('click', () => {
-          if (!samViewedAt) samViewedAt = Date.now();
-          currentMode = 'sam';
-          modeBtns.forEach(b => b.classList.toggle('is-active', b.getAttribute('data-sim-mode') === 'sam'));
-          renderSimulation();
-        });
-      }
+          <article class="dunbar-ring ring-channel">
+            <header class="ring-head">
+              <span class="ring-icon" aria-hidden="true">📡</span>
+              <span class="ring-count">≤ 99</span>
+            </header>
+            <h3>Micro-Broadcast Channel</h3>
+            <p>Anonymous BCC story feed for your grade, club, or team without triggering email spam filters.</p>
+            <footer class="ring-tag">BCC Story Drops</footer>
+          </article>
 
-      if (btnReset) {
-        btnReset.addEventListener('click', () => {
-          elenaViewedAt = null;
-          samViewedAt = null;
-          currentMode = 'sender';
-          modeBtns.forEach(b => b.classList.toggle('is-active', b.getAttribute('data-sim-mode') === 'sender'));
-          renderSimulation();
-        });
-      }
+          <article class="dunbar-ring ring-bigtech">
+            <header class="ring-head">
+              <span class="ring-icon" aria-hidden="true">🚫</span>
+              <span class="ring-count">2.0B+</span>
+            </header>
+            <h3>Big Tech Ad Platforms</h3>
+            <p>Built for strangers, bots, and surveillance ads. Zero ability to customize for your friend group.</p>
+            <footer class="ring-tag">Why We Branch @me Instead</footer>
+          </article>
+        </div>
+      </section>
 
-      setInterval(renderSimulation, 250);
-      renderSimulation();
-    })();
-  </script>
-</body>
+      <!-- =================================================================
+           4. POPULAR SQUAD BRANCHES & MODS SHOWCASE (CHOICE / CONTENT CARDS)
+           ================================================================= -->
+      <section id="branches" class="section container">
+        <div class="section-head">
+          <p class="eyebrow">COMMUNITY SQUAD BLUEPRINTS</p>
+          <h2>Most widely used <code>@me</code> branches &amp; mods.</h2>
+          <p class="sub">
+            Every branch below speaks <code>ATME/1.0</code> so they can all text each other—plus custom AI-coded powers for their specific squad.
+          </p>
+        </div>
+
+        <div class="branch-showcase-grid">
+          <article class="branch-card featured-branch">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">🔥</span>
+              <div class="branch-meta">
+                <code>@me/core (main)</code>
+                <span class="branch-pill">Base Trunk</span>
+              </div>
+            </header>
+            <h3>The Official Blueprint</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>🔥 20s Cascade Burner</span>
+                <span>🪙 Split IOU Ledger</span>
+                <span>📡 Anon BCC Stories</span>
+                <span>🎨 Emoji Face Stamps</span>
+                <span>🙂 Boring Avatars</span>
+              </div>
+              <p class="prompt-box">
+                <strong>Base Repo:</strong> Clone this trunk to start your own squad branch in 60 seconds.
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <a class="btn btn-small btn-primary" href="../index.html">Try @me/core Live</a>
+            </footer>
+          </article>
+
+          <article class="branch-card">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">🕹️</span>
+              <div class="branch-meta">
+                <code>@me/arcade-squad</code>
+                <span class="branch-pill">5-Friend Gaming</span>
+              </div>
+            </header>
+            <h3>1v1 Chat Bubble Mini-Games</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>⚔️ Pixel Duel</span>
+                <span>🎲 D20 Roller</span>
+                <span>🏆 IOU Wagers</span>
+              </div>
+              <p class="prompt-box">
+                <strong>🤖 AI Prompt:</strong> “Add a 1v1 Rock-Paper-Scissors &amp; D20 roller inside <code>ATME/1.0</code> chat bubbles.”
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
+            </footer>
+          </article>
+
+          <article class="branch-card">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">🧋</span>
+              <div class="branch-meta">
+                <code>@me/lunch-table</code>
+                <span class="branch-pill">8-Friend Crew</span>
+              </div>
+            </header>
+            <h3>Boba Splitter &amp; Wheel Decider</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>🎡 Spin Wheel</span>
+                <span>🍕 1-Tap Snack IOUs</span>
+                <span>⏱️ Bell Countdown</span>
+              </div>
+              <p class="prompt-box">
+                <strong>🤖 AI Prompt:</strong> “Add 1-tap Boba &amp; Pizza IOU buttons and a lunch spot spin wheel.”
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
+            </footer>
+          </article>
+
+          <article class="branch-card">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">🎸</span>
+              <div class="branch-meta">
+                <code>@me/band-room</code>
+                <span class="branch-pill">4-Piece Band</span>
+              </div>
+            </header>
+            <h3>Voice Riff Loops &amp; Synth Pad</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>🎹 8-Bit Synth</span>
+                <span>🎙️ Riff Stems</span>
+                <span>🥁 BPM Metronome</span>
+              </div>
+              <p class="prompt-box">
+                <strong>🤖 AI Prompt:</strong> “Add a WebAudio synth pad &amp; BPM badge to voice notes.”
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
+            </footer>
+          </article>
+
+          <article class="branch-card">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">⚡</span>
+              <div class="branch-meta">
+                <code>@me/study-vault</code>
+                <span class="branch-pill">Study Group</span>
+              </div>
+            </header>
+            <h3>Flashcard Drops &amp; Quiz Burners</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>🃏 Flip Cards</span>
+                <span>🔥 20s Hints</span>
+                <span>🪙 Homework Bounties</span>
+              </div>
+              <p class="prompt-box">
+                <strong>🤖 AI Prompt:</strong> “Add flip-card study decks that sync over encrypted email.”
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
+            </footer>
+          </article>
+
+          <article class="branch-card">
+            <header class="branch-card-head">
+              <span class="branch-emoji" aria-hidden="true">🛹</span>
+              <div class="branch-meta">
+                <code>@me/skate-spots</code>
+                <span class="branch-pill">After-School Crew</span>
+              </div>
+            </header>
+            <h3>Spot Pins &amp; Trick Clip Stories</h3>
+            <div class="branch-content">
+              <div class="icon-feature-pills">
+                <span>📍 Spot Radar</span>
+                <span>📸 Stamped Clips</span>
+                <span>📡 Crew BCC Feed</span>
+              </div>
+              <p class="prompt-box">
+                <strong>🤖 AI Prompt:</strong> “Add a skate spot check-in card with 1-tap ‘At the park’ status.”
+              </p>
+            </div>
+            <footer class="branch-footer">
+              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           5. VISUAL GIT + AI WORKFLOW (WHAT IS VERSION CONTROL?)
+           ================================================================= -->
+      <section id="git-ai" class="section container">
+        <div class="section-head">
+          <p class="eyebrow">LEARN VERSION CONTROL + AI CODING</p>
+          <h2>How Git branching + AI works (in plain visual icons).</h2>
+          <p class="sub">
+            Think of <strong>Git</strong> like video-game save files and parallel universes.
+            You never break the main app—you branch your own world and let AI write the code.
+          </p>
+        </div>
+
+        <!-- Visual Git Branch Diagram -->
+        <div class="git-diagram-card">
+          <div class="git-track git-main-track">
+            <span class="git-track-label">🌳 <code>main</code> (@me/core ATME/1.0 Trunk)</span>
+            <div class="git-nodes">
+              <span class="git-node">● OpenPGP</span>
+              <span class="git-line"></span>
+              <span class="git-node">● 20s Burner</span>
+              <span class="git-line"></span>
+              <span class="git-node">● IOUs &amp; Channels</span>
+              <span class="git-line"></span>
+              <span class="git-node">● Boring Avatars</span>
+            </div>
+          </div>
+
+          <div class="git-fork-connector" aria-hidden="true">
+            <span>⤵ <code>git checkout -b my-squad</code> (Your safe playground!)</span>
+          </div>
+
+          <div class="git-track git-squad-track">
+            <span class="git-track-label">🌿 <code>my-squad</code> (Your 5-Friend Custom Branch)</span>
+            <div class="git-nodes">
+              <span class="git-node squad-node">🤖 Prompt AI</span>
+              <span class="git-line squad-line"></span>
+              <span class="git-node squad-node">💾 <code>git commit</code> (Save Point)</span>
+              <span class="git-line squad-line"></span>
+              <span class="git-node squad-node">🚀 <code>git push</code> (Auto-Deploy)</span>
+              <span class="git-line squad-line"></span>
+              <span class="git-node squad-node">📲 Friends Scan QR</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Visual Action Cards to Follow Along -->
+        <div class="ai-steps-grid">
+          <article class="ai-step-card">
+            <header class="ai-step-head">
+              <span class="ai-step-num">01</span>
+              <span class="ai-step-icon" aria-hidden="true">🍴</span>
+            </header>
+            <h3>Fork &amp; Branch</h3>
+            <p>Ask your AI IDE: <em>“Create a new git branch called <code>my-squad</code>.”</em> If AI messes up, one click rewinds to your last save point.</p>
+            <footer><code>git checkout -b my-squad</code></footer>
+          </article>
+
+          <article class="ai-step-card">
+            <header class="ai-step-head">
+              <span class="ai-step-num">02</span>
+              <span class="ai-step-icon" aria-hidden="true">🏷️</span>
+            </header>
+            <h3>Edit Branch Manifest</h3>
+            <p>Open <code>src/protocol/branchManifest.ts</code>. Change your squad name, icon, and active mods in one beginner-friendly file.</p>
+            <footer><code>branchManifest.ts</code></footer>
+          </article>
+
+          <article class="ai-step-card">
+            <header class="ai-step-head">
+              <span class="ai-step-num">03</span>
+              <span class="ai-step-icon" aria-hidden="true">🧪</span>
+            </header>
+            <h3>Verify ATME/1.0</h3>
+            <p>Tell AI: <em>“Run <code>npx vitest run</code> to make sure our new feature still passes all 12 <code>ATME/1.0</code> encryption tests.”</em></p>
+            <footer><code>12 / 12 Tests Pass ✓</code></footer>
+          </article>
+
+          <article class="ai-step-card">
+            <header class="ai-step-head">
+              <span class="ai-step-num">04</span>
+              <span class="ai-step-icon" aria-hidden="true">☁️</span>
+            </header>
+            <h3>Push &amp; QR Share</h3>
+            <p>Push your branch to GitHub. Cloudflare Pages builds a live link in 45 seconds so your friends can scan &amp; install.</p>
+            <footer><code>git push origin my-squad</code></footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           6. THE $0 TEEN BUILDER TOOLCHAIN (ICON GRID)
+           ================================================================= -->
+      <section id="stack" class="section container">
+        <div class="section-head">
+          <p class="eyebrow">THE COMPLETE $0 TOOLCHAIN</p>
+          <h2>6 free tools to go from idea → live on your friends’ phones.</h2>
+        </div>
+
+        <div class="toolchain-grid">
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">🐙</span>
+            <h3>GitHub</h3>
+            <p>Stores your repo in the cloud and hosts every friend’s branch tree.</p>
+            <footer class="tool-tag">Cloud Code Vault</footer>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">🌿</span>
+            <h3>Git</h3>
+            <p>Version control time-machine: branch, commit save points, and merge.</p>
+            <footer class="tool-tag">Save Points &amp; Branches</footer>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">🤖</span>
+            <h3>AI Coding Assistant</h3>
+            <p>Antigravity, Cursor, Claude, or Gemini—writes React &amp; TypeScript from plain English.</p>
+            <footer class="tool-tag">Prompt → Code</footer>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">⚡</span>
+            <h3>Vite + React</h3>
+            <p>Instant hot-reload phone preview on your laptop or Chromebook.</p>
+            <footer class="tool-tag">localhost:5173</footer>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">☁️</span>
+            <h3>Cloudflare Pages</h3>
+            <p>Auto-deploys every Git branch to a fast global <code>https://</code> URL for free.</p>
+            <footer class="tool-tag">Auto Branch Previews</footer>
+          </article>
+
+          <article class="tool-card">
+            <span class="tool-icon" aria-hidden="true">✉️</span>
+            <h3>Recycled Email + PGP</h3>
+            <p>Turns Gmail, Outlook, Proton, and iCloud into a $0 encrypted chat router.</p>
+            <footer class="tool-tag">Zero Backend Servers</footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           7. ATME/1.0 PROTOCOL & RECYCLED EMAIL INFOGRAPHIC
+           ================================================================= -->
+      <section id="protocol" class="section container">
+        <div class="section-head">
+          <p class="eyebrow">RECYCLING 1982 EMAIL TECH</p>
+          <h2>The <code>ATME/1.0</code> Open Interoperability Standard.</h2>
+          <p class="sub">
+            Why rent expensive cloud servers when every human already has a free email account?
+            <code>ATME/1.0</code> recycles old-school email into an encrypted packet pipe.
+          </p>
+        </div>
+
+        <div class="recycle-showcase">
+          <div class="recycle-col old-tech">
+            <div class="r-header">
+              <span class="r-icon" aria-hidden="true">📬</span>
+              <div>
+                <strong>1982 Email Server</strong>
+                <small>Gmail &bull; Outlook &bull; iCloud &bull; Proton</small>
+              </div>
+            </div>
+            <ul class="r-list">
+              <li><span>🆓</span> <div><strong>100% Free Forever:</strong> Already runs globally with 0 server bills.</div></li>
+              <li><span>🏫</span> <div><strong>Works on School Wi-Fi:</strong> Email ports stay open on Chromebooks &amp; iPads.</div></li>
+              <li><span>🛡️</span> <div><strong>99-User Anti-Spam Cap:</strong> Sized for real friend squads &amp; BCC channels.</div></li>
+            </ul>
+          </div>
+
+          <div class="recycle-arrow" aria-hidden="true">
+            <span class="recycle-badge">♻️ ATME/1.0</span>
+            <span class="arrow-glyph">➔</span>
+          </div>
+
+          <div class="recycle-col new-tech">
+            <div class="r-header">
+              <span class="r-icon" aria-hidden="true">⚡</span>
+              <div>
+                <strong>2026 Squad Messenger</strong>
+                <small>Encrypted &bull; Ephemeral &bull; AI-Branchable</small>
+              </div>
+            </div>
+            <ul class="r-list">
+              <li><span>🔐</span> <div><strong>Curve25519 OpenPGP:</strong> Email providers only see locked ciphertext.</div></li>
+              <li><span>🚫</span> <div><strong>3-Gate Inbox Filter:</strong> Ignores 100% of normal emails; only reads <code>X-ATME-Protocol: ATME/1.0</code>.</div></li>
+              <li><span>🧩</span> <div><strong><code>branchMod</code> Slot:</strong> Custom branch mini-apps ride inside standard packets with automatic fallback text.</div></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bottom CTA Card -->
+        <div class="final-cta-banner">
+          <div>
+            <p class="eyebrow">READY TO FORK YOUR SQUAD OS?</p>
+            <h3>Open the live <code>@me</code> app or read <code>BUILD_WITH_AI.md</code> in the repo.</h3>
+          </div>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="../index.html">Launch @me App →</a>
+            <a class="btn btn-ghost" href="../BUILD_WITH_AI.md">📘 Read AI Builder Guide</a>
+            <a class="btn btn-ghost" href="../ATME_PROTOCOL.md">⚡ ATME/1.0 Spec</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer container">
+      <div class="footer-inner">
+        <div class="brand">
+          <img src="../public/favicon.svg" alt="@me" width="24" height="24" />
+          <span>@me</span>
+          <span class="brand-pill">ATME/1.0</span>
+        </div>
+        <p>Democratizing messaging apps for 3–15 friend micro-groups &bull; Recycled Email + OpenPGP</p>
+      </div>
+    </footer>
+  </body>
 </html>

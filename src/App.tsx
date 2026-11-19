@@ -68,6 +68,7 @@ import {
   Coins,
 } from 'lucide-react';
 import {
+  ACTIVE_BRANCH_MANIFEST,
   DCP_COMPLIANT_BUILD_VERSION,
   DCP_COMPLIANT_BUNDLE_SHA256,
   DCP_PROTOCOL_VERSION,
@@ -115,8 +116,8 @@ import {
 } from './crypto/privacyFeatures';
 import { buildDcpMimeEmail } from './protocol/mimeBuilder';
 import { inspectAndDecryptEmail } from './protocol/mimeParser';
+import Avatar from 'boring-avatars';
 import {
-  CARTOON_SKETCH_AVATARS,
   INITIAL_CHANNELS,
   INITIAL_USERS,
   createEncryptedSeedEmailsForUsers,
@@ -139,7 +140,12 @@ import {
 import {
   DomainAutoDiscoveryResult,
   discoverCustomDomainEmailConfig,
+  fetchGoogleUserProfile,
+  getSavedGoogleClientId,
   launchRealOAuthPopup,
+  loadGoogleOAuthSession,
+  saveGoogleClientId,
+  saveGoogleOAuthSession,
 } from './transport/oauthPortal';
 import { safeSetInviteHTML } from './utils/safeHtml';
 
@@ -833,15 +839,19 @@ export function App() {
   const [wizardProvider, setWizardProvider] = useState<
     'gmail' | 'outlook' | 'proton' | 'yahoo' | 'custom-domain'
   >('gmail');
-  const [gmailAccessToken, setGmailAccessToken] = useState<string>('');
+  const [gmailAccessToken, setGmailAccessToken] = useState<string>(
+    () => loadGoogleOAuthSession()?.accessToken || ''
+  );
   const [outlookAccessToken, setOutlookAccessToken] = useState<string>('');
-  const [googleClientId, setGoogleClientId] = useState<string>(
-    (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || ''
+  const [googleClientId, setGoogleClientId] = useState<string>(() =>
+    getSavedGoogleClientId()
   );
   const [microsoftClientId, setMicrosoftClientId] = useState<string>(
     (import.meta.env.VITE_MICROSOFT_CLIENT_ID as string) || ''
   );
   const [showAdvancedOAuthConfig, setShowAdvancedOAuthConfig] =
+    useState<boolean>(false);
+  const [isSyncingGmailInbox, setIsSyncingGmailInbox] =
     useState<boolean>(false);
 
   // Interactive OAuth Consent Popup Simulator State (when testing without a cloud Client ID)
@@ -1614,6 +1624,12 @@ export function App() {
       safetyListDialogRef.current?.showModal();
     } else if (viewParam === 'friends-modal') {
       menuDirectoryDialogRef.current?.showModal();
+    } else if (viewParam === 'account' || viewParam === 'google-oauth') {
+      setConnectModalMode('easy');
+      if (viewParam === 'google-oauth') {
+        setSimulatedOAuthProvider('google');
+      }
+      connectWizardDialogRef.current?.showModal();
     } else if (viewParam === 'new-chat') {
       setNewChatType('dm');
       setSelectedGroupMemberEmails([]);
@@ -1732,7 +1748,7 @@ export function App() {
 
       const seedVersion =
         typeof localStorage !== 'undefined'
-          ? localStorage.getItem('dontcall_seed_v6')
+          ? localStorage.getItem('dontcall_seed_v7')
           : 'true';
       const shouldReseed = seedVersion !== 'true';
 
@@ -1758,7 +1774,7 @@ export function App() {
       }
 
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('dontcall_seed_v6', 'true');
+        localStorage.setItem('dontcall_seed_v7', 'true');
         localStorage.removeItem('dc_burn_read_started');
         localStorage.setItem(
           'atme_whitelisted_emails',
@@ -2882,7 +2898,7 @@ export function App() {
     });
   }, [activeChannel, users]);
 
-  // Helper to resolve a user's avatar or fallback initials
+  // Helper to resolve a user's avatar or default Boring Avatar based on email
   function renderUserAvatar(
     emailOrUser: string | UserIdentity | undefined,
     fallbackName?: string,
@@ -2890,11 +2906,31 @@ export function App() {
   ) {
     const u =
       typeof emailOrUser === 'string'
-        ? users.find((usr) => usr.email.toLowerCase() === emailOrUser.toLowerCase())
+        ? users.find(
+            (usr) => usr.email.toLowerCase() === emailOrUser.toLowerCase()
+          )
         : emailOrUser;
 
-    const name = u?.displayName || fallbackName || 'U';
-    if (u?.avatarDataUrl) {
+    const email =
+      u?.email ||
+      (typeof emailOrUser === 'string' && emailOrUser.includes('@')
+        ? emailOrUser
+        : '') ||
+      'user@dontcall.local';
+    const name = u?.displayName || fallbackName || email.split('@')[0] || 'U';
+
+    const isCustomUpload =
+      u?.avatarDataUrl &&
+      !u.avatarDataUrl.includes('skater_curls') &&
+      !u.avatarDataUrl.includes('spiky_grin') &&
+      !u.avatarDataUrl.includes('wavy_locks') &&
+      !u.avatarDataUrl.includes('sunny_bangs') &&
+      !u.avatarDataUrl.includes('messy_tuft') &&
+      !u.avatarDataUrl.includes('curly_bob') &&
+      !u.avatarDataUrl.includes('cool_part') &&
+      !u.avatarDataUrl.includes('puff_curls');
+
+    if (isCustomUpload && u?.avatarDataUrl) {
       return (
         <img
           src={u.avatarDataUrl}
@@ -2903,7 +2939,21 @@ export function App() {
         />
       );
     }
-    return <span className={sizeClass}>{name.charAt(0).toUpperCase()}</span>;
+
+    return (
+      <div
+        className={`${sizeClass} dc-boring-avatar-wrapper`}
+        title={name}
+        aria-label={name}
+      >
+        <Avatar
+          name={email.trim().toLowerCase()}
+          variant="beam"
+          size="100%"
+          title={true}
+        />
+      </div>
+    );
   }
 
   // Dispatch any DCP/1.0 packet over Email (Automatically attaches Profile Card on first message to a channel/user AND signs a Compliant Build Attestation!)
@@ -5231,7 +5281,7 @@ export function App() {
     }
   }
 
-  // 1-Click OAuth2 Popup Sign-In Handler (Real Google/Microsoft Popup if Client ID provided, or Interactive OAuth Consent Portal)
+  // 1-Click OAuth2 Popup Sign-In Handler (Real Google Identity Services / OAuth2 Popup if Client ID provided, or Instant Interactive Google Picker)
   async function handleOneClickOAuthPopup(
     provider: 'google' | 'microsoft',
     prefillEmail?: string
@@ -5243,15 +5293,33 @@ export function App() {
         : microsoftClientId.trim();
 
     if (configuredClientId) {
+      saveGoogleClientId(googleClientId.trim());
       try {
-        const { accessToken } = await launchRealOAuthPopup({
+        const result = await launchRealOAuthPopup({
           provider,
           clientId: configuredClientId,
+          loginHint: prefillEmail?.trim(),
         });
         if (provider === 'google') {
-          setGmailAccessToken(accessToken);
+          setGmailAccessToken(result.accessToken);
+          // Automatically fetch Google email & name if not already in result
+          const profile =
+            result.userProfile ||
+            (await fetchGoogleUserProfile(result.accessToken).catch(
+              () => undefined
+            ));
+
+          if (profile?.email) {
+            await handleCompletePortalSignIn({
+              email: profile.email,
+              displayName: profile.name,
+              provider: 'gmail',
+              liveAccessToken: result.accessToken,
+            });
+            return;
+          }
         } else {
-          setOutlookAccessToken(accessToken);
+          setOutlookAccessToken(result.accessToken);
         }
         setConnectorStatusMsg(
           `Connected via Live ${provider.toUpperCase()} OAuth2 Popup! Token stored on-device.`
@@ -5266,7 +5334,7 @@ export function App() {
       return;
     }
 
-    // Open the built-in Interactive OAuth Consent Popup Simulator so users can test 1-click sign-in immediately
+    // Open the built-in Interactive Google/Microsoft Account Picker so users can test 1-click sign-in immediately
     setSimulatedOAuthProvider(provider);
     const cleanPrefill = prefillEmail?.trim().toLowerCase();
     if (cleanPrefill && cleanPrefill.includes('@')) {
@@ -5281,11 +5349,41 @@ export function App() {
         easyDisplayNameInput.trim() || guessedName || 'User'
       );
     } else if (provider === 'google') {
-      setSimulatedOAuthEmail('taylor@gmail.com');
+      setSimulatedOAuthEmail('taylor.reed@gmail.com');
       setSimulatedOAuthName('Taylor');
     } else {
       setSimulatedOAuthEmail('morgan@outlook.com');
       setSimulatedOAuthName('Morgan');
+    }
+  }
+
+  // Sync incoming ATME/1.0 packets from a live connected Gmail account
+  async function handleSyncLiveGmailPackets(tokenOverride?: string) {
+    const token = (tokenOverride || gmailAccessToken).trim();
+    if (!token) return;
+    setIsSyncingGmailInbox(true);
+    try {
+      const transport = new GmailDirectTransport(token);
+      if (autoArchivePrimaryInbox) {
+        await transport.createAutoCleanInboxFilter().catch(() => undefined);
+      }
+      const fetchedEmails = await transport.fetchDontCallPackets(20);
+      if (fetchedEmails.length > 0) {
+        setTransportEmails((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const fresh = fetchedEmails.filter((e) => !existingIds.has(e.id));
+          return [...fresh, ...prev];
+        });
+      }
+      setConnectorStatusMsg(
+        `Gmail Sync Complete • ${fetchedEmails.length} ATME/1.0 encrypted packet(s) synced`
+      );
+    } catch (err) {
+      setConnectorStatusMsg(
+        `Gmail Sync Note: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setIsSyncingGmailInbox(false);
     }
   }
 
@@ -5320,10 +5418,11 @@ export function App() {
     email: string;
     displayName: string;
     provider: 'gmail' | 'outlook' | 'proton' | 'yahoo' | 'custom-domain';
+    liveAccessToken?: string;
   }) {
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.displayName.trim() || cleanEmail.split('@')[0];
-    const handle = `@${cleanEmail.split('@')[0].replace(/[^a-z0-9]/gi, '')}`;
+    const handle = `@${cleanEmail.split('@')[0].replace(/[^a-z0-9_]/gi, '_')}`;
 
     setIsSending(true);
     try {
@@ -5332,7 +5431,7 @@ export function App() {
         email: cleanEmail,
         displayName: cleanName,
         handle,
-        bio: `Signed in via ${params.provider.toUpperCase()} Portal • OpenPGP Verified`,
+        bio: `Signed in via ${params.provider.toUpperCase()} OAuth • ATME/1.0 OpenPGP`,
         profileUpdatedAt: new Date().toISOString(),
         provider: params.provider,
         hasAppInstalled: true,
@@ -5351,12 +5450,40 @@ export function App() {
       setUsers(updatedUsers);
       await saveUserIdentitiesToIdb(updatedUsers);
       setActiveUserEmail(newIdentity.email);
+      setProfileNameInput(newIdentity.displayName);
+      setProfileHandleInput(newIdentity.handle || handle);
       setForceBroadcastProfileNext(true);
       setSimulatedOAuthProvider(null);
+
+      // Ensure personal Notes (@me) vault channel exists for the newly signed-in Google user
+      const vaultId = `vault_${cleanEmail}`;
+      if (!channels.some((c) => c.id === vaultId)) {
+        const nextChannels: DcpChannelMeta[] = [
+          ...channels,
+          {
+            id: vaultId,
+            type: 'vault',
+            name: 'Notes (@me)',
+            participants: [cleanEmail],
+            createdAt: new Date().toISOString(),
+          },
+        ];
+        setChannels(nextChannels);
+      }
+
+      if (params.liveAccessToken && params.provider === 'gmail') {
+        saveGoogleOAuthSession({
+          email: cleanEmail,
+          accessToken: params.liveAccessToken,
+          expiresAtMs: Date.now() + 3500 * 1000,
+        });
+        void handleSyncLiveGmailPackets(params.liveAccessToken);
+      }
+
       setConnectorStatusMsg(
         `Signed in as ${newIdentity.displayName} (${newIdentity.email})! On-device OpenPGP keypair (${formatFingerprint(
           kp.fingerprint
-        ).slice(0, 19)}…) generated & primary inbox isolation filter active.`
+        ).slice(0, 19)}…) generated & ATME/1.0 inbox filter active.`
       );
     } finally {
       setIsSending(false);
@@ -5535,6 +5662,7 @@ export function App() {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('dontcall_seed_v5');
       window.localStorage.removeItem('dontcall_seed_v6');
+      window.localStorage.removeItem('dontcall_seed_v7');
       window.localStorage.removeItem('dc_channels_v3');
       window.localStorage.removeItem('dc_channels_v4');
       window.localStorage.removeItem('dc_burn_read_started');
@@ -6269,15 +6397,12 @@ export function App() {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {!isGroup &&
-                        !isVault &&
-                        !isBroadcast &&
-                        peerUser?.avatarDataUrl ? (
-                          <img
-                            src={peerUser.avatarDataUrl}
-                            alt={peerUser.displayName}
-                            className="dc-thread-avatar dc-avatar-img"
-                          />
+                        {!isGroup && !isVault && !isBroadcast && !ch.isBurner ? (
+                          renderUserAvatar(
+                            peerUser,
+                            ch.name,
+                            'dc-thread-avatar'
+                          )
                         ) : (
                           <div
                             className={`dc-thread-avatar ${
@@ -6300,12 +6425,8 @@ export function App() {
                               <Radio size={17} />
                             ) : isVault ? (
                               <Bookmark size={17} />
-                            ) : isGroup ? (
-                              <Users size={18} />
                             ) : (
-                              (peerUser?.displayName || ch.name)
-                                .charAt(0)
-                                .toUpperCase()
+                              <Users size={18} />
                             )}
                           </div>
                         )}
@@ -6509,22 +6630,15 @@ export function App() {
                             <div className="dc-header-avatar vault-avatar">
                               <Bookmark size={16} />
                             </div>
-                          ) : activeChannel.type === 'dm' &&
-                            activeChannelPeerUser?.avatarDataUrl ? (
-                            <img
-                              src={activeChannelPeerUser.avatarDataUrl}
-                              alt={activeChannelDisplayTitle}
-                              className="dc-header-avatar dc-avatar-img"
-                            />
+                          ) : activeChannel.type === 'dm' ? (
+                            renderUserAvatar(
+                              activeChannelPeerUser,
+                              activeChannelDisplayTitle,
+                              'dc-header-avatar'
+                            )
                           ) : (
                             <div className="dc-header-avatar">
-                              {activeChannel.type === 'dm' ? (
-                                activeChannelDisplayTitle
-                                  .charAt(0)
-                                  .toUpperCase()
-                              ) : (
-                                <Users size={17} />
-                              )}
+                              <Users size={17} />
                             </div>
                           )}
                           <div>
@@ -8140,7 +8254,7 @@ export function App() {
 
             <div className="dc-metric-card dc-metric-success">
               <div className="dc-metric-label">
-                <CheckCircle2 size={14} /> Accepted DCP/1.0 Chat Packets
+                <CheckCircle2 size={14} /> Accepted ATME/1.0 Chat Packets
               </div>
               <div className="dc-metric-value">
                 {acceptedPackets.length} Encrypted Packets Decrypted
@@ -8222,7 +8336,7 @@ export function App() {
                   <div className="dc-form-row">
                     <div className="dc-form-group">
                       <label htmlFor="packet-type-select">
-                        DCP/1.0 Packet Type
+                        ATME/1.0 Packet Type
                       </label>
                       <select
                         id="packet-type-select"
@@ -8236,6 +8350,9 @@ export function App() {
                         </option>
                         <option value="chat.reaction">
                           chat.reaction (Emoji Reaction Packet)
+                        </option>
+                        <option value="chat.branch-mod">
+                          chat.branch-mod (Custom Squad Branch Mod)
                         </option>
                       </select>
                     </div>
@@ -8322,7 +8439,7 @@ export function App() {
                           >
                             {item.accepted ? (
                               <>
-                                <CheckCircle2 size={12} /> DCP/1.0 ACCEPTED
+                                <CheckCircle2 size={12} /> ATME/1.0 ACCEPTED
                               </>
                             ) : (
                               <>
@@ -8631,49 +8748,83 @@ export function App() {
                     <img
                       src={profileAvatarInput}
                       alt="Profile Avatar"
-                      className="dc-profile-avatar-large"
+                      className="dc-profile-avatar-large dc-avatar-img"
                     />
                   ) : (
-                    <div className="dc-profile-avatar-large dc-avatar-placeholder">
-                      {profileNameInput.charAt(0).toUpperCase() || 'U'}
+                    <div className="dc-profile-avatar-large dc-boring-avatar-wrapper">
+                      <Avatar
+                        name={activeUser.email}
+                        variant="beam"
+                        size="100%"
+                        title={true}
+                      />
                     </div>
                   )}
                 </div>
                 <div className="dc-profile-avatar-buttons">
                   <span className="dc-avatar-section-label">
-                    <User size={12} /> Avatar
+                    <User size={12} /> {activeUser.email}
                   </span>
-                  <div className="dc-preset-avatars-row">
-                    {CARTOON_SKETCH_AVATARS.map((sketch) => (
-                      <button
-                        key={sketch.id}
-                        type="button"
-                        className={`dc-preset-avatar-btn dc-sketch-avatar-btn ${
-                          profileAvatarInput === sketch.dataUrl ? 'active' : ''
-                        }`}
-                        onClick={() => {
-                          setProfileAvatarInput(sketch.dataUrl);
-                        }}
-                        title={sketch.label}
-                        aria-label={sketch.label}
+                  <div className="dc-avatar-actions-row">
+                    <button
+                      type="button"
+                      className="dc-pill-action-btn dc-google-pill-btn"
+                      onClick={() => {
+                        profileDialogRef.current?.close();
+                        setConnectModalMode('easy');
+                        setSimulatedOAuthProvider('google');
+                        connectWizardDialogRef.current?.showModal();
+                      }}
+                      title="Sign in with Google OAuth"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
-                        <img
-                          src={sketch.dataUrl}
-                          alt={sketch.label}
-                          className="dc-sketch-avatar-thumb"
+                        <path
+                          fill="#EA4335"
+                          d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
                         />
+                        <path
+                          fill="#4285F4"
+                          d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                        />
+                      </svg>
+                      Google Sign-In
+                    </button>
+                    <button
+                      type="button"
+                      className="dc-pill-action-btn dc-photo-icon-btn"
+                      onClick={() => avatarUploadInputRef.current?.click()}
+                      title="Upload custom image"
+                      aria-label="Upload custom image"
+                    >
+                      <Camera size={15} /> Photo
+                    </button>
+                    {profileAvatarInput && (
+                      <button
+                        type="button"
+                        className="dc-pill-action-btn dc-avatar-reset-btn"
+                        onClick={() => {
+                          setProfileAvatarInput('');
+                        }}
+                        title="Revert to default Boring Avatar"
+                        aria-label="Revert to default Boring Avatar"
+                      >
+                        <RefreshCw size={13} />
                       </button>
-                    ))}
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    className="dc-pill-action-btn dc-photo-icon-btn"
-                    onClick={() => avatarUploadInputRef.current?.click()}
-                    title="Upload photo"
-                    aria-label="Upload photo"
-                  >
-                    <Camera size={15} />
-                  </button>
                 </div>
               </div>
 
@@ -8773,13 +8924,16 @@ export function App() {
                     <img
                       src={profileAvatarInput || activeUser.avatarDataUrl}
                       alt={profileNameInput || activeUser.displayName}
-                      className="dc-qr-card-avatar"
+                      className="dc-qr-card-avatar dc-avatar-img"
                     />
                   ) : (
-                    <div className="dc-qr-card-avatar dc-avatar-placeholder">
-                      {(profileNameInput || activeUser.displayName)
-                        .charAt(0)
-                        .toUpperCase()}
+                    <div className="dc-qr-card-avatar dc-boring-avatar-wrapper">
+                      <Avatar
+                        name={activeUser.email}
+                        variant="beam"
+                        size="100%"
+                        title={true}
+                      />
                     </div>
                   )}
                   <h3>{profileNameInput || activeUser.displayName}</h3>
@@ -9173,6 +9327,206 @@ export function App() {
 
           {connectModalMode === 'easy' ? (
             <div className="dc-easy-connect-portal">
+              {/* Primary 1-Click Google OAuth Sign-Up / Sign-In Hero Button */}
+              <div className="dc-google-hero-box">
+                <button
+                  type="button"
+                  className="dc-google-one-tap-btn"
+                  onClick={() => handleOneClickOAuthPopup('google', easyEmailInput)}
+                >
+                  <span className="dc-google-g-badge" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path
+                        fill="#EA4335"
+                        d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
+                      />
+                      <path
+                        fill="#4285F4"
+                        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                      />
+                    </svg>
+                  </span>
+                  <div className="dc-google-btn-copy">
+                    <strong>Continue with Google</strong>
+                    <span>1-Click Gmail &amp; School Google OAuth &bull; Auto PGP Key</span>
+                  </div>
+                  <ChevronRight size={18} />
+                </button>
+
+                {gmailAccessToken && (
+                  <div className="dc-live-gmail-sync-bar">
+                    <span>🟢 Google OAuth Connected ({activeUser.email})</span>
+                    <button
+                      type="button"
+                      className="dc-pill-action-btn"
+                      disabled={isSyncingGmailInbox}
+                      onClick={() => void handleSyncLiveGmailPackets()}
+                    >
+                      <RefreshCw size={13} />{' '}
+                      {isSyncingGmailInbox ? 'Syncing…' : 'Sync Gmail'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Google Account Chooser (1-Tap Demo Accounts + Custom Gmail Input) */}
+              {simulatedOAuthProvider && (
+                <div className="dc-oauth-consent-card dc-google-chooser-card">
+                  <div className="dc-oauth-consent-header">
+                    <div className="dc-google-chooser-title">
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="#EA4335"
+                          d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
+                        />
+                        <path
+                          fill="#4285F4"
+                          d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                        />
+                      </svg>
+                      <strong>
+                        {simulatedOAuthProvider === 'google'
+                          ? 'Choose a Google Account'
+                          : 'Microsoft Account Sign-In'}
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="dc-icon-btn"
+                      onClick={() => setSimulatedOAuthProvider(null)}
+                      aria-label="Close Google Chooser"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {simulatedOAuthProvider === 'google' && (
+                    <div className="dc-google-quick-accounts">
+                      {[
+                        {
+                          name: 'Alex',
+                          email: 'alex.rivera@gmail.com',
+                          tag: 'Current Squad',
+                        },
+                        {
+                          name: 'Taylor',
+                          email: 'taylor.reed@gmail.com',
+                          tag: 'New Gmail',
+                        },
+                        {
+                          name: 'Kai',
+                          email: 'kai.chen@gmail.com',
+                          tag: 'New Gmail',
+                        },
+                      ].map((acct) => (
+                        <button
+                          key={acct.email}
+                          type="button"
+                          className="dc-google-account-row"
+                          disabled={isSending}
+                          onClick={() =>
+                            void handleCompletePortalSignIn({
+                              email: acct.email,
+                              displayName: acct.name,
+                              provider: 'gmail',
+                            })
+                          }
+                        >
+                          <div className="dc-google-acct-avatar">
+                            <Avatar
+                              name={acct.email}
+                              variant="beam"
+                              size={34}
+                              title={true}
+                            />
+                          </div>
+                          <div className="dc-google-acct-meta">
+                            <strong>{acct.name}</strong>
+                            <span>{acct.email}</span>
+                          </div>
+                          <span className="dc-google-acct-pill">{acct.tag}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="dc-form-row">
+                    <div className="dc-form-group">
+                      <label>Google Email</label>
+                      <input
+                        type="email"
+                        value={simulatedOAuthEmail}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSimulatedOAuthEmail(val);
+                          const prefix = val.split('@')[0];
+                          if (prefix) {
+                            const guessed = prefix
+                              .split(/[._-]/)
+                              .filter(Boolean)
+                              .map(
+                                (w) => w.charAt(0).toUpperCase() + w.slice(1)
+                              )
+                              .join(' ');
+                            if (guessed) setSimulatedOAuthName(guessed);
+                          }
+                        }}
+                        placeholder="you@gmail.com"
+                      />
+                    </div>
+                    <div className="dc-form-group">
+                      <label>First Name</label>
+                      <input
+                        type="text"
+                        value={simulatedOAuthName}
+                        onChange={(e) => setSimulatedOAuthName(e.target.value)}
+                        placeholder="Taylor"
+                      />
+                    </div>
+                  </div>
+                  <div className="dc-modal-actions">
+                    <button
+                      type="button"
+                      className="dc-btn-send"
+                      disabled={isSending || !simulatedOAuthEmail.includes('@')}
+                      onClick={() =>
+                        handleCompletePortalSignIn({
+                          email: simulatedOAuthEmail,
+                          displayName: simulatedOAuthName,
+                          provider:
+                            simulatedOAuthProvider === 'google'
+                              ? 'gmail'
+                              : 'outlook',
+                        })
+                      }
+                    >
+                      <CheckCircle2 size={14} /> Continue as{' '}
+                      {simulatedOAuthName || 'User'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="dc-easy-divider">
+                <span>or any email provider</span>
+              </div>
+
               <form
                 className="dc-easy-email-form"
                 onSubmit={handleEasyEmailContinue}
@@ -9319,69 +9673,6 @@ export function App() {
                 </div>
               )}
 
-              {/* Interactive OAuth Consent Popup Simulator (Triggered from Easy Step 2) */}
-              {simulatedOAuthProvider && (
-                <div className="dc-oauth-consent-card">
-                  <div className="dc-oauth-consent-header">
-                    <strong>
-                      {simulatedOAuthProvider === 'google'
-                        ? 'Google Sign-In Popup (OAuth2 PKCE Flow)'
-                        : 'Microsoft Identity Sign-In Popup (OAuth2 PKCE Flow)'}
-                    </strong>
-                    <button
-                      type="button"
-                      className="dc-icon-btn"
-                      onClick={() => setSimulatedOAuthProvider(null)}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <p className="dc-form-hint">
-                    Confirm your display name to complete sign-in for{' '}
-                    <strong>{simulatedOAuthEmail}</strong>. This generates your
-                    Curve25519 OpenPGP keypair on-device and keeps your inbox
-                    isolated:
-                  </p>
-                  <div className="dc-form-row">
-                    <div className="dc-form-group">
-                      <label>Email Address</label>
-                      <input
-                        type="email"
-                        value={simulatedOAuthEmail}
-                        onChange={(e) => setSimulatedOAuthEmail(e.target.value)}
-                      />
-                    </div>
-                    <div className="dc-form-group">
-                      <label>Your Display Name</label>
-                      <input
-                        type="text"
-                        value={simulatedOAuthName}
-                        onChange={(e) => setSimulatedOAuthName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="dc-modal-actions">
-                    <button
-                      type="button"
-                      className="dc-btn-send"
-                      disabled={isSending}
-                      onClick={() =>
-                        handleCompletePortalSignIn({
-                          email: simulatedOAuthEmail,
-                          displayName: simulatedOAuthName,
-                          provider:
-                            simulatedOAuthProvider === 'google'
-                              ? 'gmail'
-                              : 'outlook',
-                        })
-                      }
-                    >
-                      <CheckCircle2 size={14} /> Allow &amp; Sign In to @me
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {connectorStatusMsg && (
                 <div className="dc-profile-saved-alert">
                   <CheckCircle2 size={14} /> {connectorStatusMsg}
@@ -9391,15 +9682,14 @@ export function App() {
               {/* Bottom Bar with Advanced Button */}
               <div className="dc-connect-modal-footer">
                 <span>
-                  Need custom OAuth Client IDs, Proton Bridge host, or manual
-                  IMAP/JMAP settings?
+                  Have a Google Cloud Client ID or custom IMAP server?
                 </span>
                 <button
                   type="button"
                   className="dc-btn-ghost"
                   onClick={() => setConnectModalMode('advanced')}
                 >
-                  <Terminal size={13} /> Advanced Configuration
+                  <Terminal size={13} /> OAuth Client ID &amp; Advanced
                 </button>
               </div>
             </div>
@@ -9633,19 +9923,37 @@ export function App() {
                 {wizardProvider === 'gmail' && (
                   <div className="dc-form-group">
                     <label htmlFor="google-client-id-input">
-                      Google Cloud OAuth2 Client ID (For Live Browser Popup)
+                      Google Cloud OAuth2 Web Client ID (For Live{' '}
+                      <code>accounts.google.com</code> Popup)
                     </label>
-                    <input
-                      id="google-client-id-input"
-                      type="text"
-                      value={googleClientId}
-                      onChange={(e) => setGoogleClientId(e.target.value)}
-                      placeholder="123456789-abc.apps.googleusercontent.com (Optional)"
-                    />
+                    <div className="dc-inline-input-btn">
+                      <input
+                        id="google-client-id-input"
+                        type="text"
+                        value={googleClientId}
+                        onChange={(e) => {
+                          setGoogleClientId(e.target.value);
+                          saveGoogleClientId(e.target.value);
+                        }}
+                        placeholder="123456789-abc.apps.googleusercontent.com"
+                      />
+                      <button
+                        type="button"
+                        className="dc-btn-send"
+                        onClick={() => handleOneClickOAuthPopup('google')}
+                      >
+                        Test Google Popup
+                      </button>
+                    </div>
                     <small className="dc-form-hint">
-                      Leave blank to use the built-in Interactive Sign-In Popup,
-                      or paste your Google Cloud Web Client ID to launch the
-                      live <code>accounts.google.com</code> popup window.
+                      <strong>30-Second Setup for Live Google Users:</strong> In{' '}
+                      <strong>Google Cloud Console → APIs &amp; Services → Credentials</strong>,
+                      create an <strong>OAuth 2.0 Web Client ID</strong> and add{' '}
+                      <code>{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}</code>{' '}
+                      to <strong>Authorized JavaScript origins</strong>. Paste it
+                      above (or in <code>.env</code> as{' '}
+                      <code>VITE_GOOGLE_CLIENT_ID</code>) to enable 1-click
+                      Google Identity Services sign-in!
                     </small>
 
                     <button
@@ -9718,7 +10026,7 @@ export function App() {
                     <small className="dc-form-hint">
                       Uses server-side{' '}
                       <code>
-                        SEARCH HEADER X-@me-Protocol &quot;DCP/1.0&quot;
+                        SEARCH HEADER X-ATME-Protocol &quot;ATME/1.0&quot;
                       </code>{' '}
                       so only encrypted messaging packets are downloaded.
                     </small>
@@ -10275,7 +10583,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={packetDialogTitleId}>
-              <Lock size={16} /> DCP/1.0 Encrypted Email Packet Inspector
+              <Lock size={16} /> {ACTIVE_BRANCH_MANIFEST.branchBadge} Encrypted Email Packet Inspector
             </h2>
             <form method="dialog">
               <button type="submit" className="dc-icon-btn" aria-label="Close">

@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "boring-avatars": "^2.0.4",
     "dompurify": "^3.2.4",
     "idb": "^8.0.2",
     "lucide-react": "^0.475.0",

@@ -113,8 +113,9 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     });
 
     // Verify RFC 5322 headers & Non-App Download Card
+    expect(mimeEmail.headers['X-ATME-Protocol']).toBe(DCP_PROTOCOL_VERSION);
     expect(mimeEmail.headers['X-DontCall-Protocol']).toBe(DCP_PROTOCOL_VERSION);
-    expect(mimeEmail.rawMime).toContain('application/vnd.dontcall.packet+pgp');
+    expect(mimeEmail.rawMime).toContain('application/vnd.atme.packet+pgp');
     expect(mimeEmail.htmlFallbackPart).toContain(
       'Download @me on the App Store (iOS)'
     );
@@ -902,5 +903,70 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(alexStateAfterSamM1.get('m2')?.isExpired).toBe(false);
     expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Burned by Elena');
     expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Sam (20s)');
+  });
+
+  it('supports cross-branch interoperability via ATME/1.0 branchMod payloads', async () => {
+    const alexKeys = await generateDeviceKeyPair('Alex', 'alex@gmail.com');
+    const elenaKeys = await generateDeviceKeyPair('Elena', 'elena@proton.me');
+
+    const modPacket: DcpPacket = {
+      protocol: 'ATME/1.0',
+      packetId: 'pkt_mod_arcade_01',
+      type: 'chat.branch-mod',
+      encryptionMode: 'openpgp-asymmetric',
+      channel: {
+        id: 'ch_arcade_squad',
+        type: 'group',
+        name: 'arcade-squad',
+        participants: ['alex@gmail.com', 'elena@proton.me'],
+      },
+      sender: {
+        email: 'alex@gmail.com',
+        displayName: 'Alex',
+        provider: 'gmail',
+        pgpFingerprint: alexKeys.fingerprint,
+        publicKeyArmored: alexKeys.publicKeyArmored,
+      },
+      payload: {
+        messageId: 'msg_mod_arcade_01',
+        text: '🕹️ Sent a Pixel Duel challenge!',
+        branchMod: {
+          branchId: '@me/arcade-squad',
+          modId: 'pixel-duel',
+          title: 'Pixel Duel 1v1',
+          fallbackBody: '🕹️ Alex challenged you to Pixel Duel (Open in @me/arcade-squad)',
+          data: { game: 'rps', wagerIou: 1, moveHash: 'a94f2c' },
+        },
+      },
+      sentAt: new Date().toISOString(),
+    };
+
+    const encrypted = await encryptDcpPayloadAsymmetric({
+      cleartextJson: JSON.stringify(modPacket),
+      recipientPublicKeysArmored: [elenaKeys.publicKeyArmored],
+      senderPublicKeyArmored: alexKeys.publicKeyArmored,
+      senderPrivateKeyArmored: alexKeys.privateKeyArmored,
+    });
+
+    const mime = buildDcpMimeEmail({
+      packet: modPacket,
+      encryptedPacketArmored: encrypted,
+    });
+
+    expect(mime.headers['X-ATME-Protocol']).toBe('ATME/1.0');
+    expect(mime.headers['X-ATME-Branch']).toBe('@me/arcade-squad');
+
+    const decrypted = await inspectAndDecryptEmail({
+      email: mime,
+      recipientPrivateKeyArmored: elenaKeys.privateKeyArmored,
+    });
+
+    expect(decrypted.accepted).toBe(true);
+    expect(decrypted.decryptedPacket?.payload.branchMod?.branchId).toBe(
+      '@me/arcade-squad'
+    );
+    expect(decrypted.decryptedPacket?.payload.branchMod?.modId).toBe(
+      'pixel-duel'
+    );
   });
 });
