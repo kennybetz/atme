@@ -90,10 +90,24 @@ export class GmailDirectTransport {
   }
 
   /**
-   * Automatically creates a Gmail Inbox Filter so `[DontCall]` encrypted packets
-   * skip the user's primary regular Inbox (`removeLabelIds: ['INBOX']`).
+   * Creates a Gmail Inbox Filter (once per account) so `[DontCall]` / `[@me]` packets
+   * skip the user's primary regular Inbox (`removeLabelIds: ['INBOX']`, archiving them).
    */
-  async createAutoCleanInboxFilter(): Promise<{ filterId: string }> {
+  async createAutoCleanInboxFilter(
+    accountEmail?: string
+  ): Promise<{ filterId: string; alreadyConfigured?: boolean }> {
+    const cacheKey = accountEmail
+      ? `atme_gmail_filter_created_${accountEmail.trim().toLowerCase()}`
+      : 'atme_gmail_filter_created_default';
+
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem(cacheKey) === 'true') {
+        return { filterId: 'cached', alreadyConfigured: true };
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
     const response = await fetch(
       'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters',
       {
@@ -116,39 +130,76 @@ export class GmailDirectTransport {
 
     if (!response.ok) {
       const errText = await response.text();
+      if (response.status === 400 && /already exists/i.test(errText)) {
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem(cacheKey, 'true');
+        } catch {
+          // ignore
+        }
+        return { filterId: 'existing', alreadyConfigured: true };
+      }
       throw new Error(`Gmail filter creation failed (${response.status}): ${errText}`);
     }
 
     const data = (await response.json()) as { id: string };
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(cacheKey, 'true');
+      }
+    } catch {
+      // ignore
+    }
     return { filterId: data.id };
   }
 
   /**
-   * Fetches only emails matching the strict DontCall search query
+   * Fetches all emails matching the strict ATME/1.0 search query across Gmail pages (`nextPageToken`)
+   * so a new or existing device can hydrate and reconcile its entire ATME message history.
    */
-  async fetchDontCallPackets(maxResults = 25): Promise<RawTransportEmail[]> {
+  async fetchDontCallPackets(maxResults = 500): Promise<RawTransportEmail[]> {
     const q = encodeURIComponent(GmailDirectTransport.getStrictGmailSearchQuery());
-    const listRes = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${maxResults}`,
-      {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
-      }
-    );
+    const collectedRefs: Array<{ id: string; threadId: string }> = [];
+    const seenIds = new Set<string>();
+    let pageToken: string | undefined;
 
-    if (!listRes.ok) {
-      throw new Error(`Gmail API list failed (${listRes.status})`);
+    while (collectedRefs.length < maxResults) {
+      const pageSize = Math.min(100, maxResults - collectedRefs.length);
+      const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+      const listRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${pageSize}${tokenParam}`,
+        {
+          headers: { Authorization: `Bearer ${this.accessToken}` },
+        }
+      );
+
+      if (!listRes.ok) {
+        throw new Error(`Gmail API list failed (${listRes.status})`);
+      }
+
+      const listData = (await listRes.json()) as {
+        messages?: Array<{ id: string; threadId: string }>;
+        nextPageToken?: string;
+      };
+
+      if (listData.messages && listData.messages.length > 0) {
+        for (const msgRef of listData.messages) {
+          if (!seenIds.has(msgRef.id)) {
+            seenIds.add(msgRef.id);
+            collectedRefs.push(msgRef);
+          }
+        }
+      }
+
+      if (!listData.nextPageToken) break;
+      pageToken = listData.nextPageToken;
     }
 
-    const listData = (await listRes.json()) as {
-      messages?: Array<{ id: string; threadId: string }>;
-    };
-
-    if (!listData.messages || listData.messages.length === 0) {
+    if (collectedRefs.length === 0) {
       return [];
     }
 
     const results: RawTransportEmail[] = [];
-    for (const item of listData.messages) {
+    for (const item of collectedRefs) {
       const msgRes = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${item.id}?format=raw`,
         {
@@ -168,7 +219,10 @@ export class GmailDirectTransport {
         id: msgData.id,
         threadId: msgData.threadId,
         from: parsed.headers['From'] || '',
-        to: (parsed.headers['To'] || '').split(',').map((s) => s.trim()),
+        to: (parsed.headers['To'] || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
         subject: parsed.headers['Subject'] || '',
         date: parsed.headers['Date'] || new Date().toISOString(),
         headers: parsed.headers,
@@ -181,6 +235,132 @@ export class GmailDirectTransport {
 
     return results;
   }
+}
+
+export interface EmailReconciliationResult {
+  reconciledEmails: RawTransportEmail[];
+  addedCount: number;
+  updatedCount: number;
+  removedCount: number;
+  verifiedMatchCount: number;
+}
+
+function getCanonicalPacketKey(email: RawTransportEmail): string {
+  const key =
+    email.headers?.['X-ATME-Packet-Id'] ||
+    email.headers?.['X-DontCall-Packet-Id'] ||
+    email.headers?.['Message-ID'] ||
+    email.id;
+  return key.trim();
+}
+
+function headersMatch(
+  a: Record<string, string>,
+  b: Record<string, string>
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const k of aKeys) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+function emailRecordsMatch(a: RawTransportEmail, b: RawTransportEmail): boolean {
+  return (
+    a.id === b.id &&
+    (a.threadId || '') === (b.threadId || '') &&
+    a.from === b.from &&
+    a.subject === b.subject &&
+    a.rawMime === b.rawMime &&
+    (a.cleartextPacketJson || '') === (b.cleartextPacketJson || '') &&
+    (a.encryptedPacketArmored || '') === (b.encryptedPacketArmored || '') &&
+    headersMatch(a.headers || {}, b.headers || {})
+  );
+}
+
+/**
+ * Reconciles device local storage against remote mailbox ATME/1.0 packets:
+ * - Pulls all missing remote messages onto a new device
+ * - Verifies already-loaded messages match remote email content & updates drifted records
+ * - Prunes stale non-seed messages for `accountEmail` that no longer exist in the remote mailbox
+ */
+export function reconcileLocalEmailsWithRemoteMailbox(params: {
+  localEmails: RawTransportEmail[];
+  remoteEmails: RawTransportEmail[];
+  accountEmail: string;
+}): EmailReconciliationResult {
+  const normAccount = params.accountEmail.trim().toLowerCase();
+  const remoteByKey = new Map<string, RawTransportEmail>();
+
+  for (const remote of params.remoteEmails) {
+    remoteByKey.set(getCanonicalPacketKey(remote), remote);
+  }
+
+  const matchedKeys = new Set<string>();
+  const kept: RawTransportEmail[] = [];
+  let updatedCount = 0;
+  let removedCount = 0;
+  let verifiedMatchCount = 0;
+
+  for (const local of params.localEmails) {
+    const isDemoLocal = local.id.startsWith('seed_') || local.id.startsWith('reg_');
+    const involvesAccount =
+      !normAccount ||
+      local.from.toLowerCase().includes(normAccount) ||
+      local.to.some((t) => t.toLowerCase().includes(normAccount)) ||
+      (local.bcc || []).some((b) => b.toLowerCase().includes(normAccount));
+
+    if (isDemoLocal || !involvesAccount) {
+      kept.push(local);
+      continue;
+    }
+
+    const key = getCanonicalPacketKey(local);
+    const remote = remoteByKey.get(key);
+    if (!remote) {
+      removedCount += 1;
+      continue;
+    }
+
+    matchedKeys.add(key);
+    if (emailRecordsMatch(local, remote)) {
+      verifiedMatchCount += 1;
+      kept.push(local);
+    } else {
+      updatedCount += 1;
+      kept.push({
+        ...remote,
+        inviteKeyFragment: remote.inviteKeyFragment || local.inviteKeyFragment,
+      });
+    }
+  }
+
+  let addedCount = 0;
+  for (const [key, remote] of remoteByKey.entries()) {
+    if (!matchedKeys.has(key)) {
+      addedCount += 1;
+      kept.push(remote);
+    }
+  }
+
+  const deduped = new Map<string, RawTransportEmail>();
+  for (const email of kept) {
+    deduped.set(email.id, email);
+  }
+
+  const reconciledEmails = Array.from(deduped.values()).sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  return {
+    reconciledEmails,
+    addedCount,
+    updatedCount,
+    removedCount,
+    verifiedMatchCount,
+  };
 }
 
 /**
@@ -234,11 +414,11 @@ export function getProviderTechnicalSpecs() {
       id: 'gmail',
       name: 'Google Gmail API (OAuth2 PKCE)',
       protocol: 'HTTPS REST v1 (Direct Browser-to-Google)',
-      strictFilterQuery: `q=subject:"${DCP_SUBJECT_PREFIX}" ("atme-packet.pgp" OR "dontcall-packet.pgp")`,
+      strictFilterQuery: GmailDirectTransport.getStrictGmailSearchQuery(),
       inboxIsolationRule:
-        'Auto-creates Gmail Filter removing INBOX label & applying label "@me" so chat packets never clutter normal email.',
+        'Creates a Gmail filter matching subject:"[@me]" + hasAttachment:true that removes the INBOX label (archives to All Mail so Primary Inbox stays clean while ATME sync pulls full history).',
       e2eeSupport:
-        'On-Device OpenPGP (Curve25519). Google servers only see encrypted ASCII armor.',
+        'ATME/1.0 JSON + Optional OpenPGP (Curve25519) peer interop.',
     },
     {
       id: 'outlook',

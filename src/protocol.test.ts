@@ -24,8 +24,10 @@ import {
   ATME_JSON_PACKET_TYPE,
   DCP_PROTOCOL_VERSION,
   DcpPacket,
+  RawTransportEmail,
 } from './protocol/types';
 import { createSampleRegularEmails } from './store/seedEmails';
+import { reconcileLocalEmailsWithRemoteMailbox } from './transport/emailConnectors';
 import {
   discoverCustomDomainEmailConfig,
   generatePkceChallengePair,
@@ -601,5 +603,84 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(decrypted.decryptedPacket?.payload.branchMod?.modId).toBe(
       'pixel-duel'
     );
+  });
+
+  it('pulls all remote ATME/1.0 emails on a new device and reconciles drifted/deleted records on existing devices', () => {
+    const accountEmail = 'kenny@gmail.com';
+    const makeSamplePacketMime = (packetId: string, text: string, idOverride?: string) => {
+      const pkt: DcpPacket = {
+        protocol: DCP_PROTOCOL_VERSION,
+        packetId,
+        type: 'chat.message',
+        encryptionMode: 'cleartext-json',
+        channel: {
+          id: 'dm_kenny_sam',
+          type: 'dm',
+          name: 'Sam',
+          participants: [accountEmail, 'sam@outlook.com'],
+        },
+        sender: {
+          email: accountEmail,
+          displayName: 'Kenny',
+          provider: 'gmail',
+        },
+        payload: { messageId: `msg_${packetId}`, text },
+        sentAt: '2026-11-21T03:00:00.000Z',
+      };
+      const built = buildDcpMimeEmail({ packet: pkt });
+      return idOverride ? { ...built, id: idOverride } : built;
+    };
+
+    const remote1 = makeSamplePacketMime('pkt_sync_1', 'First cloud message', 'gmail_1');
+    const remote2 = makeSamplePacketMime('pkt_sync_2', 'Second cloud message', 'gmail_2');
+    const remote3 = makeSamplePacketMime('pkt_sync_3', 'New incoming message', 'gmail_3');
+
+    // 1. Brand-new device with empty local storage pulls all 3 remote emails
+    const newDeviceSync = reconcileLocalEmailsWithRemoteMailbox({
+      localEmails: [],
+      remoteEmails: [remote1, remote2, remote3],
+      accountEmail,
+    });
+    expect(newDeviceSync.addedCount).toBe(3);
+    expect(newDeviceSync.updatedCount).toBe(0);
+    expect(newDeviceSync.removedCount).toBe(0);
+    expect(newDeviceSync.reconciledEmails.map((e) => e.id)).toEqual([
+      'gmail_1',
+      'gmail_2',
+      'gmail_3',
+    ]);
+
+    // 2. Existing device:
+    // - seed_demo stays untouched
+    // - remote1 matches identically
+    // - pkt_sync_2 was saved with temporary optimistic local ID 'eml_pkt_sync_2' -> reconciles to 'gmail_2'
+    // - gmail_stale_99 was deleted from Gmail -> pruned from local storage
+    // - remote3 is brand-new -> added
+    const seedOnly: RawTransportEmail = {
+      ...makeSamplePacketMime('pkt_seed_only', 'Demo seed', 'seed_demo_1'),
+      from: 'alex.rivera@gmail.com',
+      to: ['sam.chen@outlook.com'],
+    };
+    const localDrifted2 = makeSamplePacketMime('pkt_sync_2', 'Second cloud message', 'eml_pkt_sync_2');
+    const localDeletedStale = makeSamplePacketMime('pkt_deleted_99', 'Removed in Gmail', 'gmail_stale_99');
+
+    const existingDeviceSync = reconcileLocalEmailsWithRemoteMailbox({
+      localEmails: [seedOnly, remote1, localDrifted2, localDeletedStale],
+      remoteEmails: [remote1, remote2, remote3],
+      accountEmail,
+    });
+
+    expect(existingDeviceSync.verifiedMatchCount).toBe(1);
+    expect(existingDeviceSync.updatedCount).toBe(1);
+    expect(existingDeviceSync.removedCount).toBe(1);
+    expect(existingDeviceSync.addedCount).toBe(1);
+
+    const reconciledIds = existingDeviceSync.reconciledEmails.map((e) => e.id);
+    expect(reconciledIds).toContain('seed_demo_1');
+    expect(reconciledIds).toContain('gmail_1');
+    expect(reconciledIds).toContain('gmail_2');
+    expect(reconciledIds).toContain('gmail_3');
+    expect(reconciledIds).not.toContain('eml_pkt_sync_2');
+    expect(reconciledIds).not.toContain('gmail_stale_99');
   });
 });

@@ -79,6 +79,7 @@ import {
 import {
   GmailDirectTransport,
   OutlookDirectTransport,
+  reconcileLocalEmailsWithRemoteMailbox,
 } from './transport/emailConnectors';
 import {
   DomainAutoDiscoveryResult,
@@ -807,6 +808,8 @@ export function App() {
   const [transportEmails, setTransportEmails] = useState<RawTransportEmail[]>(
     []
   );
+  const transportEmailsRef = useRef<RawTransportEmail[]>(transportEmails);
+  transportEmailsRef.current = transportEmails;
   const [inspections, setInspections] = useState<FilterInspectionResult[]>(() =>
     createInitialSeedInspections()
   );
@@ -1489,9 +1492,45 @@ export function App() {
         cachedEmails.length > 0
       ) {
         if (!mounted) return;
-        setUsers(cachedUsers);
+        const savedSession = loadGoogleOAuthSession();
+        let hydratedUsersList = cachedUsers;
+        if (savedSession?.email && savedSession?.accessToken) {
+          const normSessionEmail = savedSession.email.trim().toLowerCase();
+          if (
+            !hydratedUsersList.some(
+              (u) => u.email.toLowerCase() === normSessionEmail
+            )
+          ) {
+            const guessName = normSessionEmail.split('@')[0];
+            hydratedUsersList = [
+              {
+                email: normSessionEmail,
+                displayName:
+                  guessName.charAt(0).toUpperCase() + guessName.slice(1),
+                handle: `@${guessName.replace(/[^a-z0-9_]/gi, '_')}`,
+                provider: 'gmail',
+                hasAppInstalled: true,
+              },
+              ...hydratedUsersList,
+            ];
+            await saveUserIdentitiesToIdb(hydratedUsersList);
+          }
+          setActiveUserEmail(normSessionEmail);
+          setGmailAccessToken(savedSession.accessToken);
+        }
+
+        setUsers(hydratedUsersList);
         setTransportEmails(cachedEmails);
+        transportEmailsRef.current = cachedEmails;
         setIsInitializingKeys(false);
+
+        if (savedSession?.email && savedSession?.accessToken) {
+          void handleSyncLiveGmailPackets(
+            savedSession.accessToken,
+            savedSession.email,
+            cachedEmails
+          );
+        }
         return;
       }
 
@@ -1521,7 +1560,19 @@ export function App() {
       if (!mounted) return;
       setUsers(INITIAL_USERS);
       setTransportEmails(combined);
+      transportEmailsRef.current = combined;
       setIsInitializingKeys(false);
+
+      const savedSession = loadGoogleOAuthSession();
+      if (savedSession?.email && savedSession?.accessToken) {
+        setActiveUserEmail(savedSession.email);
+        setGmailAccessToken(savedSession.accessToken);
+        void handleSyncLiveGmailPackets(
+          savedSession.accessToken,
+          savedSession.email,
+          combined
+        );
+      }
 
       // Lazily provision Curve25519 keys in background so incoming OpenPGP interop packets decrypt automatically
       const hydratedUsers: UserIdentity[] = [];
@@ -1556,6 +1607,7 @@ export function App() {
       const myEmailLower = activeUser?.email?.toLowerCase() || '';
 
       for (const email of transportEmails) {
+        const isSeedEmail = email.id.startsWith('seed_');
         const isSender = email.from.toLowerCase().includes(myEmailLower);
         const isRecipient = email.to.some((t) =>
           t.toLowerCase().includes(myEmailLower)
@@ -1563,7 +1615,22 @@ export function App() {
         const isBccRecipient = email.bcc?.some((b) =>
           b.toLowerCase().includes(myEmailLower)
         );
-        if (myEmailLower && !isSender && !isRecipient && !isBccRecipient) {
+        const deliveredTo = (
+          email.headers?.['Delivered-To'] ||
+          email.headers?.['X-Original-To'] ||
+          ''
+        ).toLowerCase();
+        const isDeliveredToMe =
+          Boolean(myEmailLower) && deliveredTo.includes(myEmailLower);
+
+        if (
+          myEmailLower &&
+          isSeedEmail &&
+          !isSender &&
+          !isRecipient &&
+          !isBccRecipient &&
+          !isDeliveredToMe
+        ) {
           continue;
         }
 
@@ -1574,45 +1641,60 @@ export function App() {
         });
         results.push(res);
 
-        // If a decrypted packet carries a sender.profileCard, automatically upsert it into local DB
+        // Automatically upsert sender profile/identity metadata on a new device from synced packets
         const pkt = res.decryptedPacket;
-        if (pkt?.sender.profileCard) {
+        if (pkt?.sender?.email) {
           const card = pkt.sender.profileCard;
           const idx = nextUsers.findIndex(
             (u) => u.email.toLowerCase() === pkt.sender.email.toLowerCase()
           );
           if (idx >= 0) {
             const existing = nextUsers[idx];
-            const isNewer =
-              !existing.profileUpdatedAt ||
-              new Date(card.updatedAt).getTime() >
-                new Date(existing.profileUpdatedAt).getTime();
+            if (card) {
+              const isNewer =
+                !existing.profileUpdatedAt ||
+                new Date(card.updatedAt).getTime() >
+                  new Date(existing.profileUpdatedAt).getTime();
 
-            if (
-              isNewer &&
-              (existing.displayName !== card.displayName ||
-                existing.handle !== card.handle ||
-                existing.avatarDataUrl !== card.avatarDataUrl ||
-                existing.bio !== card.bio)
+              if (
+                isNewer &&
+                (existing.displayName !== card.displayName ||
+                  existing.handle !== card.handle ||
+                  existing.avatarDataUrl !== card.avatarDataUrl ||
+                  existing.bio !== card.bio)
+              ) {
+                nextUsers[idx] = {
+                  ...existing,
+                  displayName: card.displayName,
+                  handle: card.handle,
+                  avatarDataUrl: card.avatarDataUrl || existing.avatarDataUrl,
+                  bio: card.bio,
+                  profileUpdatedAt: card.updatedAt,
+                };
+                usersUpdated = true;
+              }
+            } else if (
+              !existing.pgpKeyPair &&
+              pkt.sender.publicKeyArmored &&
+              !existing.hasAppInstalled
             ) {
-              nextUsers[idx] = {
-                ...existing,
-                displayName: card.displayName,
-                handle: card.handle,
-                avatarDataUrl: card.avatarDataUrl || existing.avatarDataUrl,
-                bio: card.bio,
-                profileUpdatedAt: card.updatedAt,
-              };
+              nextUsers[idx] = { ...existing, hasAppInstalled: true };
               usersUpdated = true;
             }
           } else {
             nextUsers.push({
               email: pkt.sender.email,
-              displayName: card.displayName,
-              handle: card.handle,
-              avatarDataUrl: card.avatarDataUrl,
-              bio: card.bio,
-              profileUpdatedAt: card.updatedAt,
+              displayName:
+                card?.displayName ||
+                pkt.sender.displayName ||
+                pkt.sender.email.split('@')[0],
+              handle:
+                card?.handle ||
+                pkt.sender.handle ||
+                `@${pkt.sender.email.split('@')[0].replace(/[^a-z0-9_]/gi, '_')}`,
+              avatarDataUrl: card?.avatarDataUrl,
+              bio: card?.bio,
+              profileUpdatedAt: card?.updatedAt || pkt.sentAt,
               provider: pkt.sender.provider,
               hasAppInstalled: true,
             });
@@ -1627,18 +1709,42 @@ export function App() {
           setUsers(nextUsers);
           await saveUserIdentitiesToIdb(nextUsers);
         }
-        // Automatically ensure any channel referenced by a decrypted packet is present in `channels`
+        // Automatically hydrate & merge any channels referenced by synced/decrypted packets
         setChannels((prev) => {
-          const existingIds = new Set(prev.map((c) => c.id));
+          let changed = false;
+          const byId = new Map(prev.map((c) => [c.id, c]));
           const discovered: DcpChannelMeta[] = [];
+
           for (const r of results) {
             const ch = r.decryptedPacket?.channel;
-            if (ch && ch.id && !existingIds.has(ch.id)) {
-              existingIds.add(ch.id);
+            if (!ch || !ch.id) continue;
+            const existing = byId.get(ch.id);
+            if (!existing) {
+              byId.set(ch.id, ch);
               discovered.push(ch);
+              changed = true;
+            } else {
+              const mergedParticipants = Array.from(
+                new Set([
+                  ...existing.participants,
+                  ...(ch.participants || []),
+                ])
+              );
+              if (mergedParticipants.length !== existing.participants.length) {
+                byId.set(ch.id, {
+                  ...existing,
+                  participants: mergedParticipants,
+                });
+                changed = true;
+              }
             }
           }
-          return discovered.length > 0 ? [...discovered, ...prev] : prev;
+
+          if (!changed) return prev;
+          return [
+            ...discovered,
+            ...prev.map((c) => byId.get(c.id) || c),
+          ];
         });
       }
     }
@@ -2322,6 +2428,7 @@ export function App() {
       };
 
       const rawMimeEmail = buildDcpMimeEmail({ packet });
+      let persistedEmail: RawTransportEmail = rawMimeEmail;
 
       // Live OAuth Dispatch if connected
       if (gmailAccessToken.trim() && activeUser.provider === 'gmail') {
@@ -2329,6 +2436,7 @@ export function App() {
           gmailAccessToken.trim()
         );
         const sent = await gmailTransport.sendRawMimeEmail(rawMimeEmail);
+        persistedEmail = { ...rawMimeEmail, id: sent.providerMessageId };
         setConnectorStatusMsg(
           `Dispatched via Live Gmail API (Message ID: ${sent.providerMessageId})`
         );
@@ -2353,7 +2461,8 @@ export function App() {
         setForceBroadcastProfileNext(false);
       }
 
-      const updatedEmails = [rawMimeEmail, ...transportEmails];
+      const updatedEmails = [persistedEmail, ...transportEmailsRef.current];
+      transportEmailsRef.current = updatedEmails;
       setTransportEmails(updatedEmails);
       await saveTransportEmailsToIdb(updatedEmails);
     } finally {
@@ -3548,26 +3657,43 @@ export function App() {
     }
   }
 
-  // Sync incoming ATME/1.0 packets from a live connected Gmail account
-  async function handleSyncLiveGmailPackets(tokenOverride?: string) {
+  // Sync all ATME/1.0 packets from Gmail & reconcile local IndexedDB storage against remote mailbox
+  async function handleSyncLiveGmailPackets(
+    tokenOverride?: string,
+    emailOverride?: string,
+    baseLocalEmails?: RawTransportEmail[]
+  ) {
     const token = (tokenOverride || gmailAccessToken).trim();
+    const accountEmail = (
+      emailOverride ||
+      loadGoogleOAuthSession()?.email ||
+      activeUserEmail
+    )
+      .trim()
+      .toLowerCase();
     if (!token) return;
     setIsSyncingGmailInbox(true);
     try {
       const transport = new GmailDirectTransport(token);
       if (autoArchivePrimaryInbox) {
-        await transport.createAutoCleanInboxFilter().catch(() => undefined);
+        await transport
+          .createAutoCleanInboxFilter(accountEmail)
+          .catch(() => undefined);
       }
-      const fetchedEmails = await transport.fetchDontCallPackets(20);
-      if (fetchedEmails.length > 0) {
-        setTransportEmails((prev) => {
-          const existingIds = new Set(prev.map((e) => e.id));
-          const fresh = fetchedEmails.filter((e) => !existingIds.has(e.id));
-          return [...fresh, ...prev];
-        });
-      }
+      const fetchedEmails = await transport.fetchDontCallPackets(500);
+      const localSnapshot = baseLocalEmails || transportEmailsRef.current;
+      const reconciled = reconcileLocalEmailsWithRemoteMailbox({
+        localEmails: localSnapshot,
+        remoteEmails: fetchedEmails,
+        accountEmail,
+      });
+
+      setTransportEmails(reconciled.reconciledEmails);
+      transportEmailsRef.current = reconciled.reconciledEmails;
+      await saveTransportEmailsToIdb(reconciled.reconciledEmails);
+
       setConnectorStatusMsg(
-        `Gmail Sync Complete • ${fetchedEmails.length} ATME/1.0 packet(s) synced`
+        `Gmail Sync Complete • +${reconciled.addedCount} pulled • ${reconciled.verifiedMatchCount} verified • ${reconciled.updatedCount} updated • ${reconciled.removedCount} pruned`
       );
     } catch (err) {
       setConnectorStatusMsg(
@@ -3668,7 +3794,7 @@ export function App() {
           accessToken: params.liveAccessToken,
           expiresAtMs: Date.now() + ttlMs,
         });
-        void handleSyncLiveGmailPackets(params.liveAccessToken);
+        void handleSyncLiveGmailPackets(params.liveAccessToken, cleanEmail);
       }
 
       // Lazily generate Curve25519 keys in background so encrypted ATME/1.0 peers can interop
