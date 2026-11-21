@@ -107,39 +107,6 @@ interface FreeflowChatMessage {
 }
 
 /**
- * Compresses an uploaded image file onto a 96x96 canvas so the avatar data URL
- * stays lightweight (~3-8 KB) when attached to first-contact encrypted DCP packets.
- */
-async function compressImageToAvatarDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Invalid image format'));
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const size = 96;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(String(reader.result));
-          return;
-        }
-        const minSide = Math.min(img.width, img.height);
-        const sx = (img.width - minSide) / 2;
-        const sy = (img.height - minSide) / 2;
-        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/webp', 0.84));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
  * Reads any file attachment as a Data URL so it can be encrypted inside the DCP/1.0 packet
  * and rendered inline on the recipient's device.
  */
@@ -722,15 +689,11 @@ export function App() {
 
   // Hidden File Inputs
   const fileAttachmentInputRef = useRef<HTMLInputElement | null>(null);
-  const avatarUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // User Profile Editor State (Avatar, Display Name, Handle, Bio)
   const [profileNameInput, setProfileNameInput] = useState<string>('');
   const [profileHandleInput, setProfileHandleInput] = useState<string>('');
   const [profileBioInput, setProfileBioInput] = useState<string>('');
-  const [profileAvatarInput, setProfileAvatarInput] = useState<
-    string | undefined
-  >(undefined);
   const [profileSaveBanner, setProfileSaveBanner] = useState<string>('');
 
   // Email Provider OAuth & Bridge Onboarding Wizard State
@@ -1243,7 +1206,6 @@ export function App() {
         `@${activeUser.email.split('@')[0].replace(/[^a-z0-9]/gi, '')}`
     );
     setProfileBioInput(activeUser.bio || '');
-    setProfileAvatarInput(activeUser.avatarDataUrl);
   }, [activeUser]);
 
   // Support URL query params for deep-linking, QR code scans (?add=email&handle=...), or screenshot/preview states (?view=...)
@@ -2723,7 +2685,6 @@ export function App() {
             displayName: profileNameInput.trim() || u.displayName,
             handle: formattedHandle,
             bio: '',
-            avatarDataUrl: profileAvatarInput,
             profileUpdatedAt: nowIso,
           }
         : u
@@ -2737,15 +2698,6 @@ export function App() {
     } catch {
       // Ignore storage errors
     }
-  }
-
-  async function handleAvatarFileSelected(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const compressedDataUrl = await compressImageToAvatarDataUrl(file);
-    setProfileAvatarInput(compressedDataUrl);
   }
 
   // Real File / Photo Picker Handler (Encrypts inside the DCP/1.0 packet)
@@ -3794,13 +3746,6 @@ export function App() {
         accept="image/*,audio/*,.pdf,.txt,.doc,.docx,.zip"
         style={{ display: 'none' }}
         onChange={handleRealFileSelected}
-      />
-      <input
-        ref={avatarUploadInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={handleAvatarFileSelected}
       />
 
       {/* =====================================================================
@@ -5610,22 +5555,14 @@ export function App() {
             <form className="dc-profile-form" onSubmit={handleSaveUserProfile}>
               <div className="dc-profile-avatar-editor">
                 <div className="dc-profile-avatar-preview-wrap">
-                  {profileAvatarInput ? (
-                    <img
-                      src={profileAvatarInput}
-                      alt="Profile Avatar"
-                      className="dc-profile-avatar-large dc-avatar-img"
+                  <div className="dc-profile-avatar-large dc-boring-avatar-wrapper">
+                    <Avatar
+                      name={activeUser.email}
+                      variant="beam"
+                      size="100%"
+                      title={true}
                     />
-                  ) : (
-                    <div className="dc-profile-avatar-large dc-boring-avatar-wrapper">
-                      <Avatar
-                        name={activeUser.email}
-                        variant="beam"
-                        size="100%"
-                        title={true}
-                      />
-                    </div>
-                  )}
+                  </div>
                 </div>
                 <div className="dc-profile-avatar-buttons">
                   <span className="dc-avatar-section-label">
@@ -5650,46 +5587,24 @@ export function App() {
                         aria-hidden="true"
                       >
                         <path
-                          fill="#EA4335"
-                          d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
-                        />
-                        <path
                           fill="#4285F4"
-                          d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                         />
                         <path
                           fill="#34A853"
-                          d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                       </svg>
                       Google Sign-In
                     </button>
-                    <button
-                      type="button"
-                      className="dc-pill-action-btn dc-photo-icon-btn"
-                      onClick={() => avatarUploadInputRef.current?.click()}
-                      title="Upload custom image"
-                      aria-label="Upload custom image"
-                    >
-                      <Camera size={15} /> Photo
-                    </button>
-                    {profileAvatarInput && (
-                      <button
-                        type="button"
-                        className="dc-pill-action-btn dc-avatar-reset-btn"
-                        onClick={() => {
-                          setProfileAvatarInput('');
-                        }}
-                        title="Revert to default Boring Avatar"
-                        aria-label="Revert to default Boring Avatar"
-                      >
-                        <RefreshCw size={13} />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -5786,22 +5701,14 @@ export function App() {
             <div className="dc-qr-card-step">
               <div className="dc-qr-share-card">
                 <div className="dc-qr-card-identity">
-                  {profileAvatarInput || activeUser.avatarDataUrl ? (
-                    <img
-                      src={profileAvatarInput || activeUser.avatarDataUrl}
-                      alt={profileNameInput || activeUser.displayName}
-                      className="dc-qr-card-avatar dc-avatar-img"
+                  <div className="dc-qr-card-avatar dc-boring-avatar-wrapper">
+                    <Avatar
+                      name={activeUser.email}
+                      variant="beam"
+                      size="100%"
+                      title={true}
                     />
-                  ) : (
-                    <div className="dc-qr-card-avatar dc-boring-avatar-wrapper">
-                      <Avatar
-                        name={activeUser.email}
-                        variant="beam"
-                        size="100%"
-                        title={true}
-                      />
-                    </div>
-                  )}
+                  </div>
                   <h3>{profileNameInput || activeUser.displayName}</h3>
                   <span className="dc-qr-card-handle">
                     {profileHandleInput || activeUser.handle || '@user'}
@@ -6203,20 +6110,20 @@ export function App() {
                   <span className="dc-google-g-badge" aria-hidden="true">
                     <svg width="20" height="20" viewBox="0 0 24 24">
                       <path
-                        fill="#EA4335"
-                        d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
-                      />
-                      <path
                         fill="#4285F4"
-                        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                       />
                       <path
                         fill="#34A853"
-                        d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                       />
                     </svg>
                   </span>
@@ -6250,20 +6157,20 @@ export function App() {
                     <div className="dc-google-chooser-title">
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                         <path
-                          fill="#EA4335"
-                          d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"
-                        />
-                        <path
                           fill="#4285F4"
-                          d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                         />
                         <path
                           fill="#34A853"
-                          d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.9C3.5 20.4 7.4 23 12 23z"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                       </svg>
                       <strong>
@@ -6446,7 +6353,29 @@ export function App() {
                         handleOneClickOAuthPopup('google', easyEmailInput)
                       }
                     >
-                      <Mail size={16} />
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        />
+                      </svg>
                       <div>
                         <strong>
                           Continue with Google Sign-In Popup (
@@ -6661,7 +6590,29 @@ export function App() {
                   className="dc-oauth-btn dc-oauth-google"
                   onClick={() => handleOneClickOAuthPopup('google')}
                 >
-                  <Mail size={16} />
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
                   <div>
                     <strong>Continue with Google (Popup)</strong>
                     <span>Gmail &amp; Google Workspace Custom Domains</span>

@@ -5583,27 +5583,6 @@ dialog::backdrop {
   flex-wrap: wrap;
 }
 
-.dc-avatar-reset-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-
-.dc-avatar-reset-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-}
-
-.dc-kid-photo-icon-btn {
-  width: 38px;
-  height: 34px;
-  padding: 0;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* 4. Hardcoded '@' Handle Prefix Input Box (Screenshot 4) */
 .dc-handle-prefix-box {
   display: flex;
@@ -5635,16 +5614,6 @@ dialog::backdrop {
   padding-left: 2px !important;
   width: 100%;
   flex: 1;
-}
-
-.dc-photo-icon-btn {
-  width: 44px;
-  height: 34px;
-  padding: 0;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* 5. Plain Colored Icon-Only Buttons on @me QR View (Screenshot 1) */
@@ -5996,10 +5965,17 @@ dialog::backdrop {
   display: inline-flex;
   align-items: safe center;
   gap: 6px;
+  white-space: nowrap;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
   font-weight: 700;
+}
+
+.dc-google-pill-btn svg,
+.dc-oauth-btn svg {
+  flex: none;
+  display: block;
 }
 
 .dc-google-pill-btn:hover {
