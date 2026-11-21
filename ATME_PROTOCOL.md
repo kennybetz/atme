@@ -1,38 +1,43 @@
-# `ATME/1.0` — `@me` Open Micro-Messaging Protocol Specification
+# `ATME/1.0` — `@me` Open Micro-Messaging Protocol Specification (`@me/simple`)
 
-> **Minimum Standard for Cross-Branch Interoperability**
-> Every `@me` squad branch (`@me/core`, `@me/arcade-squad`, `@me/lunch-table`, `@me/band-room`, `@me/study-vault`, or your own custom fork) speaks **`ATME/1.0`** under the hood. As long as your AI coding assistant keeps the `ATME/1.0` envelope intact, your custom branch can send messages, reactions, IOUs, burners, and custom mods to any friend on any other `@me` branch.
-
----
-
-## 1. Why `ATME/1.0` Exists
-
-```
-[Your Squad Branch: @me/arcade-squad]
-         │
-         ▼  1. Encrypt JSON + branchMod with OpenPGP (Curve25519)
-[RFC 5322 Email + X-ATME-Protocol: ATME/1.0]
-         │
-         ▼  2. Rides free over Gmail / Outlook / Proton / iCloud ($0 Server)
-[Friend's Branch: @me/core or @me/skate-spots]
-         │
-         ▼  3. Strict 3-Gate Inbox Filter ignores 100% of normal emails
-[Decrypted Instant Chat Bubble + Mod Widget (or Fallback Text)]
-```
+> **Interoperable By Design (`@me/simple` ↔ Encrypted `@me` Branches)**
+> Every `@me` branch—including **`@me/simple`**—speaks **`ATME/1.0`** MIME envelopes over standard email (`SMTP`/`IMAP`/Gmail API).
+> On the `simple` branch, outbound messages use fast UTF-8 JSON (`cleartext-json`) for instant prototyping, while inbound parsing seamlessly accepts **both** cleartext JSON packets and Curve25519 OpenPGP packets sent by encrypted `@me` branches.
 
 ---
 
-## 2. The 5 Non-Negotiable Rules of `ATME/1.0`
+## 1. Dual-Mode Packet Flow (`cleartext-json` + OpenPGP Interop)
 
-When prompting an AI coding assistant to add features to your branch, tell it to follow `ATME_PROTOCOL.md`:
+```
+[@me/simple User]
+       │  1a. Default Outbound: serialize UTF-8 JSON (<1ms)
+       │      Content-Type: application/vnd.atme.packet+json (atme-packet.json)
+       ▼
+[Email Transport (Gmail / Outlook / IMAP)] ── Strict Gate ignores 100% of normal emails
+       │
+       ├──▶ [@me/simple Peer]: parses JSON directly (<1ms)
+       └──▶ [Encrypted @me Peer]: verifies X-ATME-Protocol & ingests JSON seamlessly
 
-| # | Rule | Standard Value | Why It Matters |
+[Encrypted @me Peer Replies with OpenPGP]
+       │  Content-Type: application/vnd.atme.packet+pgp (atme-packet.pgp)
+       ▼
+[@me/simple User]: decrypts automatically using background-hydrated Curve25519 keys ✓
+```
+
+---
+
+## 2. Core `ATME/1.0` Interop Contract
+
+When asking an AI coding assistant to extend `@me/simple`, keep these rules intact:
+
+| # | Contract Field | `@me/simple` Default | Encrypted `@me` Peer Interop |
 | :--- | :--- | :--- | :--- |
-| **1** | **Protocol Header** | `X-ATME-Protocol: ATME/1.0` | Allows the Strict Inbox Filter to accept `@me` packets and ignore 100% of regular spam/school/receipt emails. |
-| **2** | **MIME Packet Part** | `application/vnd.atme.packet+pgp` | Holds the OpenPGP ASCII-armored ciphertext (`atme-packet.pgp`). |
-| **3** | **Public Key Part** | `application/pgp-keys` | Attaches `sender-pubkey.asc` so friends automatically have your Curve25519 key on first contact. |
-| **4** | **99-User Hard Cap** | `MAX_CHANNEL_AND_GROUP_USERS = 99` | Protects personal Gmail/Outlook/iCloud accounts from SMTP rate-limiting when sending group chats or BCC channel stories. |
-| **5** | **Graceful Mod Fallback** | `payload.branchMod.fallbackBody` | If your branch invents a new mini-game or widget, friends on other branches still see a clean readable message. |
+| **1** | **`X-ATME-Protocol`** | `ATME/1.0` | Required so the Strict Filter separates chat packets from normal email. |
+| **2** | **MIME Payload Part** | `application/vnd.atme.packet+json` (`atme-packet.json`) | Parser also accepts & decrypts `application/vnd.atme.packet+pgp` (`atme-packet.pgp`). |
+| **3** | **`X-ATME-Encryption`** | `cleartext-json` | Also accepts `openpgp-asymmetric` and `openpgp-invite-key`. |
+| **4** | **Public Key Part** | Omitted unless PGP encrypted | Background-hydrated Curve25519 keys unlock encrypted peer replies automatically. |
+| **5** | **99-User Hard Cap** | `MAX_CHANNEL_AND_GROUP_USERS = 99` | Protects consumer Gmail/Outlook accounts from SMTP fanout limits. |
+| **6** | **Extension Hook** | `payload.branchMod` + `fallbackBody` | Add custom features (Polls, IOUs, WebRTC rooms) without breaking other branches. |
 
 ---
 
@@ -42,60 +47,51 @@ Every outbound `ATME/1.0` email MUST include:
 
 ```http
 MIME-Version: 1.0
-Subject: [@me] Encrypted message (friday-hangout) [ch_product_launch]
+Subject: [@me] Message (simple-squad) [ch_simple_squad]
 X-ATME-Protocol: ATME/1.0
-X-ATME-Branch: @me/core
+X-ATME-Branch: @me/simple
 X-ATME-Packet-Id: pkt_...
 X-ATME-Packet-Type: chat.message
 X-ATME-Channel-Id: ch_...
-X-ATME-Channel-Type: dm | group | workspace-channel | broadcast-channel | vault
-X-ATME-Encryption: openpgp-asymmetric | openpgp-invite-key
-X-ATME-Sender-FP: <40-hex Curve25519 PGP Fingerprint>
+X-ATME-Channel-Type: dm | group | workspace-channel | vault | broadcast-channel
+X-ATME-Encryption: cleartext-json | openpgp-asymmetric | openpgp-invite-key
 ```
 
-> **Backward Compatibility:** `mimeParser.ts` also accepts legacy `X-DontCall-Protocol: DCP/1.0` and `application/vnd.dontcall.packet+pgp` so older packets never break.
+> **Backward Compatibility:** `mimeParser.ts` also recognizes legacy `X-DontCall-Protocol: DCP/1.0` and `application/vnd.dontcall.packet+pgp`.
 
 ---
 
-## 4. Decrypted JSON Packet Schema (`src/protocol/types.ts`)
-
-Inside the `-----BEGIN PGP MESSAGE-----` block is a UTF-8 JSON object matching `AtmePacket`:
+## 4. Packet Schema (`src/protocol/types.ts`)
 
 ```ts
 export interface AtmePacket {
-  protocol: 'ATME/1.0';
+  protocol: 'ATME/1.0' | 'DCP/1.0';
   packetId: string;
   type:
     | 'chat.message'
     | 'chat.reaction'
     | 'chat.receipt'
-    | 'chat.iou'
-    | 'chat.poll'
-    | 'chat.poll-vote'
+    | 'chat.edit'
     | 'chat.member-update'
-    | 'chat.shred-request'
-    | 'chat.shred-ack'
     | 'chat.branch-mod';
-  encryptionMode: 'openpgp-asymmetric' | 'openpgp-invite-key';
+  encryptionMode: 'cleartext-json' | 'openpgp-asymmetric' | 'openpgp-invite-key';
   channel: {
     id: string;
     type: 'dm' | 'group' | 'workspace-channel' | 'vault' | 'broadcast-channel';
     name: string;
     participants: string[]; // Hard capped at 99
-    isBurner?: boolean;     // 20s sequential cascade burn after view
-    ephemeralTimerSeconds?: 0 | 15 | 20 | 60 | 300 | 3600 | 86400;
   };
   sender: {
     email: string;
     displayName: string;
-    handle?: string;        // Hardcoded '@' + letters/numbers/underscores
+    handle?: string;        // '@' + letters/numbers/underscores
     provider: 'gmail' | 'outlook' | 'yahoo' | 'proton' | 'custom-domain';
-    pgpFingerprint: string;
-    publicKeyArmored: string;
+    pgpFingerprint?: string;    // Optional in cleartext-json mode; required for OpenPGP
+    publicKeyArmored?: string;  // Optional in cleartext-json mode; required for OpenPGP
     profileCard?: {
       displayName: string;
       handle: string;
-      avatarDataUrl?: string; // Custom upload; if omitted, Boring Avatars Beam is generated from email
+      avatarDataUrl?: string;
       bio?: string;
       updatedAt: string;
     };
@@ -103,21 +99,11 @@ export interface AtmePacket {
   payload: {
     messageId: string;
     text?: string;
-    ephemeralTtlSeconds?: 0 | 15 | 20 | 60 | 300 | 3600 | 86400;
-    iou?: {
-      iouId: string;
-      action: 'send-iou' | 'collect';
-      amount: number;
-      unit: string;
-      note?: string;
-      debtorEmail: string;
-      creditorEmail: string;
-    };
     branchMod?: {
-      branchId: string;     // e.g. "@me/arcade-squad"
-      modId: string;        // e.g. "pixel-duel"
-      title: string;        // e.g. "Pixel Duel 1v1"
-      fallbackBody: string; // Shown on branches that don't have this mod installed
+      branchId: string;
+      modId: string;
+      title: string;
+      fallbackBody: string;
       data: Record<string, unknown>;
     };
   };
@@ -127,8 +113,9 @@ export interface AtmePacket {
 
 ---
 
-## 5. How to Add a Custom Feature on Your Squad's Branch
+## 5. Adding Custom Features Safely
 
-1. Open [`src/protocol/branchManifest.ts`](./src/protocol/branchManifest.ts) and set your `branchId` (e.g., `'@me/skate-spots'`).
-2. When sending a custom widget or game state, use `type: 'chat.branch-mod'` (or attach `branchMod` to a `chat.message` packet) and always populate `fallbackBody` + `text`.
-3. Run `npx vitest run` to verify all 12 `ATME/1.0` compliance and encryption tests pass!
+1. Create a feature branch (`git checkout -b feat/your-feature`).
+2. Update [`src/protocol/branchManifest.ts`](./src/protocol/branchManifest.ts) with your branch ID and mod metadata.
+3. Always provide `payload.text` and `payload.branchMod.fallbackBody` so friends running older or unmodded `@me` branches still see clean messages.
+4. Run `npx vitest run` and `npm run build` before committing!

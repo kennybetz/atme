@@ -106,6 +106,25 @@ code {
   color: #ffb340;
 }
 
+.skip-link {
+  position: absolute;
+  inset-inline-start: -9999px;
+  inset-block-start: 0;
+  z-index: 1000;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.skip-link:focus {
+  position: fixed;
+  inset-inline-start: 14px;
+  inset-block-start: 14px;
+}
+
 .sr-only {
   position: absolute;
   inline-size: 1px;
@@ -2435,4 +2454,292 @@ code {
   .recycle-showcase {
     grid-template-columns: 1fr;
   }
+}
+
+/* =====================================================================
+   @me/simple Educational Website — Interactive Labs & OAuth Guide
+   ===================================================================== */
+
+.simple-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.16);
+  border: 1px solid rgba(10, 132, 255, 0.42);
+  color: #60a5fa;
+}
+
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+}
+
+.arch-card {
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.arch-card h3 {
+  font-size: 1.06rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arch-card p {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.arch-tag {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  color: var(--green);
+}
+
+.labs-shell {
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, rgba(17, 22, 30, 0.95), rgba(10, 13, 19, 0.98));
+  overflow: clip;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.lab-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lab-tab-btn:hover {
+  border-color: rgba(10, 132, 255, 0.45);
+  color: var(--text);
+}
+
+.lab-tab-btn.is-active {
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(10, 132, 255, 0.6);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.25);
+}
+
+.lab-panel {
+  display: none;
+  padding: 26px;
+}
+
+.lab-panel.is-active {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .lab-panel.is-active {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lab-meta-col,
+.lab-code-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-inline-size: 0;
+}
+
+.lab-kicker {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--blue);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lab-meta-col h3 {
+  font-size: 1.45rem;
+}
+
+.lab-meta-col p {
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+
+.lab-files-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lab-checklist {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.lab-checklist strong {
+  color: var(--text);
+}
+
+.code-card {
+  border-radius: 14px;
+  border: 1px solid var(--line-2);
+  background: #070a0f;
+  overflow: clip;
+}
+
+.code-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.copy-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.copy-btn.is-copied {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.code-card pre {
+  margin: 0;
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: #dbe4f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.git-best-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.git-rule-card {
+  padding: 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.git-rule-num {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--green);
+}
+
+.git-rule-card h3 {
+  font-size: 1.04rem;
+}
+
+.git-rule-card p {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.oauth-guide-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+}
+
+@media (max-width: 860px) {
+  .oauth-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.oauth-panel {
+  padding: 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.oauth-fix-box {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 69, 58, 0.38);
+  background: rgba(255, 69, 58, 0.08);
+  font-size: 0.86rem;
+  color: #fecaca;
+}
+
+.oauth-ok-box {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  background: rgba(48, 209, 88, 0.08);
+  font-size: 0.86rem;
+  color: #bbf7d0;
 }

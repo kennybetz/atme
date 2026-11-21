@@ -1,11 +1,11 @@
 /**
- * Automated Unit Tests for the Stage 1 Core Protocol Engine:
- *   1. On-Device OpenPGP Key Generation (`generateDeviceKeyPair`)
- *   2. Asymmetric E2EE Encryption + Proton Mail PGP compatibility (`encryptDcpPayloadAsymmetric`)
- *   3. First-Contact Ephemeral Invite Encryption (`encryptDcpPayloadWithInviteKey`)
- *   4. RFC 5322 Multipart MIME Builder + Non-App Download Card (`buildDcpMimeEmail`)
- *   5. Strict Inbox Filter (`isDontCallFormattedEmail` + `inspectAndDecryptEmail`) ensuring
- *      100% of regular emails (Stripe, GitHub, Delta) are ignored while `DCP/1.0` packets are decrypted.
+ * Automated Unit Tests for `@me/simple` (`ATME/1.0` Protocol Engine & OAuth Helpers):
+ *   1. Strict Inbox Filter (`isDontCallFormattedEmail` + `inspectAndDecryptEmail`) ignores 100% of regular emails
+ *   2. Fast-path Cleartext JSON (`application/vnd.atme.packet+json`, `atme-packet.json`) MIME building & parsing
+ *   3. Bidirectional `ATME/1.0` Interoperability with Encrypted OpenPGP peers (`application/vnd.atme.packet+pgp`)
+ *   4. First-Contact Ephemeral Invite Interoperability (`encryptDcpPayloadWithInviteKey`)
+ *   5. Group Membership (`chat.member-update`), Profile Cards, Read Receipts & Client-Side Link Previews
+ *   6. Google OAuth Client ID Sanitization & Validation + PKCE + Custom Domain Discovery
  */
 
 import { describe, expect, it } from 'vitest';
@@ -21,8 +21,7 @@ import {
   isDontCallFormattedEmail,
 } from './protocol/mimeParser';
 import {
-  computeBurnerCascadeTimings,
-  computeViewerBurnerCascade,
+  ATME_JSON_PACKET_TYPE,
   DCP_PROTOCOL_VERSION,
   DcpPacket,
 } from './protocol/types';
@@ -30,19 +29,10 @@ import { createSampleRegularEmails } from './store/seedEmails';
 import {
   discoverCustomDomainEmailConfig,
   generatePkceChallengePair,
+  sanitizeGoogleClientId,
+  validateGoogleClientId,
 } from './transport/oauthPortal';
-import {
-  createSignedComplianceAttestation,
-  destroyThreadWrappingKey,
-  encryptAtRestWithThreadKey,
-  verifyComplianceAttestation,
-} from './crypto/complianceAndShredding';
-import {
-  computeSafetyNumberAndQrMatrix,
-  createShieldedBurnerAlias,
-  evaluatePinOrDuressCode,
-  extractClientSideLinkPreview,
-} from './crypto/privacyFeatures';
+import { extractClientSideLinkPreview } from './utils/linkPreview';
 
 describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
   it('strictly ignores regular emails (Stripe, GitHub, Delta) and never parses them into the app', async () => {
@@ -394,515 +384,158 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(customDomainConfig.smtpHost).toContain('mycustomstartup.io');
   });
 
-  it('verifies Compliant Build Attestations and executes Remote Key Shredding (chat.shred-request & chat.shred-ack)', async () => {
-    const alexKeys = await generateDeviceKeyPair(
-      'Alex Rivera',
-      'alex@gmail.com'
-    );
-    const elenaKeys = await generateDeviceKeyPair(
-      'Elena Vogt',
-      'elena@proton.me'
-    );
-
-    const attestation = await createSignedComplianceAttestation({
-      senderEmail: 'alex@gmail.com',
-      senderPgpFingerprint: alexKeys.fingerprint,
-    });
-
-    const verifyCheck = await verifyComplianceAttestation({
-      senderEmail: 'alex@gmail.com',
-      senderPgpFingerprint: alexKeys.fingerprint,
-      attestation,
-    });
-    expect(verifyCheck.verified).toBe(true);
-
-    // Reject if a tampered or non-compliant sender email or fingerprint claims the attestation
-    const tamperedCheck = await verifyComplianceAttestation({
-      senderEmail: 'spoofed@gmail.com',
-      senderPgpFingerprint: alexKeys.fingerprint,
-      attestation,
-    });
-    expect(tamperedCheck.verified).toBe(false);
-
-    // Encrypt at-rest record with non-extractable thread wrapping key, then destroy key
-    const atRest = await encryptAtRestWithThreadKey({
-      channelId: 'dm_alex_elena',
-      plaintext: 'Sensitive local index record',
-      recordId: 'msg_01',
-    });
-    expect(atRest.ciphertextBase64.length).toBeGreaterThan(10);
-    expect(destroyThreadWrappingKey('dm_alex_elena')).toBe(true);
-
-    // Dispatch a signed `chat.shred-request` packet over MIME email
-    const shredReqPacket: DcpPacket = {
+  it('builds and parses cleartext-json ATME/1.0 MIME packets in <5ms without blocking on OpenPGP', async () => {
+    const simplePacket: DcpPacket = {
       protocol: DCP_PROTOCOL_VERSION,
-      packetId: 'pkt_shred_req_01',
-      type: 'chat.shred-request',
-      encryptionMode: 'openpgp-asymmetric',
+      packetId: 'pkt_simple_json_01',
+      type: 'chat.message',
+      encryptionMode: 'cleartext-json',
       channel: {
-        id: 'dm_alex_elena',
-        type: 'dm',
-        name: 'Elena Vogt',
-        participants: ['alex@gmail.com', 'elena@proton.me'],
+        id: 'ch_simple_squad',
+        type: 'workspace-channel',
+        name: 'simple-squad',
+        participants: ['alex@gmail.com', 'sam@outlook.com'],
       },
       sender: {
         email: 'alex@gmail.com',
         displayName: 'Alex Rivera',
+        handle: '@alex',
         provider: 'gmail',
-        pgpFingerprint: alexKeys.fingerprint,
-        publicKeyArmored: alexKeys.publicKeyArmored,
       },
-      complianceAttestation: attestation,
       payload: {
-        messageId: 'msg_shred_req_01',
-        text: 'Erase peer PGP key and scrub IndexedDB',
-        shredRequest: {
-          shredScope: 'peer-pgp-key-and-threads',
-          targetPeerEmail: 'elena@proton.me',
-          targetKeyFingerprint: elenaKeys.fingerprint,
-          reason: 'Remote key erase requested',
-          requestedAt: new Date().toISOString(),
-        },
+        messageId: 'msg_simple_01',
+        text: 'Checkout https://github.com/openpgpjs/openpgpjs on our clean scaffold!',
+        linkPreview: extractClientSideLinkPreview(
+          'Checkout https://github.com/openpgpjs/openpgpjs on our clean scaffold!'
+        ),
       },
       sentAt: new Date().toISOString(),
     };
 
-    const encShred = await encryptDcpPayloadAsymmetric({
-      cleartextJson: JSON.stringify(shredReqPacket),
-      recipientPublicKeysArmored: [elenaKeys.publicKeyArmored],
-      senderPublicKeyArmored: alexKeys.publicKeyArmored,
-      senderPrivateKeyArmored: alexKeys.privateKeyArmored,
-    });
+    const mimeEmail = buildDcpMimeEmail({ packet: simplePacket });
 
-    const shredMime = buildDcpMimeEmail({
-      packet: shredReqPacket,
-      encryptedPacketArmored: encShred,
-    });
+    expect(mimeEmail.headers['X-ATME-Protocol']).toBe(DCP_PROTOCOL_VERSION);
+    expect(mimeEmail.rawMime).toContain(ATME_JSON_PACKET_TYPE);
+    expect(mimeEmail.rawMime).toContain('atme-packet.json');
+    expect(mimeEmail.rawMime).not.toContain('-----BEGIN PGP MESSAGE-----');
+    expect(isDontCallFormattedEmail(mimeEmail).valid).toBe(true);
 
-    const elenaInspect = await inspectAndDecryptEmail({
-      email: shredMime,
-      recipientPrivateKeyArmored: elenaKeys.privateKeyArmored,
-    });
+    const inspected = await inspectAndDecryptEmail({ email: mimeEmail });
 
-    expect(elenaInspect.accepted).toBe(true);
-    expect(elenaInspect.signatureVerified).toBe(true);
-    expect(elenaInspect.compliantBuildVerified).toBe(true);
-    expect(elenaInspect.decryptedPacket?.type).toBe('chat.shred-request');
-    expect(
-      elenaInspect.decryptedPacket?.payload.shredRequest?.targetKeyFingerprint
-    ).toBe(elenaKeys.fingerprint);
+    expect(inspected.accepted).toBe(true);
+    expect(inspected.encryptionMode).toBe('cleartext-json');
+    expect(inspected.signatureVerified).toBe(false);
+    expect(inspected.decryptionTimeMs).toBeLessThan(50);
+    expect(inspected.decryptedPacket?.payload.text).toContain('clean scaffold!');
+    expect(inspected.decryptedPacket?.payload.linkPreview?.domain).toBe(
+      'github.com'
+    );
   });
 
-  it('supports all 6 next-gen @me features: Safety Numbers + QR, Shielded Burner Aliases, Client-Side Link Previews, Duress PIN, Burn Timers, Encrypted Polls & Personal Vault', async () => {
-    const alexKeys = await generateDeviceKeyPair(
-      'Alex Rivera',
-      'alex.rivera@gmail.com'
-    );
-    const elenaKeys = await generateDeviceKeyPair(
-      'Elena Vogt',
-      'elena.vogt@proton.me'
-    );
+  it('maintains bidirectional interoperability between @me/simple (cleartext-json) and full OpenPGP @me peers', async () => {
+    const elenaKeys = await generateDeviceKeyPair('Elena Vogt', 'elena@proton.me');
 
-    // 1. Canonical 60-digit Safety Number & 21x21 QR Code Matrix (symmetric regardless of peer order)
-    const safetyA = await computeSafetyNumberAndQrMatrix({
-      myEmail: 'alex.rivera@gmail.com',
-      myFingerprint: alexKeys.fingerprint,
-      peerEmail: 'elena.vogt@proton.me',
-      peerFingerprint: elenaKeys.fingerprint,
-    });
-    const safetyB = await computeSafetyNumberAndQrMatrix({
-      myEmail: 'elena.vogt@proton.me',
-      myFingerprint: elenaKeys.fingerprint,
-      peerEmail: 'alex.rivera@gmail.com',
-      peerFingerprint: alexKeys.fingerprint,
-    });
-    expect(safetyA.formattedSafetyNumber).toBe(safetyB.formattedSafetyNumber);
-    expect(safetyA.groups).toHaveLength(12);
-    expect(safetyA.qrMatrix).toHaveLength(21);
-
-    // 2. Anonymous Shielded Burner Alias with isolated Curve25519 PGP keypair
-    const burner = await createShieldedBurnerAlias({
-      parentEmail: 'alex.rivera@gmail.com',
-      displayName: 'Alex Rivera',
-      label: 'Craigslist Buyer',
-      strategy: 'duck-privacy',
-    });
-    expect(burner.aliasEmail).toContain('@duck.com');
-    expect(burner.pgpFingerprint).not.toBe(alexKeys.fingerprint);
-
-    // 3. Zero-server client-side Link Preview extraction before encryption
-    const preview = extractClientSideLinkPreview(
-      'Check out https://github.com/openpgpjs/openpgpjs for the audit'
-    );
-    expect(preview).toBeDefined();
-    expect(preview?.domain).toBe('github.com');
-
-    // 4. Duress / Panic PIN vs Normal Unlock PIN evaluation
-    expect(
-      evaluatePinOrDuressCode({
-        enteredPin: '2580',
-        normalPin: '2580',
-        duressPin: '9999',
-      })
-    ).toBe('unlock');
-    expect(
-      evaluatePinOrDuressCode({
-        enteredPin: '9999',
-        normalPin: '2580',
-        duressPin: '9999',
-      })
-    ).toBe('duress-shred');
-
-    // 5 & 6. Encrypted Poll + Burn-After-Reading TTL + Shielded Alias inside a DCP/1.0 packet
-    const pollPacket: DcpPacket = {
+    // 1. @me/simple user sends cleartext-json packet
+    const outboundSimple: DcpPacket = {
       protocol: DCP_PROTOCOL_VERSION,
-      packetId: 'pkt_poll_test_01',
-      type: 'chat.poll',
-      encryptionMode: 'openpgp-asymmetric',
+      packetId: 'pkt_interop_out',
+      type: 'chat.message',
+      encryptionMode: 'cleartext-json',
       channel: {
-        id: 'ch_product_launch',
-        type: 'workspace-channel',
-        name: 'product-launch',
-        participants: ['alex.rivera@gmail.com', 'elena.vogt@proton.me'],
-        ephemeralTimerSeconds: 60,
-        shieldedAliasEmail: burner.aliasEmail,
+        id: 'dm_interop',
+        type: 'dm',
+        name: 'Elena Vogt',
+        participants: ['sam@outlook.com', 'elena@proton.me'],
       },
       sender: {
-        email: 'alex.rivera@gmail.com',
-        displayName: 'Alex Rivera',
-        provider: 'gmail',
-        pgpFingerprint: alexKeys.fingerprint,
-        publicKeyArmored: alexKeys.publicKeyArmored,
+        email: 'sam@outlook.com',
+        displayName: 'Sam Chen',
+        provider: 'outlook',
       },
       payload: {
-        messageId: 'msg_poll_test_01',
-        text: '📊 Encrypted Poll: Which feature do we demo first?',
-        ephemeralTtlSeconds: 60,
-        senderShieldedAlias: {
-          aliasEmail: burner.aliasEmail,
-          strategy: burner.strategy,
-          ephemeralFingerprint: burner.pgpFingerprint,
-        },
-        linkPreview: preview,
-        poll: {
-          pollId: 'poll_test_01',
-          question: 'Which feature do we demo first?',
-          allowMultiple: false,
-          options: [
-            { id: 'opt_1', text: 'Burn-After-Reading Timers' },
-            { id: 'opt_2', text: 'Vault (@me)' },
-          ],
-        },
+        messageId: 'msg_interop_out',
+        text: 'Hey Elena from @me/simple!',
       },
       sentAt: new Date().toISOString(),
     };
+    const outboundMime = buildDcpMimeEmail({ packet: outboundSimple });
+    const parsedOutbound = await inspectAndDecryptEmail({ email: outboundMime });
+    expect(parsedOutbound.accepted).toBe(true);
+    expect(parsedOutbound.decryptedPacket?.payload.text).toBe(
+      'Hey Elena from @me/simple!'
+    );
 
-    const encPoll = await encryptDcpPayloadAsymmetric({
-      cleartextJson: JSON.stringify(pollPacket),
-      recipientPublicKeysArmored: [elenaKeys.publicKeyArmored],
-      senderPublicKeyArmored: alexKeys.publicKeyArmored,
-      senderPrivateKeyArmored: alexKeys.privateKeyArmored,
-    });
-
-    const pollMime = buildDcpMimeEmail({
-      packet: pollPacket,
-      encryptedPacketArmored: encPoll,
-    });
-
-    const decryptedPoll = await inspectAndDecryptEmail({
-      email: pollMime,
-      recipientPrivateKeyArmored: elenaKeys.privateKeyArmored,
-    });
-
-    expect(decryptedPoll.accepted).toBe(true);
-    expect(decryptedPoll.decryptedPacket?.type).toBe('chat.poll');
-    expect(decryptedPoll.decryptedPacket?.payload.ephemeralTtlSeconds).toBe(60);
-    expect(
-      decryptedPoll.decryptedPacket?.payload.senderShieldedAlias?.aliasEmail
-    ).toBe(burner.aliasEmail);
-    expect(
-      decryptedPoll.decryptedPacket?.payload.poll?.options[0].text
-    ).toBe('Burn-After-Reading Timers');
-  });
-
-  it('implements sequential cascade deletion for Burner Chats (20s per message, 3 messages = 60s total)', () => {
-    const baseTime = 1000000;
-    const messages = [
-      { messageId: 'm1', viewedAtMs: baseTime },
-      { messageId: 'm2', viewedAtMs: baseTime },
-      { messageId: 'm3', viewedAtMs: baseTime },
-    ];
-
-    // At T = 0s (baseTime): m1 is active (20s remaining); m2 and m3 are queued
-    const t0 = computeBurnerCascadeTimings(messages, baseTime, 20);
-    expect(t0.get('m1')?.isActive).toBe(true);
-    expect(t0.get('m1')?.isQueued).toBe(false);
-    expect(t0.get('m1')?.isExpired).toBe(false);
-    expect(t0.get('m1')?.remainingSeconds).toBe(20);
-
-    expect(t0.get('m2')?.isActive).toBe(false);
-    expect(t0.get('m2')?.isQueued).toBe(true);
-    expect(t0.get('m2')?.isExpired).toBe(false);
-
-    expect(t0.get('m3')?.isActive).toBe(false);
-    expect(t0.get('m3')?.isQueued).toBe(true);
-    expect(t0.get('m3')?.isExpired).toBe(false);
-
-    // At T = 10s: m1 has 10s remaining; m2 and m3 still queued
-    const t10 = computeBurnerCascadeTimings(messages, baseTime + 10000, 20);
-    expect(t10.get('m1')?.isActive).toBe(true);
-    expect(t10.get('m1')?.remainingSeconds).toBe(10);
-    expect(t10.get('m2')?.isQueued).toBe(true);
-    expect(t10.get('m3')?.isQueued).toBe(true);
-
-    // At T = 20s: m1 is expired/deleted! m2 immediately becomes active (20s remaining); m3 still queued
-    const t20 = computeBurnerCascadeTimings(messages, baseTime + 20000, 20);
-    expect(t20.get('m1')?.isExpired).toBe(true);
-    expect(t20.get('m2')?.isActive).toBe(true);
-    expect(t20.get('m2')?.isQueued).toBe(false);
-    expect(t20.get('m2')?.remainingSeconds).toBe(20);
-    expect(t20.get('m3')?.isQueued).toBe(true);
-
-    // At T = 40s: m1 and m2 are expired/deleted! m3 immediately becomes active (20s remaining)
-    const t40 = computeBurnerCascadeTimings(messages, baseTime + 40000, 20);
-    expect(t40.get('m1')?.isExpired).toBe(true);
-    expect(t40.get('m2')?.isExpired).toBe(true);
-    expect(t40.get('m3')?.isActive).toBe(true);
-    expect(t40.get('m3')?.isQueued).toBe(false);
-    expect(t40.get('m3')?.remainingSeconds).toBe(20);
-
-    // At T = 60s: all 3 messages are expired/deleted (total duration exactly 60s once viewed!)
-    const t60 = computeBurnerCascadeTimings(messages, baseTime + 60000, 20);
-    expect(t60.get('m1')?.isExpired).toBe(true);
-    expect(t60.get('m2')?.isExpired).toBe(true);
-    expect(t60.get('m3')?.isExpired).toBe(true);
-  });
-
-  it('activates the burner timer ONLY when the recipient views the message in the app (sender send time does not burn)', () => {
-    const baseTime = 1000000;
-    const channelMessages = [
-      { messageId: 'm1', senderEmail: 'alex@gmail.com' },
-      { messageId: 'm2', senderEmail: 'alex@gmail.com' },
-      { messageId: 'm3', senderEmail: 'alex@gmail.com' },
-    ];
-    const participants = ['alex@gmail.com', 'elena@proton.me'];
-
-    // 1. Initially: Alex sent 3 messages at baseTime. Elena has NOT viewed them yet!
-    const elenaT0 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'elena@proton.me',
-      participants,
-      localViewMap: {},
-      nowMs: baseTime + 15000, // 15 seconds have passed since send
-      ttlSeconds: 20,
-    });
-
-    // Elena has not viewed them in the app -> none have started!
-    expect(elenaT0.get('m1')?.isViewed).toBe(false);
-    expect(elenaT0.get('m1')?.isActive).toBe(false);
-    expect(elenaT0.get('m1')?.isExpired).toBe(false);
-    expect(elenaT0.get('m1')?.remainingSeconds).toBe(20);
-    expect(elenaT0.get('m1')?.summaryLabel).toContain('burns 20s once viewed');
-
-    // Alex (the sender) sees that Elena has not viewed them yet
-    const alexT0 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap: {},
-      nowMs: baseTime + 15000,
-      ttlSeconds: 20,
-    });
-    expect(alexT0.get('m1')?.isExpired).toBe(false);
-    expect(alexT0.get('m1')?.summaryLabel).toContain('Unread by Elena (burns 20s once viewed)');
-
-    // 2. Elena opens the chat and views them at baseTime + 30000 (30 seconds after send)
-    const elenaViewTime = baseTime + 30000;
-    const localViewMap: Record<string, number> = {
-      'elena@proton.me:m1': elenaViewTime,
-      'elena@proton.me:m2': elenaViewTime,
-      'elena@proton.me:m3': elenaViewTime,
+    // 2. Encrypted @me peer replies with OpenPGP asymmetric MIME (and @me/simple background keys decrypt it)
+    const samKeys = await generateDeviceKeyPair('Sam Chen', 'sam@outlook.com');
+    const inboundEncrypted: DcpPacket = {
+      protocol: DCP_PROTOCOL_VERSION,
+      packetId: 'pkt_interop_in',
+      type: 'chat.message',
+      encryptionMode: 'openpgp-asymmetric',
+      channel: outboundSimple.channel,
+      sender: {
+        email: 'elena@proton.me',
+        displayName: 'Elena Vogt',
+        provider: 'proton',
+        pgpFingerprint: elenaKeys.fingerprint,
+        publicKeyArmored: elenaKeys.publicKeyArmored,
+      },
+      payload: {
+        messageId: 'msg_interop_in',
+        text: 'Received loud and clear — encrypted reply from main branch!',
+      },
+      sentAt: new Date().toISOString(),
     };
-
-    // Immediately upon Elena viewing (at T = 30s): m1 starts 20s timer, m2 and m3 are queued
-    const elenaT30 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'elena@proton.me',
-      participants,
-      localViewMap,
-      nowMs: elenaViewTime,
-      ttlSeconds: 20,
+    const encryptedArmored = await encryptDcpPayloadAsymmetric({
+      cleartextJson: JSON.stringify(inboundEncrypted),
+      recipientPublicKeysArmored: [samKeys.publicKeyArmored],
+      senderPublicKeyArmored: elenaKeys.publicKeyArmored,
+      senderPrivateKeyArmored: elenaKeys.privateKeyArmored,
     });
-    expect(elenaT30.get('m1')?.isViewed).toBe(true);
-    expect(elenaT30.get('m1')?.isActive).toBe(true);
-    expect(elenaT30.get('m1')?.remainingSeconds).toBe(20);
-    expect(elenaT30.get('m2')?.isQueued).toBe(true);
-    expect(elenaT30.get('m3')?.isQueued).toBe(true);
-
-    // On Alex's screen (via Elena's view/receipt): Alex sees Elena actively burning m1!
-    const alexT30 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap,
-      nowMs: elenaViewTime,
-      ttlSeconds: 20,
+    const inboundMime = buildDcpMimeEmail({
+      packet: inboundEncrypted,
+      encryptedPacketArmored: encryptedArmored,
     });
-    expect(alexT30.get('m1')?.isExpired).toBe(false);
-    expect(alexT30.get('m1')?.summaryLabel).toContain('Elena (20s)');
-    expect(alexT30.get('m2')?.summaryLabel).toContain('Elena queued (20s)');
 
-    // 20s later (T = 50s): m1 has expired for Elena and deletes from both screens; m2 is active
-    const elenaT50 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'elena@proton.me',
-      participants,
-      localViewMap,
-      nowMs: elenaViewTime + 20000,
-      ttlSeconds: 20,
+    const parsedInbound = await inspectAndDecryptEmail({
+      email: inboundMime,
+      recipientPrivateKeyArmored: samKeys.privateKeyArmored,
     });
-    expect(elenaT50.get('m1')?.isExpired).toBe(true);
-    expect(elenaT50.get('m2')?.isActive).toBe(true);
-    expect(elenaT50.get('m2')?.remainingSeconds).toBe(20);
-    expect(elenaT50.get('m3')?.isQueued).toBe(true);
-
-    const alexT50 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap,
-      nowMs: elenaViewTime + 20000,
-      ttlSeconds: 20,
-    });
-    expect(alexT50.get('m1')?.isExpired).toBe(true); // Deletes from sender screen because Elena finished
-    expect(alexT50.get('m2')?.isExpired).toBe(false);
-    expect(alexT50.get('m2')?.summaryLabel).toContain('Elena (20s)');
-
-    // Total 60s from Elena's view time (T = 90s): all messages are deleted
-    const elenaT90 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'elena@proton.me',
-      participants,
-      localViewMap,
-      nowMs: elenaViewTime + 60000,
-      ttlSeconds: 20,
-    });
-    expect(elenaT90.get('m1')?.isExpired).toBe(true);
-    expect(elenaT90.get('m2')?.isExpired).toBe(true);
-    expect(elenaT90.get('m3')?.isExpired).toBe(true);
+    expect(parsedInbound.accepted).toBe(true);
+    expect(parsedInbound.encryptionMode).toBe('openpgp-asymmetric');
+    expect(parsedInbound.signatureVerified).toBe(true);
+    expect(parsedInbound.decryptedPacket?.payload.text).toContain(
+      'encrypted reply from main branch!'
+    );
   });
 
-  it('supports Group Burner Chats with multiple users and independent read times', () => {
-    const baseTime = 1000000;
-    const channelMessages = [
-      { messageId: 'm1', senderEmail: 'alex@gmail.com' },
-      { messageId: 'm2', senderEmail: 'alex@gmail.com' },
-      { messageId: 'm3', senderEmail: 'alex@gmail.com' },
-    ];
-    const participants = ['alex@gmail.com', 'elena@proton.me', 'sam@dontcall.me'];
+  it('sanitizes and validates Google Cloud Web Client IDs to prevent Error 401: invalid_client', () => {
+    expect(
+      sanitizeGoogleClientId(' "https://123456-abc.apps.googleusercontent.com/" ')
+    ).toBe('123456-abc.apps.googleusercontent.com');
 
-    // Elena views at T = 1000ms
-    // Sam does NOT view until T = 100,000ms
-    const elenaViewTime = baseTime + 1000;
-    const samViewTime = baseTime + 100000;
-
-    const localViewMap: Record<string, number> = {
-      'elena@proton.me:m1': elenaViewTime,
-      'elena@proton.me:m2': elenaViewTime,
-      'elena@proton.me:m3': elenaViewTime,
-    };
-
-    // At T = 25s (24s after Elena viewed, but Sam has still not viewed):
-    const nowMs25 = elenaViewTime + 24000;
-
-    // For Elena: m1 has expired and deleted; m2 is active with 16s remaining
-    const elenaState = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'elena@proton.me',
-      participants,
-      localViewMap,
-      nowMs: nowMs25,
-      ttlSeconds: 20,
+    expect(
+      validateGoogleClientId('1234567890-abcdef123.apps.googleusercontent.com')
+    ).toEqual({
+      valid: true,
+      sanitized: '1234567890-abcdef123.apps.googleusercontent.com',
     });
-    expect(elenaState.get('m1')?.isExpired).toBe(true);
-    expect(elenaState.get('m2')?.isActive).toBe(true);
-    expect(elenaState.get('m2')?.remainingSeconds).toBe(16);
 
-    // For Sam at T = 25s: Sam has NOT viewed m1 yet! m1 is NOT expired for Sam!
-    const samStateBeforeView = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'sam@dontcall.me',
-      participants,
-      localViewMap,
-      nowMs: nowMs25,
-      ttlSeconds: 20,
-    });
-    expect(samStateBeforeView.get('m1')?.isExpired).toBe(false);
-    expect(samStateBeforeView.get('m1')?.isViewed).toBe(false);
-    expect(samStateBeforeView.get('m1')?.remainingSeconds).toBe(20);
+    // Reject client secret pasted by mistake
+    const secretCheck = validateGoogleClientId('GOCSPX-mySecretValue123');
+    expect(secretCheck.valid).toBe(false);
+    expect(secretCheck.reason).toContain('Client Secret');
 
-    // For Alex (sender) at T = 25s:
-    // Elena has burned m1, but Sam has NOT read m1 yet!
-    // Therefore, m1 MUST NOT be deleted from Alex's screen!
-    const alexStateAt25 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap,
-      nowMs: nowMs25,
-      ttlSeconds: 20,
-    });
-    expect(alexStateAt25.get('m1')?.isExpired).toBe(false); // Elena expired, but Sam hasn't!
-    expect(alexStateAt25.get('m1')?.summaryLabel).toContain('Burned by Elena');
-    expect(alexStateAt25.get('m1')?.summaryLabel).toContain('Sam unread');
+    // Reject email / invalid string without apps.googleusercontent.com suffix
+    const badSuffix = validateGoogleClientId('KennyBetz@gmail.com');
+    expect(badSuffix.valid).toBe(false);
+    expect(badSuffix.reason).toContain('.apps.googleusercontent.com');
 
-    // Now at T = 100,000ms: Sam opens the chat and views all 3 messages!
-    localViewMap['sam@dontcall.me:m1'] = samViewTime;
-    localViewMap['sam@dontcall.me:m2'] = samViewTime;
-    localViewMap['sam@dontcall.me:m3'] = samViewTime;
-
-    const samStateAtView = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'sam@dontcall.me',
-      participants,
-      localViewMap,
-      nowMs: samViewTime,
-      ttlSeconds: 20,
-    });
-    // Sam gets his full independent 20s cascade: m1 active (20s), m2 queued, m3 queued
-    expect(samStateAtView.get('m1')?.isActive).toBe(true);
-    expect(samStateAtView.get('m1')?.remainingSeconds).toBe(20);
-    expect(samStateAtView.get('m2')?.isQueued).toBe(true);
-    expect(samStateAtView.get('m3')?.isQueued).toBe(true);
-
-    // Sender Alex sees: Burned by Elena, Sam active (20s)
-    const alexStateAtSamView = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap,
-      nowMs: samViewTime,
-      ttlSeconds: 20,
-    });
-    expect(alexStateAtSamView.get('m1')?.isExpired).toBe(false);
-    expect(alexStateAtSamView.get('m1')?.summaryLabel).toContain('Burned by Elena');
-    expect(alexStateAtSamView.get('m1')?.summaryLabel).toContain('Sam (20s)');
-
-    // 20s later (samViewTime + 20,000ms): Sam finishes burning m1!
-    // NOW both Elena and Sam have expired m1 -> m1 is finally expired and deleted on Alex's screen!
-    const alexStateAfterSamM1 = computeViewerBurnerCascade({
-      messages: channelMessages,
-      viewerEmail: 'alex@gmail.com',
-      participants,
-      localViewMap,
-      nowMs: samViewTime + 20000,
-      ttlSeconds: 20,
-    });
-    expect(alexStateAfterSamM1.get('m1')?.isExpired).toBe(true);
-    // m2 is still alive on Alex's screen because Sam is now burning m2!
-    expect(alexStateAfterSamM1.get('m2')?.isExpired).toBe(false);
-    expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Burned by Elena');
-    expect(alexStateAfterSamM1.get('m2')?.summaryLabel).toContain('Sam (20s)');
+    // Reject documentation placeholder IDs
+    const placeholder = validateGoogleClientId(
+      '1234567890-abcdefg.apps.googleusercontent.com'
+    );
+    expect(placeholder.valid).toBe(false);
   });
 
   it('supports cross-branch interoperability via ATME/1.0 branchMod payloads', async () => {

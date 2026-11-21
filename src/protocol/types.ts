@@ -5,6 +5,7 @@
 
 export const ATME_PROTOCOL_VERSION = 'ATME/1.0';
 export const ATME_MIME_PACKET_TYPE = 'application/vnd.atme.packet+pgp';
+export const ATME_JSON_PACKET_TYPE = 'application/vnd.atme.packet+json';
 export const ATME_SUBJECT_PREFIX = '[@me]';
 
 /** Legacy aliases retained so existing imports and tests continue to work seamlessly */
@@ -12,9 +13,10 @@ export const DCP_PROTOCOL_VERSION = ATME_PROTOCOL_VERSION;
 export const DCP_MIME_PACKET_TYPE = ATME_MIME_PACKET_TYPE;
 export const DCP_SUBJECT_PREFIX = ATME_SUBJECT_PREFIX;
 
-/** Accepted protocol versions & MIME types during parsing (ATME/1.0 + legacy DCP/1.0 fallback) */
+/** Accepted protocol versions & MIME types during parsing (ATME/1.0 JSON + PGP + legacy DCP/1.0 fallback) */
 export const ACCEPTED_ATME_PROTOCOL_VERSIONS = ['ATME/1.0', 'DCP/1.0'] as const;
 export const ACCEPTED_ATME_MIME_TYPES = [
+  'application/vnd.atme.packet+json',
   'application/vnd.atme.packet+pgp',
   'application/vnd.dontcall.packet+pgp',
 ] as const;
@@ -136,7 +138,8 @@ export interface ShieldedBurnerAlias {
 }
 
 export type EncryptionMode =
-  | 'openpgp-asymmetric' // Standard E2EE using recipient's PGP public key (also Proton Mail native)
+  | 'cleartext-json' // Simple scaffold default: readable ATME/1.0 JSON packet over email (zero PGP overhead)
+  | 'openpgp-asymmetric' // Encrypted peer interop using recipient's PGP public key (also Proton Mail native)
   | 'openpgp-invite-key'; // First-contact E2EE using an ephemeral symmetric key embedded in deep-link hash
 
 /**
@@ -291,7 +294,8 @@ export interface DcpPacketPayload {
 export type AtmePacketPayload = DcpPacketPayload;
 
 /**
- * The JSON structure serialized and encrypted inside `application/vnd.atme.packet+pgp`
+ * The JSON structure carried inside `application/vnd.atme.packet+json` (`@me/simple`)
+ * or encrypted inside `application/vnd.atme.packet+pgp` (full E2EE `@me` branches).
  */
 export interface DcpPacket {
   protocol: 'ATME/1.0' | 'DCP/1.0';
@@ -304,8 +308,8 @@ export interface DcpPacket {
     displayName: string;
     handle?: string;
     provider: EmailProviderType;
-    pgpFingerprint: string;
-    publicKeyArmored: string;
+    pgpFingerprint?: string;
+    publicKeyArmored?: string;
     /** Included on first message to a user/group or after profile edit so peers store it in local IndexedDB */
     profileCard?: DcpUserProfileCard;
   };
@@ -336,6 +340,8 @@ export interface RawTransportEmail {
   textFallbackPart?: string;
   /** Extracted encrypted DCP PGP block */
   encryptedPacketArmored?: string;
+  /** Extracted cleartext ATME/1.0 JSON packet block (simple branch mode) */
+  cleartextPacketJson?: string;
   /** Attached Sender Public Key block (`application/pgp-keys`) */
   attachedPublicKeyArmored?: string;
   /** Optional Ephemeral Invite Passphrase (only kept in client deep-link hash, never read by server) */
@@ -361,7 +367,6 @@ export interface FilterInspectionResult {
   decryptionTimeMs?: number;
 }
 
-export * from './burner';
 export * from './branchManifest';
 
 

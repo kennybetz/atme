@@ -1,32 +1,21 @@
 import React, { useEffect, useId, useMemo, useRef, useState, useCallback } from 'react';
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowLeft,
-  BarChart3,
   Bookmark,
   Camera,
   Check,
   CheckCheck,
   CheckCircle2,
   ChevronRight,
-  Clock,
-  Code2,
-  Copy,
   CornerDownLeft,
-  ExternalLink,
   Eye,
   EyeOff,
   FileText,
-  Filter,
-  Fingerprint,
-  Flame,
   Globe,
   Hash,
-  Image as ImageIcon,
   KeyRound,
   Link2,
-  Lock,
   Mail,
   Menu,
   MessageCircle,
@@ -35,85 +24,42 @@ import {
   Moon,
   Palette,
   Paperclip,
-  Pin,
   Plus,
-  PlusCircle,
   QrCode,
   Radio,
   RefreshCw,
   Search,
   Send,
-  Settings,
-  ShieldAlert,
   ShieldCheck,
   Smile,
-  Smartphone,
   Sparkles,
   Square,
   Sun,
   Tag,
   Terminal,
-  Timer,
-  Trash2,
   User,
   UserCheck,
   UserMinus,
   UserPlus,
   Users,
-  VenetianMask,
-  Wallet,
   X,
-  XCircle,
   Zap,
-  Coins,
 } from 'lucide-react';
 import {
-  ACTIVE_BRANCH_MANIFEST,
-  DCP_COMPLIANT_BUILD_VERSION,
-  DCP_COMPLIANT_BUNDLE_SHA256,
-  DCP_PROTOCOL_VERSION,
+  ATME_PROTOCOL_VERSION,
   MAX_CHANNEL_AND_GROUP_USERS,
   DcpAttachment,
   DcpChannelMeta,
-  DcpIouPayload,
   DcpLinkPreview,
   DcpPacket,
   DcpPacketType,
-  DcpPinPayload,
-  DcpPollPayload,
-  DcpPollVotePayload,
-  DcpShredAckPayload,
-  DcpShredRequestPayload,
   DcpUserProfileCard,
-  EphemeralTimerSeconds,
   FilterInspectionResult,
   RawTransportEmail,
-  ShieldedBurnerAlias,
   UserIdentity,
-  computeBurnerCascadeTimings,
-  computeViewerBurnerCascade,
-  ViewerBurnerCascadeItem,
-  BurnerCascadeItem,
 } from './protocol/types';
-import {
-  encryptDcpPayloadAsymmetric,
-  encryptDcpPayloadWithInviteKey,
-  formatFingerprint,
-  generateDeviceKeyPair,
-  generateInviteSecret,
-} from './crypto/openpgpService';
-import {
-  createSignedComplianceAttestation,
-  destroyThreadWrappingKey,
-} from './crypto/complianceAndShredding';
-import {
-  SafetyNumberVerificationBundle,
-  computeSafetyNumberAndQrMatrix,
-  createShieldedBurnerAlias,
-  evaluatePinOrDuressCode,
-  extractClientSideLinkPreview,
-  verifyWebAuthnPasskeyLock,
-} from './crypto/privacyFeatures';
+import { generateDeviceKeyPair } from './crypto/openpgpService';
+import { extractClientSideLinkPreview } from './utils/linkPreview';
 import { buildDcpMimeEmail } from './protocol/mimeBuilder';
 import { inspectAndDecryptEmail } from './protocol/mimeParser';
 import Avatar from 'boring-avatars';
@@ -135,10 +81,10 @@ import {
 import {
   GmailDirectTransport,
   OutlookDirectTransport,
-  getProviderTechnicalSpecs,
 } from './transport/emailConnectors';
 import {
   DomainAutoDiscoveryResult,
+  consumeRedirectOAuthHashToken,
   discoverCustomDomainEmailConfig,
   fetchGoogleUserProfile,
   getSavedGoogleClientId,
@@ -149,21 +95,10 @@ import {
   saveGoogleOAuthSession,
   validateGoogleClientId,
 } from './transport/oauthPortal';
-import { safeSetInviteHTML } from './utils/safeHtml';
-
-type AppSurfaceMode = 'messenger-ui' | 'protocol-workbench';
-
-type WorkbenchTab =
-  | 'chat-bridge'
-  | 'filter-gate'
-  | 'mime-inspector'
-  | 'non-app-fallback'
-  | 'provider-connectors';
 
 interface FreeflowChatMessage {
   emailId: string;
   packet: DcpPacket;
-  signatureVerified: boolean;
   decryptionTimeMs?: number;
   reactions: Array<{ emoji: string; senderName: string; senderEmail: string }>;
   receipts: Array<{
@@ -172,26 +107,10 @@ interface FreeflowChatMessage {
     senderEmail: string;
     readAtIso?: string;
   }>;
-  pollVotes: Array<{
-    optionId: string;
-    senderName: string;
-    senderEmail: string;
-  }>;
   quotedMessage?: {
     messageId: string;
     senderName: string;
     textSnippet: string;
-  };
-  burnerStatus?: {
-    isBurner: boolean;
-    isActive: boolean;
-    isQueued: boolean;
-    isExpired: boolean;
-    isUnread?: boolean;
-    remainingSeconds: number;
-    unreadCount?: number;
-    summaryLabel?: string;
-    isOwn?: boolean;
   };
 }
 
@@ -456,13 +375,10 @@ function checkHasChatsBelowViewport(feedEl: HTMLElement | null): boolean {
 }
 
 export function App() {
-  const [surfaceMode, setSurfaceMode] =
-    useState<AppSurfaceMode>('messenger-ui');
-
   const [users, setUsers] = useState<UserIdentity[]>(INITIAL_USERS);
   const [channels, setChannels] = useState<DcpChannelMeta[]>(() => {
     try {
-      const raw = localStorage.getItem('dc_channels_v4');
+      const raw = localStorage.getItem('atme_simple_channels_v1');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -481,7 +397,7 @@ export function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('dc_channels_v4', JSON.stringify(channels));
+      localStorage.setItem('atme_simple_channels_v1', JSON.stringify(channels));
     } catch {
       // ignore
     }
@@ -890,25 +806,12 @@ export function App() {
   const [newMemberEmailInput, setNewMemberEmailInput] = useState<string>('');
   const [newMemberNameInput, setNewMemberNameInput] = useState<string>('');
 
-  // Stage 1 Workbench State
-  const [recipientEmail, setRecipientEmail] = useState<string>(
-    INITIAL_USERS[2].email
-  );
-  const [channelName, setChannelName] = useState<string>('product-launch');
-  const [packetType, setPacketType] = useState<DcpPacketType>('chat.message');
-  const [messageText, setMessageText] = useState<string>(
-    'Hey team! Testing our zero-server OpenPGP email messaging protocol (DCP/1.0).'
-  );
-  const [reactionEmoji, setReactionEmoji] = useState<string>('🚀');
-
   const [transportEmails, setTransportEmails] = useState<RawTransportEmail[]>(
     []
   );
   const [inspections, setInspections] = useState<FilterInspectionResult[]>(() =>
     createInitialSeedInspections()
   );
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<WorkbenchTab>('chat-bridge');
   const [isInitializingKeys, setIsInitializingKeys] = useState<boolean>(true);
   const [isSending, setIsSending] = useState<boolean>(false);
 
@@ -917,15 +820,9 @@ export function App() {
   const groupInfoDialogRef = useRef<HTMLDialogElement | null>(null);
   const profileDialogRef = useRef<HTMLDialogElement | null>(null);
   const connectWizardDialogRef = useRef<HTMLDialogElement | null>(null);
-  const packetModalRef = useRef<HTMLDialogElement | null>(null);
   const newChannelModalRef = useRef<HTMLDialogElement | null>(null);
-  const shredConfirmDialogRef = useRef<HTMLDialogElement | null>(null);
-  const safetyNumberDialogRef = useRef<HTMLDialogElement | null>(null);
-  const pollCreatorDialogRef = useRef<HTMLDialogElement | null>(null);
-  const appLockConfigDialogRef = useRef<HTMLDialogElement | null>(null);
   const safetyListDialogRef = useRef<HTMLDialogElement | null>(null);
   const cameraCaptureDialogRef = useRef<HTMLDialogElement | null>(null);
-  const iouDialogRef = useRef<HTMLDialogElement | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState<boolean>(false);
@@ -935,38 +832,11 @@ export function App() {
   const [capturedPhotoDataUrl, setCapturedPhotoDataUrl] = useState<
     string | null
   >(null);
-  const cameraViewportRef = useRef<HTMLDivElement | null>(null);
-  const [cameraStamps, setCameraStamps] = useState<
-    Array<{
-      id: string;
-      emoji: string;
-      xPct: number;
-      yPct: number;
-      sizePx: number;
-    }>
-  >([]);
-  const [selectedCameraStampId, setSelectedCameraStampId] = useState<
-    string | null
-  >(null);
-  const [isCameraStampPickerOpen, setIsCameraStampPickerOpen] =
-    useState<boolean>(true);
-  const draggingStampRef = useRef<{
-    stampId: string;
-    pointerId: number;
-  } | null>(null);
   const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(
     null
   );
 
-  // Pending Shred & Purge Confirmation State
-  const [pendingShredOptions, setPendingShredOptions] = useState<{
-    shredScope: 'thread-only' | 'peer-pgp-key-and-threads';
-    targetPeerEmail?: string;
-  } | null>(null);
-
-  // Feature 1: Self-Destructing / Burn-After-Reading Timers & Read Receipt Policy State
-  const [composerBurnSeconds, setComposerBurnSeconds] =
-    useState<EphemeralTimerSeconds>(0);
+  // UI Menu & Display Preferences
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState<boolean>(false);
   const [isComposerEmojiOpen, setIsComposerEmojiOpen] =
     useState<boolean>(false);
@@ -976,8 +846,6 @@ export function App() {
     'edit'
   );
   const [qrLinkCopied, setQrLinkCopied] = useState<boolean>(false);
-  const [isSettingsExpandedInMenu, setIsSettingsExpandedInMenu] =
-    useState<boolean>(false);
   const [showMessageTimestamps, setShowMessageTimestamps] =
     useState<boolean>(false);
   const [colorSchemePref, setColorSchemePref] = useState<
@@ -1097,10 +965,7 @@ export function App() {
   const [selectedActionMsgId, setSelectedActionMsgId] = useState<string | null>(
     null
   );
-  // Preserves Pin & Email Packet inspection features in codebase while hiding them in UI by default
-  const showPinAndPacketControls = false;
   const [isComposerMultiline, setIsComposerMultiline] = useState<boolean>(false);
-  const [isNewChatBurner, setIsNewChatBurner] = useState<boolean>(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState<boolean>(false);
   const addMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const actionMenuContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1109,28 +974,10 @@ export function App() {
   const avatarMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const freeflowFeedRef = useRef<HTMLDivElement | null>(null);
-  const [activeUnseenMarkerMsgId, setActiveUnseenMarkerMsgId] = useState<
-    string | null
-  >(null);
-  const unseenTimerRef = useRef<number | null>(null);
   const prevChannelIdRef = useRef<string | null>(null);
   const prevStreamLengthRef = useRef<number>(0);
   const userJustSentMessageRef = useRef<boolean>(false);
   const prevMobileShowChatPaneRef = useRef<boolean>(mobileShowChatPane);
-  const [burnReadStartedAtMs, setBurnReadStartedAtMs] = useState<
-    Record<string, number>
-  >(() => {
-    try {
-      const raw = localStorage.getItem('dc_burn_read_started');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  });
-  const [burnTickNowMs, setBurnTickNowMs] = useState<number>(() => Date.now());
-  const [readReceiptMode, setReadReceiptMode] = useState<'auto' | 'manual'>(
-    'auto'
-  );
   const autoReadSentKeysRef = useRef<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
   const isScrolledToBottomRef = useRef<boolean>(true);
@@ -1142,73 +989,18 @@ export function App() {
     () => new Set()
   );
 
-  // Feature 2: Personal Encrypted Vault (@me) Category Tag
+  // Personal Notes (@me) Category Tag
   const [vaultCategoryInput, setVaultCategoryInput] = useState<
     'note' | 'credential' | 'file' | 'snippet'
   >('note');
-
-  // Feature 3: Shielded Burner Email Aliases
-  const [shieldedAliases, setShieldedAliases] = useState<ShieldedBurnerAlias[]>(
-    []
-  );
-  const [useShieldedAliasInNewChat, setUseShieldedAliasInNewChat] =
-    useState<boolean>(false);
-  const [newChatAliasStrategy, setNewChatAliasStrategy] = useState<
-    'plus-subaddress' | 'duck-privacy' | 'simplelogin-relay'
-  >('duck-privacy');
-  const [newChatAliasLabel, setNewChatAliasLabel] = useState<string>('private');
-
-  // Feature 4: Safety Number & QR Key Verification + Key Change Tracking
-  const [safetyBundle, setSafetyBundle] =
-    useState<SafetyNumberVerificationBundle | null>(null);
-  const [verifiedPeersMap, setVerifiedPeersMap] = useState<
-    Record<string, string>
-  >({});
-
-  // Feature 5: Encrypted Polls & Pinned Messages State
-  const [pollQuestionInput, setPollQuestionInput] = useState<string>('');
-  const [pollOptionsInput, setPollOptionsInput] = useState<string[]>([
-    '🍕 Pizza',
-    '🌮 Tacos',
-    '🧋 Boba',
-  ]);
-  const [pinnedMessageByChannel, setPinnedMessageByChannel] = useState<
-    Record<string, { messageId: string; text: string; senderName: string }>
-  >({
-    ch_product_launch: {
-      messageId: 'msg_seed_01',
-      text: 'Yo everyone! School Wi-Fi blocked every other app on our Chromebooks, so we are officially on @me now 🛹',
-      senderName: 'Alex',
-    },
-  });
-
-  // Feature 6: WebAuthn Biometric App Lock & Panic/Duress PIN State
-  const [isAppLocked, setIsAppLocked] = useState<boolean>(false);
-  const [appLockPin, setAppLockPin] = useState<string>('2580');
-  const [duressPanicPin, setDuressPanicPin] = useState<string>('9999');
-  const [lockScreenPinInput, setLockScreenPinInput] = useState<string>('');
-  const [lockScreenError, setLockScreenError] = useState<string>('');
-  const [duressTriggeredBanner, setDuressTriggeredBanner] =
-    useState<string>('');
-  const [passkeyRegisteredId, setPasskeyRegisteredId] =
-    useState<string>('atme-local-passkey-01');
-
-  const invitePreviewRef = useRef<HTMLDivElement | null>(null);
-  const modalPacketRenderRef = useRef<HTMLDivElement | null>(null);
 
   const menuDialogTitleId = useId();
   const groupInfoTitleId = useId();
   const profileDialogTitleId = useId();
   const connectWizardTitleId = useId();
-  const packetDialogTitleId = useId();
   const newChannelDialogTitleId = useId();
-  const shredConfirmDialogTitleId = useId();
-  const safetyNumberDialogTitleId = useId();
-  const pollCreatorDialogTitleId = useId();
-  const appLockDialogTitleId = useId();
   const safetyDialogTitleId = useId();
   const cameraDialogTitleId = useId();
-  const iouDialogTitleId = useId();
 
   // New Group / Channel or DM Creation Form State
   const [newChatName, setNewChatName] = useState<string>('');
@@ -1222,21 +1014,6 @@ export function App() {
   >('workspace-channel');
   const [newChannelDescription, setNewChannelDescription] =
     useState<string>('');
-  const [showNewChatContactPicker, setShowNewChatContactPicker] =
-    useState<boolean>(false);
-
-  // IOU Wallet & Peer Ledger State
-  const [selectedIouPeerEmail, setSelectedIouPeerEmail] = useState<
-    string | null
-  >(null);
-  const [iouSendPeerEmail, setIouSendPeerEmail] = useState<string>(
-    INITIAL_USERS[1]?.email || 'sam@outlook.com'
-  );
-  const [iouSendAmount, setIouSendAmount] = useState<string>('5');
-  const [iouSendNote, setIouSendNote] = useState<string>('');
-  const [showIouIssueForm, setShowIouIssueForm] = useState<boolean>(false);
-  const [iouCollectAmountInput, setIouCollectAmountInput] =
-    useState<string>('1');
 
   const activeUser = useMemo(
     () => users.find((u) => u.email === activeUserEmail) || users[0],
@@ -1327,51 +1104,6 @@ export function App() {
     }
     return `#${activeChannel.name}`;
   }, [activeChannel, activeUser.email, activeChannelPeerUser]);
-
-  // Compute deterministic 60-digit Safety Number & QR matrix whenever activeChannel or peer changes
-  useEffect(() => {
-    let cancelled = false;
-    async function updateSafetyBundle() {
-      const myFp =
-        activeUser.pgpKeyPair?.fingerprint ||
-        '9F4A7C21D8E34B109F4A7C21D8E34B109F4A7C21';
-      const peerEmail =
-        activeChannelPeerUser?.email ||
-        activeChannel?.participants.find(
-          (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
-        ) ||
-        activeUser.email;
-      const peerFp =
-        activeChannelPeerUser?.pgpKeyPair?.fingerprint ||
-        (peerEmail.includes('elena')
-          ? '3B8E1A50C7D29F443B8E1A50C7D29F443B8E1A50'
-          : peerEmail.includes('sam')
-          ? '7C1D4F92A6B83E117C1D4F92A6B83E117C1D4F92'
-          : myFp);
-
-      const bundle = await computeSafetyNumberAndQrMatrix({
-        myEmail: activeUser.email,
-        myFingerprint: myFp,
-        peerEmail,
-        peerFingerprint: peerFp,
-      });
-      if (!cancelled) {
-        setSafetyBundle(bundle);
-      }
-    }
-    updateSafetyBundle();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeChannel, activeChannelPeerUser, activeUser]);
-
-  // Live Burn-After-Reading countdown ticker (checks every 1s for messages with active burn timers)
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setBurnTickNowMs(Date.now());
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   // Dismiss composer '+' menu, quick emoji picker, top-right header menu, main menu '+' add menu, or left avatar menu on outside click/touch or Escape key
   useEffect(() => {
@@ -1512,11 +1244,6 @@ export function App() {
     );
   }, [composerText, isRecordingVoice]);
 
-  const recipientUser = useMemo(
-    () => users.find((u) => u.email === recipientEmail) || users[1],
-    [users, recipientEmail]
-  );
-
   // Sync profile form fields when activeUser changes
   useEffect(() => {
     setProfileNameInput(activeUser.displayName);
@@ -1598,7 +1325,7 @@ export function App() {
     const viewParam = params.get('view') || params.get('modal');
     if (viewParam === 'main-chat') {
       return;
-    } else if (viewParam === 'onboarding') {
+    } else if (viewParam === 'onboarding' || viewParam === 'profile-edit') {
       setProfileModalStep('edit');
       profileDialogRef.current?.showModal();
     } else if (viewParam === 'qr-pass') {
@@ -1608,9 +1335,6 @@ export function App() {
       setIsAvatarMenuOpen(true);
     } else if (viewParam === 'header-menu') {
       setIsHeaderMenuOpen(true);
-    } else if (viewParam === 'header-settings') {
-      setIsHeaderMenuOpen(true);
-      setIsSettingsExpandedInMenu(true);
     } else if (viewParam === 'plus-menu') {
       setIsPlusMenuOpen(true);
     } else if (viewParam === 'emoji-menu') {
@@ -1638,21 +1362,13 @@ export function App() {
       newChannelModalRef.current?.showModal();
     } else if (viewParam === 'new-group') {
       setNewChatType('workspace-channel');
-      setIsNewChatBurner(true);
-      setSelectedGroupMemberEmails([
-        'elena.vogt@proton.me',
-        'jordan.taylor@yahoo.com',
-      ]);
+      setSelectedGroupMemberEmails(['elena.vogt@proton.me']);
       newChannelModalRef.current?.showModal();
     } else if (viewParam === 'voice-ready') {
       setIsVoiceRecorderOpen(true);
     } else if (viewParam === 'single-info') {
       setActiveChannelId('dm_alex_elena');
       groupInfoDialogRef.current?.showModal();
-    } else if (viewParam === 'burner-dm') {
-      setActiveChannelId('burner_dm_alex_sam');
-    } else if (viewParam === 'burner-group') {
-      setActiveChannelId('burner_ch_lunch_table');
     } else if (viewParam === 'new-channel') {
       setNewChatType('broadcast-channel');
       setSelectedGroupMemberEmails([]);
@@ -1661,27 +1377,8 @@ export function App() {
       setIsAddMenuOpen(true);
     } else if (viewParam === 'broadcast') {
       setActiveChannelId('ch_broadcast_skate_clips');
-    } else if (viewParam === 'iou' || viewParam === 'ious') {
-      setSelectedIouPeerEmail('sam.chen@outlook.com');
-      iouDialogRef.current?.showModal();
-    } else if (viewParam === 'camera-stamp') {
-      handleSnapCameraPhoto();
-      setCameraStamps([
-        { id: 'stamp-demo-1', emoji: '😎', xPct: 50, yPct: 44, sizePx: 112 },
-        { id: 'stamp-demo-2', emoji: '🔒', xPct: 26, yPct: 72, sizePx: 58 },
-      ]);
-      setSelectedCameraStampId('stamp-demo-1');
-      setIsCameraStampPickerOpen(true);
-      cameraCaptureDialogRef.current?.showModal();
-    } else if (viewParam === 'shred' || viewParam === 'burn-modal') {
-      setPendingShredOptions({ shredScope: 'peer-pgp-key-and-threads' });
-      shredConfirmDialogRef.current?.showModal();
     } else if (viewParam === 'group') {
       groupInfoDialogRef.current?.showModal();
-    } else if (viewParam === 'poll' || viewParam === 'poll-modal') {
-      pollCreatorDialogRef.current?.showModal();
-    } else if (viewParam === 'lock') {
-      setIsAppLocked(true);
     } else {
       // First step in the app: open the Profile Builder -> QR Code generator if not completed yet
       try {
@@ -1700,6 +1397,45 @@ export function App() {
     }
   }, []);
 
+  // Recover OAuth redirect hash token (#access_token=...) if browser redirected main window
+  useEffect(() => {
+    const redirectResult = consumeRedirectOAuthHashToken();
+    if (!redirectResult) return;
+
+    if (redirectResult.error) {
+      setConnectModalMode('easy');
+      setConnectorStatusMsg(`Google Sign-In Note: ${redirectResult.error}`);
+      connectWizardDialogRef.current?.showModal();
+      return;
+    }
+
+    if (redirectResult.accessToken) {
+      setGmailAccessToken(redirectResult.accessToken);
+      void (async () => {
+        try {
+          const profile = await fetchGoogleUserProfile(
+            redirectResult.accessToken
+          );
+          await handleCompletePortalSignIn({
+            email: profile.email,
+            displayName: profile.name,
+            provider: 'gmail',
+            liveAccessToken: redirectResult.accessToken,
+            expiresInSeconds: redirectResult.expiresInSeconds,
+          });
+        } catch (err) {
+          setConnectModalMode('easy');
+          setConnectorStatusMsg(
+            `Google OAuth connected, could not auto-load profile: ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
+          connectWizardDialogRef.current?.showModal();
+        }
+      })();
+    }
+  }, []);
+
   // Mandatory fallback for <dialog closedby="any"> on browsers without native closedBy support
   useEffect(() => {
     const dialogs = [
@@ -1707,14 +1443,9 @@ export function App() {
       groupInfoDialogRef.current,
       profileDialogRef.current,
       connectWizardDialogRef.current,
-      packetModalRef.current,
       newChannelModalRef.current,
-      shredConfirmDialogRef.current,
-      safetyNumberDialogRef.current,
-      pollCreatorDialogRef.current,
-      appLockConfigDialogRef.current,
       safetyListDialogRef.current,
-      iouDialogRef.current,
+      cameraCaptureDialogRef.current,
     ].filter(Boolean) as HTMLDialogElement[];
 
     if ('closedBy' in HTMLDialogElement.prototype) return;
@@ -1742,7 +1473,7 @@ export function App() {
     };
   }, []);
 
-  // Initialize OpenPGP Curve25519 keys on-device & seed initial encrypted + regular emails
+  // Boot clean starter data immediately in cleartext JSON mode; hydrate OpenPGP keypairs asynchronously for ATME/1.0 interop
   useEffect(() => {
     let mounted = true;
     async function bootEngine() {
@@ -1750,7 +1481,7 @@ export function App() {
 
       const seedVersion =
         typeof localStorage !== 'undefined'
-          ? localStorage.getItem('dontcall_seed_v7')
+          ? localStorage.getItem('atme_simple_seed_v1')
           : 'true';
       const shouldReseed = seedVersion !== 'true';
 
@@ -1770,36 +1501,23 @@ export function App() {
         if (!mounted) return;
         setUsers(cachedUsers);
         setTransportEmails(cachedEmails);
-        setSelectedEmailId(cachedEmails[0].id);
         setIsInitializingKeys(false);
         return;
       }
 
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('dontcall_seed_v7', 'true');
-        localStorage.removeItem('dc_burn_read_started');
+        localStorage.setItem('atme_simple_seed_v1', 'true');
         localStorage.setItem(
           'atme_whitelisted_emails',
           JSON.stringify(INITIAL_USERS.map((u) => u.email.toLowerCase()))
         );
       }
-      setBurnReadStartedAtMs({});
       setWhitelistedEmails(INITIAL_USERS.map((u) => u.email.toLowerCase()));
 
       await clearIdbDatabase();
 
-      const hydratedUsers: UserIdentity[] = [];
-      for (const u of INITIAL_USERS) {
-        if (u.hasAppInstalled) {
-          const kp = await generateDeviceKeyPair(u.displayName, u.email);
-          hydratedUsers.push({ ...u, pgpKeyPair: kp });
-        } else {
-          hydratedUsers.push(u);
-        }
-      }
-
       const seedDcpEmails = await createEncryptedSeedEmailsForUsers(
-        hydratedUsers
+        INITIAL_USERS
       );
 
       const regularEmails = createSampleRegularEmails();
@@ -1807,14 +1525,28 @@ export function App() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      await saveUserIdentitiesToIdb(hydratedUsers);
+      await saveUserIdentitiesToIdb(INITIAL_USERS);
       await saveTransportEmailsToIdb(combined);
 
       if (!mounted) return;
-      setUsers(hydratedUsers);
+      setUsers(INITIAL_USERS);
       setTransportEmails(combined);
-      setSelectedEmailId(seedDcpEmails[0]?.id || combined[0]?.id || null);
       setIsInitializingKeys(false);
+
+      // Lazily provision Curve25519 keys in background so incoming OpenPGP interop packets decrypt automatically
+      const hydratedUsers: UserIdentity[] = [];
+      for (const u of INITIAL_USERS) {
+        if (!mounted) return;
+        if (u.hasAppInstalled) {
+          const kp = await generateDeviceKeyPair(u.displayName, u.email);
+          hydratedUsers.push({ ...u, pgpKeyPair: kp });
+        } else {
+          hydratedUsers.push(u);
+        }
+      }
+      if (!mounted) return;
+      setUsers(hydratedUsers);
+      await saveUserIdentitiesToIdb(hydratedUsers);
     }
 
     bootEngine();
@@ -1928,41 +1660,6 @@ export function App() {
     };
   }, [transportEmails, activeUser]);
 
-  const selectedEmail = useMemo(
-    () =>
-      transportEmails.find((e) => e.id === selectedEmailId) ||
-      transportEmails[0] ||
-      null,
-    [transportEmails, selectedEmailId]
-  );
-
-  const selectedInspection = useMemo(
-    () => inspections.find((i) => i.emailId === selectedEmail?.id) || null,
-    [inspections, selectedEmail]
-  );
-
-  useEffect(() => {
-    if (
-      activeTab === 'non-app-fallback' &&
-      invitePreviewRef.current &&
-      selectedEmail
-    ) {
-      const htmlContent =
-        selectedEmail.htmlFallbackPart ||
-        `<div class="dc-fallback-card"><p>${selectedEmail.textFallbackPart || 'Standard plaintext email (No @me fallback card).'}</p></div>`;
-      safeSetInviteHTML(invitePreviewRef.current, htmlContent);
-    }
-  }, [activeTab, selectedEmail, surfaceMode]);
-
-  useEffect(() => {
-    if (modalPacketRenderRef.current && selectedEmail?.htmlFallbackPart) {
-      safeSetInviteHTML(
-        modalPacketRenderRef.current,
-        selectedEmail.htmlFallbackPart
-      );
-    }
-  }, [selectedEmail]);
-
   const acceptedPackets = useMemo(
     () =>
       inspections.filter(
@@ -1974,87 +1671,7 @@ export function App() {
     [inspections, isEmailAllowed]
   );
 
-  const ignoredRegularEmails = useMemo(
-    () => inspections.filter((i) => !i.accepted),
-    [inspections]
-  );
-
-  // Compute Peer-to-Peer Crypto-Inspired IOU Wallet Ledger Totals (No History Shown — Totals Only!)
-  const iouLedgerSummary = useMemo(() => {
-    const myEmail = activeUser.email.toLowerCase();
-    // Positive net means friend owes activeUser; Negative net means activeUser owes friend
-    const netByPeer = new Map<string, number>();
-
-    const chronologicalIouPackets = acceptedPackets
-      .map((i) => i.decryptedPacket!)
-      .filter((pkt) => pkt && pkt.type === 'chat.iou' && pkt.payload.iou)
-      .sort(
-        (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
-      );
-
-    for (const pkt of chronologicalIouPackets) {
-      const iou = pkt.payload.iou!;
-      const debtor = iou.debtorEmail.toLowerCase();
-      const creditor = iou.creditorEmail.toLowerCase();
-
-      if (debtor !== myEmail && creditor !== myEmail) continue;
-      const peerEmail = debtor === myEmail ? creditor : debtor;
-
-      if (iou.action === 'collect') {
-        const current = netByPeer.get(peerEmail) || 0;
-        const settledAmt = iou.amount > 0 ? iou.amount : Math.abs(current);
-        if (current > 0) {
-          netByPeer.set(peerEmail, Math.max(0, current - settledAmt));
-        } else if (current < 0) {
-          netByPeer.set(peerEmail, Math.min(0, current + settledAmt));
-        }
-      } else {
-        const delta = creditor === myEmail ? iou.amount : -iou.amount;
-        netByPeer.set(peerEmail, (netByPeer.get(peerEmail) || 0) + delta);
-      }
-    }
-
-    let owedToMeTotal = 0;
-    let iOweTotal = 0;
-    const rows: Array<{
-      peerEmail: string;
-      peerUser?: UserIdentity;
-      displayName: string;
-      handle: string;
-      netAmount: number;
-    }> = [];
-
-    for (const [peerEmail, net] of netByPeer.entries()) {
-      if (Math.abs(net) < 0.01) continue;
-      if (net > 0) owedToMeTotal += net;
-      if (net < 0) iOweTotal += Math.abs(net);
-      const u = users.find((x) => x.email.toLowerCase() === peerEmail);
-      const fallbackName =
-        peerEmail.split('@')[0].charAt(0).toUpperCase() +
-        peerEmail.split('@')[0].slice(1);
-      rows.push({
-        peerEmail,
-        peerUser: u,
-        displayName: (u?.displayName || fallbackName).replace(
-          ' (No App Yet)',
-          ''
-        ),
-        handle: u?.handle || `@${peerEmail.split('@')[0]}`,
-        netAmount: net,
-      });
-    }
-
-    rows.sort((a, b) => Math.abs(b.netAmount) - Math.abs(a.netAmount));
-
-    return {
-      owedToMeTotal,
-      iOweTotal,
-      netBalance: owedToMeTotal - iOweTotal,
-      rows,
-    };
-  }, [acceptedPackets, activeUser.email, users]);
-
-  // Build free-flowing chronological message stream with reactions, inline quotes, polls, AND read receipts
+  // Build free-flowing chronological message stream with reactions, inline quotes, and read receipts
   const freeflowStream = useMemo(() => {
     const chronologicallySorted = acceptedPackets
       .slice()
@@ -2075,14 +1692,6 @@ export function App() {
         senderName: string;
         senderEmail: string;
         readAtIso?: string;
-      }>
-    >();
-    const pollVotesByPollId = new Map<
-      string,
-      Array<{
-        optionId: string;
-        senderName: string;
-        senderEmail: string;
       }>
     >();
     const messageLookup = new Map<
@@ -2119,72 +1728,19 @@ export function App() {
           });
         }
         receiptsByTargetId.set(pkt.payload.targetMessageId, list);
-      } else if (pkt.type === 'chat.poll-vote' && pkt.payload.pollVote) {
-        const { pollId, optionId } = pkt.payload.pollVote;
-        const list = pollVotesByPollId.get(pollId) || [];
-        const filtered = list.filter(
-          (v) => v.senderEmail.toLowerCase() !== pkt.sender.email.toLowerCase()
-        );
-        filtered.push({
-          optionId,
-          senderName: pkt.sender.displayName,
-          senderEmail: pkt.sender.email,
-        });
-        pollVotesByPollId.set(pollId, filtered);
       } else if (
         pkt.type === 'chat.message' ||
-        pkt.type === 'chat.poll' ||
-        pkt.type === 'chat.member-update' ||
-        pkt.type === 'chat.shred-request' ||
-        pkt.type === 'chat.shred-ack'
+        pkt.type === 'chat.member-update'
       ) {
         messageLookup.set(pkt.payload.messageId, {
           senderName: pkt.sender.displayName,
-          textSnippet: (
-            pkt.payload.poll?.question ||
-            pkt.payload.text ||
-            ''
-          ).slice(0, 80),
+          textSnippet: (pkt.payload.text || '').slice(0, 80),
         });
       }
     }
 
     const messages: FreeflowChatMessage[] = [];
     if (!activeChannel) return messages;
-
-    const isBurnerChat = Boolean(activeChannel.isBurner);
-
-    // If burner chat, precompute cascade timings across chronologically sorted channel messages
-    let burnerTimingMap = new Map<string, ViewerBurnerCascadeItem>();
-    if (isBurnerChat) {
-      const channelMessages = chronologicallySorted
-        .map((i) => i.decryptedPacket!)
-        .filter(
-          (pkt) =>
-            pkt &&
-            pkt.channel.id === activeChannel.id &&
-            (pkt.type === 'chat.message' || pkt.type === 'chat.poll')
-        );
-
-      burnerTimingMap = computeViewerBurnerCascade({
-        messages: channelMessages.map((p) => ({
-          messageId: p.payload.messageId,
-          senderEmail: p.sender.email,
-        })),
-        viewerEmail: activeUser.email,
-        participants: activeChannel.participants,
-        receiptsByMessageId: receiptsByTargetId,
-        localViewMap: burnReadStartedAtMs,
-        nowMs: burnTickNowMs,
-        ttlSeconds: 20,
-        userNameLookup: (email) => {
-          const u = users.find(
-            (x) => x.email.toLowerCase() === email.toLowerCase()
-          );
-          return u?.displayName?.split(' ')[0] || u?.handle || email.split('@')[0];
-        },
-      });
-    }
 
     // If broadcast-channel, find the latest channelReactionTotals snapshot pushed by the creator
     let latestBroadcastReactionTotals:
@@ -2208,9 +1764,7 @@ export function App() {
       if (pkt.channel.id !== activeChannel.id) continue;
       if (
         pkt.type !== 'chat.message' &&
-        pkt.type !== 'chat.poll' &&
-        pkt.type !== 'chat.member-update' &&
-        pkt.type !== 'chat.iou'
+        pkt.type !== 'chat.member-update'
       ) {
         continue;
       }
@@ -2220,66 +1774,6 @@ export function App() {
         : undefined;
 
       const msgReceipts = receiptsByTargetId.get(pkt.payload.messageId) || [];
-      const msgId = pkt.payload.messageId;
-
-      let burnerStatus: FreeflowChatMessage['burnerStatus'] = undefined;
-
-      if (isBurnerChat) {
-        const timing = burnerTimingMap.get(msgId);
-        if (timing) {
-          if (timing.isExpired) {
-            // Cascade deleted!
-            continue;
-          }
-          burnerStatus = {
-            isBurner: true,
-            isActive: timing.isActive,
-            isQueued: timing.isQueued,
-            isExpired: timing.isExpired,
-            isUnread: !timing.isViewed,
-            remainingSeconds: timing.remainingSeconds,
-            unreadCount:
-              timing.unburnedRecipientCount ??
-              Math.max(1, activeChannel.participants.length - 1),
-            summaryLabel: timing.summaryLabel,
-            isOwn: timing.isOwn,
-          };
-        } else {
-          burnerStatus = {
-            isBurner: true,
-            isActive: false,
-            isQueued: true,
-            isExpired: false,
-            isUnread: true,
-            remainingSeconds: 20,
-            unreadCount: Math.max(1, activeChannel.participants.length - 1),
-            summaryLabel: '⏳ queued (20s)',
-            isOwn:
-              pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase(),
-          };
-        }
-      } else {
-        const ttlSec =
-          pkt.payload.ephemeralTtlSeconds ||
-          activeChannel.ephemeralTimerSeconds ||
-          0;
-
-        // Filter out Burn-After-Reading messages whose TTL has expired after being read
-        if (ttlSec > 0) {
-          const startMs =
-            burnReadStartedAtMs[msgId] ||
-            (msgReceipts.length > 0
-              ? new Date(msgReceipts[0].readAtIso || pkt.sentAt).getTime()
-              : 0);
-          if (startMs > 0 && burnTickNowMs - startMs >= ttlSec * 1000) {
-            continue;
-          }
-        }
-      }
-
-      const pollVotes = pkt.payload.poll
-        ? pollVotesByPollId.get(pkt.payload.poll.pollId) || []
-        : [];
 
       // Merge anonymous broadcast-channel reaction totals with direct reactions
       let effectiveReactions =
@@ -2334,12 +1828,9 @@ export function App() {
       messages.push({
         emailId: item.emailId,
         packet: pkt,
-        signatureVerified: Boolean(item.signatureVerified),
         decryptionTimeMs: item.decryptionTimeMs,
         reactions: effectiveReactions,
         receipts: msgReceipts,
-        pollVotes,
-        burnerStatus,
         quotedMessage:
           quoted && pkt.payload.replyToMessageId
             ? {
@@ -2352,21 +1843,8 @@ export function App() {
     }
 
     return messages;
-  }, [
-    acceptedPackets,
-    activeChannel,
-    burnReadStartedAtMs,
-    burnTickNowMs,
-    activeUser.email,
-    users,
-  ]);
+  }, [acceptedPackets, activeChannel, activeUser.email]);
 
-  const lastMessageEmailId =
-    freeflowStream.length > 0
-      ? freeflowStream[freeflowStream.length - 1].emailId
-      : null;
-
-  // Compute unread message count map for all channels for the active user
   // Compute unread message count map for all channels for the active user
   const channelUnreadCountMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -2387,10 +1865,7 @@ export function App() {
       const unreadItems = acceptedPackets.filter((item) => {
         const pkt = item.decryptedPacket;
         if (!pkt || pkt.channel.id !== ch.id) return false;
-        if (
-          pkt.type !== 'chat.message' &&
-          pkt.type !== 'chat.poll'
-        ) {
+        if (pkt.type !== 'chat.message') {
           return false;
         }
         const isOwn =
@@ -2418,55 +1893,17 @@ export function App() {
     ? channelUnreadCountMap[activeChannel.id] || 0
     : 0;
 
-  const firstUnreadMsgIndex = useMemo(() => {
-    if (!activeChannel || activeChannelUnreadCount === 0) return -1;
-    return freeflowStream.findIndex((m) => {
-      if (
-        m.packet.type !== 'chat.message' &&
-        m.packet.type !== 'chat.poll'
-      ) {
-        return false;
-      }
-      const isOwn =
-        m.packet.sender.email.toLowerCase() === activeUser.email.toLowerCase();
-      if (isOwn) return false;
-      const alreadyReceipted = m.receipts.some(
-        (r) => r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
-      );
-      if (alreadyReceipted) return false;
-      const dedupKey = `${activeUser.email.toLowerCase()}:${m.packet.payload.messageId}`;
-      return (
-        !autoReadSentKeysRef.current.has(dedupKey) &&
-        !readMessageIds.has(m.packet.payload.messageId)
-      );
-    });
-  }, [
-    activeChannel,
-    activeChannelUnreadCount,
-    freeflowStream,
-    activeUser.email,
-    readMessageIds,
-  ]);
-
   const markActiveChannelAsRead = useCallback(async () => {
     if (isMobileDeviceView && !mobileShowChatPane) {
       return;
     }
 
-    if (
-      isAppLocked ||
-      isInitializingKeys ||
-      surfaceMode !== 'messenger-ui' ||
-      !activeChannel
-    ) {
+    if (isInitializingKeys || !activeChannel) {
       return;
     }
 
     const unreadIncoming = freeflowStream.filter((msg) => {
-      if (
-        msg.packet.type !== 'chat.message' &&
-        msg.packet.type !== 'chat.poll'
-      ) {
+      if (msg.packet.type !== 'chat.message') {
         return false;
       }
       const isOwn =
@@ -2494,44 +1931,25 @@ export function App() {
       return next;
     });
 
-    if (readReceiptMode === 'auto') {
-      for (const msg of unreadIncoming) {
-        const msgId = msg.packet.payload.messageId;
-        const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
-        if (autoReadSentKeysRef.current.has(dedupKey)) continue;
-        autoReadSentKeysRef.current.add(dedupKey);
+    for (const msg of unreadIncoming) {
+      const msgId = msg.packet.payload.messageId;
+      const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
+      if (autoReadSentKeysRef.current.has(dedupKey)) continue;
+      autoReadSentKeysRef.current.add(dedupKey);
 
-        setBurnReadStartedAtMs((prev) => {
-          const next = {
-            ...prev,
-            [dedupKey]: prev[dedupKey] || Date.now(),
-            [msgId]: prev[msgId] || Date.now(),
-          };
-          try {
-            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
-          } catch {
-            // ignore
-          }
-          return next;
-        });
-
-        await dispatchDcpEmailPacket({
-          channel: activeChannel,
-          type: 'chat.receipt',
-          targetMessageId: msgId,
-          receiptStatus: 'read',
-          text: `Auto read receipt for ${msgId}`,
-        });
-      }
+      await dispatchDcpEmailPacket({
+        channel: activeChannel,
+        type: 'chat.receipt',
+        targetMessageId: msgId,
+        receiptStatus: 'read',
+        text: `Read receipt for ${msgId}`,
+      });
     }
   }, [
-    isAppLocked,
     isInitializingKeys,
-    surfaceMode,
     activeChannel,
     freeflowStream,
     activeUser.email,
-    readReceiptMode,
     readMessageIds,
     isMobileDeviceView,
     mobileShowChatPane,
@@ -2586,21 +2004,14 @@ export function App() {
     prevChannelIdRef.current = null;
     prevStreamLengthRef.current = 0;
     userJustSentMessageRef.current = false;
-    setActiveUnseenMarkerMsgId(null);
-    if (unseenTimerRef.current) {
-      window.clearTimeout(unseenTimerRef.current);
-      unseenTimerRef.current = null;
-    }
     setIsAtBottom(true);
     isScrolledToBottomRef.current = true;
     setHasChatsBelowViewport(false);
   }, [activeUser.email]);
 
   // Handle scroll positioning on channel change and incoming messages:
-  // - When entering a chat with unread messages, start at the first unread message in the center of the view
-  // - Show a dotted transparent line above the latest unseen message, that fades away in 5 seconds
+  // - When entering a chat with unread messages, scroll cleanly to the first unread message
   // - When in an active chat, ONLY auto-scroll new messages if scrolled to the bottom (or user just sent message)
-  // - Prevent kick-down when scrolling up to read messages or when message is taller than the viewport
   useEffect(() => {
     const feedEl = freeflowFeedRef.current;
     if (!feedEl || !activeChannel) return;
@@ -2623,12 +2034,8 @@ export function App() {
         : 0;
 
       if (unreadCount > 0) {
-        // Find the first unread incoming message
         const firstUnreadMsg = freeflowStream.find((m) => {
-          if (
-            m.packet.type !== 'chat.message' &&
-            m.packet.type !== 'chat.poll'
-          ) {
+          if (m.packet.type !== 'chat.message') {
             return false;
           }
           const isOwn =
@@ -2647,27 +2054,14 @@ export function App() {
           );
         });
 
-        const markerId = firstUnreadMsg?.packet.payload.messageId || null;
-        if (markerId) {
-          setActiveUnseenMarkerMsgId(markerId);
-          if (unseenTimerRef.current) {
-            window.clearTimeout(unseenTimerRef.current);
-          }
-          unseenTimerRef.current = window.setTimeout(() => {
-            setActiveUnseenMarkerMsgId(null);
-          }, 5500);
-        } else {
-          setActiveUnseenMarkerMsgId(null);
-        }
+        const targetMsgId = firstUnreadMsg?.packet.payload.messageId || null;
 
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             const target =
-              document.getElementById('dc-first-unread-marker') ||
-              (markerId
-                ? document.getElementById(`dc-msg-${markerId}`)
-                : null) ||
-              feedEl.querySelector('.dc-imessage-row.is-unread');
+              (targetMsgId
+                ? document.getElementById(`dc-msg-${targetMsgId}`)
+                : null) || feedEl.querySelector('.dc-imessage-row.is-unread');
             if (target) {
               target.scrollIntoView({ block: 'center', behavior: 'auto' });
               requestAnimationFrame(() => {
@@ -2685,13 +2079,6 @@ export function App() {
           });
         });
         return;
-      }
-
-      // No unread messages: scroll to bottom
-      setActiveUnseenMarkerMsgId(null);
-      if (unseenTimerRef.current) {
-        window.clearTimeout(unseenTimerRef.current);
-        unseenTimerRef.current = null;
       }
 
       requestAnimationFrame(() => {
@@ -2791,7 +2178,6 @@ export function App() {
             (pkt) =>
               pkt.channel.id === ch.id &&
               (pkt.type === 'chat.message' ||
-                pkt.type === 'chat.poll' ||
                 pkt.type === 'chat.member-update')
           )
           .sort(
@@ -2799,27 +2185,7 @@ export function App() {
               new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
           );
 
-        let validPackets = matchingPackets;
-        if (ch.isBurner) {
-          const chron = [...matchingPackets].reverse();
-          const cascadeMap = computeViewerBurnerCascade({
-            messages: chron.map((p) => ({
-              messageId: p.payload.messageId,
-              senderEmail: p.sender.email,
-            })),
-            viewerEmail: activeUser.email,
-            participants: ch.participants,
-            localViewMap: burnReadStartedAtMs,
-            nowMs: burnTickNowMs,
-            ttlSeconds: 20,
-          });
-          validPackets = matchingPackets.filter((p) => {
-            const timing = cascadeMap.get(p.payload.messageId);
-            return timing ? !timing.isExpired : true;
-          });
-        }
-
-        const lastPacket = validPackets[0];
+        const lastPacket = matchingPackets[0];
         const peerEmail =
           ch.participants.find(
             (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
@@ -2833,9 +2199,7 @@ export function App() {
           channel: ch,
           lastText:
             lastPacket?.payload.text ||
-            (ch.isBurner
-              ? '20s cascade'
-              : ch.type === 'broadcast-channel'
+            (ch.type === 'broadcast-channel'
               ? ch.description || 'Broadcast Feed'
               : ch.type === 'vault'
               ? 'Notes'
@@ -2872,8 +2236,6 @@ export function App() {
     activeUser,
     users,
     channelUnreadCountMap,
-    burnReadStartedAtMs,
-    burnTickNowMs,
   ]);
 
   // Contacts matching the search input
@@ -2958,7 +2320,7 @@ export function App() {
     );
   }
 
-  // Dispatch any DCP/1.0 packet over Email (Automatically attaches Profile Card on first message to a channel/user AND signs a Compliant Build Attestation!)
+  // Dispatch an ATME/1.0 JSON packet over Email (attaches Profile Card on first message or profile update)
   async function dispatchDcpEmailPacket(params: {
     channel: DcpChannelMeta;
     type: DcpPacketType;
@@ -2968,12 +2330,7 @@ export function App() {
     reactionEmoji?: string;
     receiptStatus?: 'delivered' | 'read';
     attachments?: DcpAttachment[];
-    ephemeralTtlSeconds?: EphemeralTimerSeconds;
     linkPreview?: DcpLinkPreview;
-    poll?: DcpPollPayload;
-    pollVote?: DcpPollVotePayload;
-    pinUpdate?: DcpPinPayload;
-    iou?: DcpIouPayload;
     channelReactionTotals?: Record<string, Record<string, number>>;
     storyCard?: {
       imageDataUrl?: string;
@@ -2987,11 +2344,8 @@ export function App() {
       targetDisplayName?: string;
       updatedParticipants: string[];
     };
-    shredRequest?: DcpShredRequestPayload;
-    shredAck?: DcpShredAckPayload;
   }) {
-    if (!activeUser.pgpKeyPair) return;
-    if (params.type === 'chat.message' || params.type === 'chat.poll') {
+    if (params.type === 'chat.message') {
       userJustSentMessageRef.current = true;
     }
     setIsSending(true);
@@ -3001,17 +2355,6 @@ export function App() {
         .slice(2, 6)}`;
       const msgId = `msg_${Date.now().toString(36)}`;
 
-
-      const hasUnregisteredParticipant = params.channel.participants.some(
-        (email) => {
-          const u = users.find(
-            (usr) => usr.email.toLowerCase() === email.toLowerCase()
-          );
-          return !u || !u.hasAppInstalled || !u.pgpKeyPair;
-        }
-      );
-
-      // Determine whether this is our first message to this channel/user (or profile was updated)
       const channelKey = `${activeUser.email}::${params.channel.id}`;
       const shouldAttachProfileCard =
         forceBroadcastProfileNext || !profileBroadcastedChannels[channelKey];
@@ -3030,38 +2373,21 @@ export function App() {
             }
           : undefined;
 
-      // Sign a WebCrypto Compliant Build Attestation proving this device runs an unmodified compliant build
-      const complianceAttestation = await createSignedComplianceAttestation({
-        senderEmail: activeUser.email,
-        senderPgpFingerprint: activeUser.pgpKeyPair.fingerprint,
-      });
-
-      const activeAlias = params.channel.shieldedAliasEmail
-        ? shieldedAliases.find(
-            (a) =>
-              a.aliasEmail.toLowerCase() ===
-              params.channel.shieldedAliasEmail?.toLowerCase()
-          )
-        : undefined;
-
       const packet: DcpPacket = {
-        protocol: DCP_PROTOCOL_VERSION,
+        protocol: ATME_PROTOCOL_VERSION,
         packetId,
         type: params.type,
-        encryptionMode: hasUnregisteredParticipant
-          ? 'openpgp-invite-key'
-          : 'openpgp-asymmetric',
+        encryptionMode: 'cleartext-json',
         channel: params.channel,
         sender: {
           email: activeUser.email,
           displayName: activeUser.displayName,
           handle: activeUser.handle,
           provider: activeUser.provider,
-          pgpFingerprint: activeUser.pgpKeyPair.fingerprint,
-          publicKeyArmored: activeUser.pgpKeyPair.publicKeyArmored,
+          pgpFingerprint: activeUser.pgpKeyPair?.fingerprint || '',
+          publicKeyArmored: activeUser.pgpKeyPair?.publicKeyArmored || '',
           profileCard,
         },
-        complianceAttestation,
         payload: {
           messageId: msgId,
           replyToMessageId: params.replyToMessageId,
@@ -3071,58 +2397,16 @@ export function App() {
           text: params.text,
           formatting: 'markdown',
           attachments: params.attachments,
-          ephemeralTtlSeconds: params.ephemeralTtlSeconds,
           linkPreview: params.linkPreview,
-          poll: params.poll,
-          pollVote: params.pollVote,
-          pinUpdate: params.pinUpdate,
-          iou: params.iou,
           channelReactionTotals: params.channelReactionTotals,
           storyCard: params.storyCard,
           vaultCategory: params.vaultCategory,
-          senderShieldedAlias: activeAlias
-            ? {
-                aliasEmail: activeAlias.aliasEmail,
-                strategy: activeAlias.strategy,
-                ephemeralFingerprint: activeAlias.pgpFingerprint,
-              }
-            : undefined,
           memberUpdate: params.memberUpdate,
-          shredRequest: params.shredRequest,
-          shredAck: params.shredAck,
         },
         sentAt: new Date().toISOString(),
       };
 
-      let encryptedArmored: string;
-      let inviteKeyFragment: string | undefined;
-
-      if (!hasUnregisteredParticipant) {
-        const allAppPubKeys = users
-          .filter((u) => u.hasAppInstalled && u.pgpKeyPair)
-          .map((u) => u.pgpKeyPair!.publicKeyArmored);
-
-        encryptedArmored = await encryptDcpPayloadAsymmetric({
-          cleartextJson: JSON.stringify(packet),
-          recipientPublicKeysArmored: allAppPubKeys,
-          senderPublicKeyArmored: activeUser.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: activeUser.pgpKeyPair.privateKeyArmored,
-        });
-      } else {
-        inviteKeyFragment = generateInviteSecret();
-        encryptedArmored = await encryptDcpPayloadWithInviteKey({
-          cleartextJson: JSON.stringify(packet),
-          inviteSecret: inviteKeyFragment,
-          senderPublicKeyArmored: activeUser.pgpKeyPair.publicKeyArmored,
-          senderPrivateKeyArmored: activeUser.pgpKeyPair.privateKeyArmored,
-        });
-      }
-
-      const rawMimeEmail = buildDcpMimeEmail({
-        packet,
-        encryptedPacketArmored: encryptedArmored,
-        inviteKeyFragment,
-      });
+      const rawMimeEmail = buildDcpMimeEmail({ packet });
 
       // Live OAuth Dispatch if connected
       if (gmailAccessToken.trim() && activeUser.provider === 'gmail') {
@@ -3156,7 +2440,6 @@ export function App() {
 
       const updatedEmails = [rawMimeEmail, ...transportEmails];
       setTransportEmails(updatedEmails);
-      setSelectedEmailId(rawMimeEmail.id);
       await saveTransportEmailsToIdb(updatedEmails);
     } finally {
       setIsSending(false);
@@ -3227,16 +2510,6 @@ export function App() {
     profileHandleInput,
     profileNameInput,
   ]);
-
-  function handleSelectPresetAvatar(
-    emoji: string,
-    bgStart: string,
-    bgEnd: string
-  ) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${bgStart}"/><stop offset="100%" stop-color="${bgEnd}"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="46">${emoji}</text></svg>`;
-    const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-    setProfileAvatarInput(dataUrl);
-  }
 
   function handleSelectBubbleTheme(theme: BubbleThemeId) {
     setChatBubbleTheme(theme);
@@ -3437,26 +2710,15 @@ export function App() {
       ];
     });
 
-    // 4. Open or create their 1-on-1 DM (Regular first, or Burner if only Burner exists)
-    const existingRegularDm = channels.find(
+    // 4. Open or create their 1-on-1 DM
+    const existingDm = channels.find(
       (c) =>
         c.type === 'dm' &&
-        !c.isBurner &&
         c.participants.some((p) => p.toLowerCase() === cleanEmail) &&
         c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
         )
     );
-    const existingBurnerDm = channels.find(
-      (c) =>
-        c.type === 'dm' &&
-        Boolean(c.isBurner) &&
-        c.participants.some((p) => p.toLowerCase() === cleanEmail) &&
-        c.participants.some(
-          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-    );
-    const existingDm = existingRegularDm || existingBurnerDm;
     let targetChannelId = existingDm?.id;
     if (existingDm) {
       setActiveChannelId(existingDm.id);
@@ -3622,9 +2884,6 @@ export function App() {
 
   async function handleOpenCameraModal() {
     setCapturedPhotoDataUrl(null);
-    setCameraStamps([]);
-    setSelectedCameraStampId(null);
-    setIsCameraStampPickerOpen(true);
     cameraCaptureDialogRef.current?.showModal();
     await startCameraStream(cameraFacingMode);
   }
@@ -3632,45 +2891,6 @@ export function App() {
   function handleCloseCameraModal() {
     stopCameraStream();
     setCapturedPhotoDataUrl(null);
-    setCameraStamps([]);
-    setSelectedCameraStampId(null);
-  }
-
-  function handleAddCameraEmojiStamp(emoji: string) {
-    const id = `stamp_${Date.now().toString(36)}_${Math.random()
-      .toString(36)
-      .slice(2, 6)}`;
-    const count = cameraStamps.length;
-    const offsetXPct = ((count * 9) % 36) - 14;
-    const offsetYPct = ((count * 7) % 28) - 10;
-    const newStamp = {
-      id,
-      emoji,
-      xPct: Math.min(82, Math.max(18, 50 + (count === 0 ? 0 : offsetXPct))),
-      yPct: Math.min(80, Math.max(20, 45 + (count === 0 ? 0 : offsetYPct))),
-      sizePx: 88,
-    };
-    setCameraStamps((prev) => [...prev, newStamp]);
-    setSelectedCameraStampId(id);
-  }
-
-  function handleUpdateCameraStampSize(stampId: string, nextSizePx: number) {
-    const clamped = Math.min(220, Math.max(24, Math.round(nextSizePx)));
-    setCameraStamps((prev) =>
-      prev.map((s) => (s.id === stampId ? { ...s, sizePx: clamped } : s))
-    );
-  }
-
-  function handleDeleteCameraStamp(stampId: string) {
-    setCameraStamps((prev) => {
-      const remaining = prev.filter((s) => s.id !== stampId);
-      if (selectedCameraStampId === stampId) {
-        setSelectedCameraStampId(
-          remaining.length > 0 ? remaining[remaining.length - 1].id : null
-        );
-      }
-      return remaining;
-    });
   }
 
   async function handleFlipCamera() {
@@ -3785,54 +3005,11 @@ export function App() {
     const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.88);
     stopCameraStream();
     setCapturedPhotoDataUrl(jpegDataUrl);
-    setCameraStamps([]);
-    setSelectedCameraStampId(null);
-    setIsCameraStampPickerOpen(true);
   }
 
   async function handleSendCapturedCameraPhoto() {
     if (!capturedPhotoDataUrl || !activeChannel) return;
-    let snapDataUrl = capturedPhotoDataUrl;
-
-    // Permanently bake any placed emoji stamps directly into the JPEG pixels before encryption
-    if (cameraStamps.length > 0) {
-      try {
-        const viewportWidth = cameraViewportRef.current?.clientWidth || 360;
-        snapDataUrl = await new Promise<string>((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const w = img.naturalWidth || 640;
-            const h = img.naturalHeight || 480;
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              resolve(capturedPhotoDataUrl);
-              return;
-            }
-            ctx.drawImage(img, 0, 0, w, h);
-            const scaleRatio = w / Math.max(1, viewportWidth);
-            for (const st of cameraStamps) {
-              const cx = (st.xPct / 100) * w;
-              const cy = (st.yPct / 100) * h;
-              const fontPx = Math.round(st.sizePx * scaleRatio);
-              ctx.save();
-              ctx.font = `${fontPx}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif`;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(st.emoji, cx, cy);
-              ctx.restore();
-            }
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
-          };
-          img.onerror = () => resolve(capturedPhotoDataUrl);
-          img.src = capturedPhotoDataUrl;
-        });
-      } catch {
-        snapDataUrl = capturedPhotoDataUrl;
-      }
-    }
+    const snapDataUrl = capturedPhotoDataUrl;
 
     const approxBytes = Math.round((snapDataUrl.length * 3) / 4);
     const stamp = Date.now().toString(36);
@@ -3845,10 +3022,7 @@ export function App() {
       encryptedData: snapDataUrl,
     };
 
-    // Clear from memory and close camera dialog before dispatching encrypted packet to localDb
     setCapturedPhotoDataUrl(null);
-    setCameraStamps([]);
-    setSelectedCameraStampId(null);
     stopCameraStream();
     cameraCaptureDialogRef.current?.close();
 
@@ -3857,8 +3031,6 @@ export function App() {
       type: 'chat.message',
       text: composerText.trim() || '📸 Photo',
       attachments: [photoAttachment],
-      ephemeralTtlSeconds:
-        composerBurnSeconds > 0 ? composerBurnSeconds : undefined,
       vaultCategory:
         activeChannel.type === 'vault' ? 'file' : undefined,
     });
@@ -3975,57 +3147,18 @@ export function App() {
     }
   }
 
-  // Send Read Receipt (`chat.receipt`) Packet over Email (and start Burn-After-Reading countdown if applicable!)
-  async function handleSendReadReceipt(targetMessageId: string) {
-    if (!activeChannel) return;
-    const dedupKey = `${activeUser.email.toLowerCase()}:${targetMessageId}`;
-    autoReadSentKeysRef.current.add(dedupKey);
-    setBurnReadStartedAtMs((prev) => {
-      const next = {
-        ...prev,
-        [dedupKey]: prev[dedupKey] || Date.now(),
-        [targetMessageId]: prev[targetMessageId] || Date.now(),
-      };
-      try {
-        localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-    await dispatchDcpEmailPacket({
-      channel: activeChannel,
-      type: 'chat.receipt',
-      targetMessageId,
-      receiptStatus: 'read',
-      text: `Read receipt for ${targetMessageId}`,
-    });
-  }
-
-  // Automatic Read Receipts on View (`readReceiptMode === 'auto'`)
-  // When Auto mode is active and the conversation is visible & unlocked, automatically emit
-  // encrypted `chat.receipt` packets for any unread incoming messages in `activeChannel`.
+  // Automatic Read Receipts on View: marks unread incoming messages as read once scrolled into view
   useEffect(() => {
     if (isMobileDeviceView && !mobileShowChatPane) {
       return;
     }
 
-    if (
-      !isAtBottom ||
-      readReceiptMode !== 'auto' ||
-      isAppLocked ||
-      isInitializingKeys ||
-      surfaceMode !== 'messenger-ui' ||
-      !activeChannel
-    ) {
+    if (!isAtBottom || isInitializingKeys || !activeChannel) {
       return;
     }
 
     const unreadIncoming = freeflowStream.filter((msg) => {
-      if (
-        msg.packet.type !== 'chat.message' &&
-        msg.packet.type !== 'chat.poll'
-      ) {
+      if (msg.packet.type !== 'chat.message') {
         return false;
       }
       const isOwn =
@@ -4053,26 +3186,12 @@ export function App() {
         if (autoReadSentKeysRef.current.has(dedupKey)) continue;
         autoReadSentKeysRef.current.add(dedupKey);
 
-        setBurnReadStartedAtMs((prev) => {
-          const next = {
-            ...prev,
-            [dedupKey]: prev[dedupKey] || Date.now(),
-            [msgId]: prev[msgId] || Date.now(),
-          };
-          try {
-            localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
-          } catch {
-            // ignore
-          }
-          return next;
-        });
-
         await dispatchDcpEmailPacket({
           channel: activeChannel,
           type: 'chat.receipt',
           targetMessageId: msgId,
           receiptStatus: 'read',
-          text: `Auto read receipt for ${msgId}`,
+          text: `Read receipt for ${msgId}`,
         });
       }
     })();
@@ -4081,290 +3200,14 @@ export function App() {
       cancelled = true;
     };
   }, [
-    readReceiptMode,
-    isAppLocked,
+    isAtBottom,
     isInitializingKeys,
-    surfaceMode,
     activeChannel,
     freeflowStream,
     activeUser.email,
-  ]);
-
-  // Burner Chat Active Auto-View: when active channel is a burner chat,
-  // record viewing timestamp for incoming unread messages in the active channel to begin their sequential cascade.
-  useEffect(() => {
-    if (!activeChannel || !activeChannel.isBurner) return;
-    if (isMobileDeviceView && !mobileShowChatPane) return;
-    if (isAppLocked || isInitializingKeys || surfaceMode !== 'messenger-ui') return;
-
-    const channelPackets = acceptedPackets
-      .map((i) => i.decryptedPacket!)
-      .filter(
-        (pkt) =>
-          pkt &&
-          pkt.channel.id === activeChannel.id &&
-          (pkt.type === 'chat.message' || pkt.type === 'chat.poll') &&
-          pkt.sender.email.toLowerCase() !== activeUser.email.toLowerCase()
-      );
-
-    if (channelPackets.length === 0) return;
-
-    const now = Date.now();
-    const missing: Record<string, number> = {};
-    let hasMissing = false;
-
-    for (const pkt of channelPackets) {
-      const msgId = pkt.payload.messageId;
-      const userKey = `${activeUser.email.toLowerCase()}:${msgId}`;
-      if (!burnReadStartedAtMs[userKey]) {
-        missing[userKey] = now;
-        missing[msgId] = now;
-        hasMissing = true;
-      }
-    }
-
-    if (hasMissing) {
-      setBurnReadStartedAtMs((prev) => {
-        const next = { ...prev, ...missing };
-        try {
-          localStorage.setItem('dc_burn_read_started', JSON.stringify(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    }
-  }, [
-    activeChannel?.id,
-    activeChannel?.isBurner,
-    acceptedPackets,
     isMobileDeviceView,
     mobileShowChatPane,
-    isAppLocked,
-    isInitializingKeys,
-    surfaceMode,
-    burnReadStartedAtMs,
-    activeUser.email,
   ]);
-
-  // Lock ephemeral countdown timer to 20s whenever activeChannel is a permanent Burner Chat
-  useEffect(() => {
-    if (activeChannel?.isBurner) {
-      setComposerBurnSeconds(20);
-    }
-  }, [activeChannel?.id, activeChannel?.isBurner]);
-
-  /**
-   * Remote Cryptographic Key Shredding & IndexedDB Scrub (`chat.shred-request` + `chat.shred-ack`)
-   *
-   * 1. Sends a signed `chat.shred-request` packet over email to the peer(s) in `activeChannel`.
-   * 2. Compliant builds verify the signature & compliance attestation, destroy the non-extractable
-   *    WebCrypto thread wrapping key (`destroyThreadWrappingKey`), zero-fill and purge the target
-   *    PGP keypair & thread ciphertext in IndexedDB (`cryptographicScrubPeerAndEmailsInIdb`),
-   *    and return a cryptographically signed `chat.shred-ack` receipt.
-   */
-  async function handleRemoteKeyShredAndScrub(options: {
-    shredScope: 'thread-only' | 'peer-pgp-key-and-threads';
-    targetPeerEmail?: string;
-  }) {
-    if (!activeChannel || !activeUser.pgpKeyPair) return;
-
-    const peerEmails = activeChannel.participants.filter(
-      (e) => e.toLowerCase() !== activeUser.email.toLowerCase()
-    );
-    const primaryTargetEmail =
-      options.targetPeerEmail || peerEmails[0] || activeUser.email;
-    const targetPeer = users.find(
-      (u) => u.email.toLowerCase() === primaryTargetEmail.toLowerCase()
-    );
-    const oldFingerprint =
-      targetPeer?.pgpKeyPair?.fingerprint ||
-      activeUser.pgpKeyPair.fingerprint;
-
-    // Collect all transport email IDs belonging to this conversation (excluding regular emails)
-    const channelHeaderTag = `[${activeChannel.id}]`;
-    const emailIdsToScrub = transportEmails
-      .filter(
-        (eml) =>
-          eml.headers['X-@me-Channel-Id'] === activeChannel.id ||
-          eml.subject.includes(channelHeaderTag)
-      )
-      .map((eml) => eml.id);
-
-    // 1. Destroy non-extractable WebCrypto conversation key in RAM
-    destroyThreadWrappingKey(activeChannel.id);
-
-    // 2. Overwrite & scrub IndexedDB records for this thread (and peer PGP key if requested)
-    const scrubResult = await cryptographicScrubPeerAndEmailsInIdb({
-      targetEmailToScrub:
-        options.shredScope === 'peer-pgp-key-and-threads'
-          ? primaryTargetEmail
-          : undefined,
-      emailIdsToScrub,
-    });
-
-    // 3. Remove the scrubbed transport emails from active state
-    const remainingEmails = transportEmails.filter(
-      (eml) => !emailIdsToScrub.includes(eml.id)
-    );
-
-    // 4. If `peer-pgp-key-and-threads` was selected, rotate/regenerate a fresh keypair after zeroing the old key
-    //    so the old PGP key is permanently destroyed and can never decrypt any archived MIME packets!
-    let updatedUsers = [...users];
-    if (
-      options.shredScope === 'peer-pgp-key-and-threads' &&
-      targetPeer
-    ) {
-      const freshKp = await generateDeviceKeyPair(
-        targetPeer.displayName,
-        targetPeer.email
-      );
-      updatedUsers = users.map((u) =>
-        u.email.toLowerCase() === primaryTargetEmail.toLowerCase()
-          ? {
-              ...u,
-              keyShreddedAt: new Date().toISOString(),
-              pgpKeyPair: freshKp,
-            }
-          : u
-      );
-      setUsers(updatedUsers);
-      await saveUserIdentitiesToIdb(updatedUsers);
-    }
-
-    // 5. Build and dispatch the signed `chat.shred-request` + compliant peer `chat.shred-ack` receipt
-    const reqId = `shred_${Date.now().toString(36)}`;
-    const nowIso = new Date().toISOString();
-
-    const shredReqPacket: DcpPacket = {
-      protocol: DCP_PROTOCOL_VERSION,
-      packetId: `pkt_req_${reqId}`,
-      type: 'chat.shred-request',
-      encryptionMode: 'openpgp-asymmetric',
-      channel: activeChannel,
-      sender: {
-        email: activeUser.email,
-        displayName: activeUser.displayName,
-        handle: activeUser.handle,
-        provider: activeUser.provider,
-        pgpFingerprint: activeUser.pgpKeyPair.fingerprint,
-        publicKeyArmored: activeUser.pgpKeyPair.publicKeyArmored,
-      },
-      complianceAttestation: await createSignedComplianceAttestation({
-        senderEmail: activeUser.email,
-        senderPgpFingerprint: activeUser.pgpKeyPair.fingerprint,
-      }),
-      payload: {
-        messageId: `msg_req_${reqId}`,
-        text: `${activeUser.displayName} issued a signed Remote Key Erase & IndexedDB Scrub (${
-          options.shredScope === 'peer-pgp-key-and-threads'
-            ? `Erased PGP Key ${formatFingerprint(oldFingerprint).slice(0, 19)}… & ${
-                scrubResult.scrubbedCount
-              } messages`
-            : `Scrubbed ${scrubResult.scrubbedCount} encrypted messages in #${activeChannel.name}`
-        }).`,
-        shredRequest: {
-          shredScope: options.shredScope,
-          targetPeerEmail: primaryTargetEmail,
-          targetKeyFingerprint: oldFingerprint,
-          reason: 'User-initiated Remote Cryptographic Key Shred & IndexedDB Purge',
-          requestedAt: nowIso,
-        },
-      },
-      sentAt: nowIso,
-    };
-
-    const ackSender =
-      updatedUsers.find(
-        (u) => u.email.toLowerCase() === primaryTargetEmail.toLowerCase()
-      ) || activeUser;
-
-    const ackTimeIso = new Date(Date.now() + 500).toISOString();
-    const shredAckPacket: DcpPacket = {
-      protocol: DCP_PROTOCOL_VERSION,
-      packetId: `pkt_ack_${reqId}`,
-      type: 'chat.shred-ack',
-      encryptionMode: 'openpgp-asymmetric',
-      channel: activeChannel,
-      sender: {
-        email: ackSender.email,
-        displayName: ackSender.displayName,
-        handle: ackSender.handle,
-        provider: ackSender.provider,
-        pgpFingerprint:
-          ackSender.pgpKeyPair?.fingerprint ||
-          activeUser.pgpKeyPair.fingerprint,
-        publicKeyArmored:
-          ackSender.pgpKeyPair?.publicKeyArmored ||
-          activeUser.pgpKeyPair.publicKeyArmored,
-      },
-      complianceAttestation: await createSignedComplianceAttestation({
-        senderEmail: ackSender.email,
-        senderPgpFingerprint:
-          ackSender.pgpKeyPair?.fingerprint ||
-          activeUser.pgpKeyPair.fingerprint,
-      }),
-      payload: {
-        messageId: `msg_ack_${reqId}`,
-        targetMessageId: shredReqPacket.payload.messageId,
-        text: `Compliant Build Verified (${DCP_COMPLIANT_BUILD_VERSION}): ${
-          ackSender.displayName
-        }'s app permanently erased PGP key (${formatFingerprint(
-          oldFingerprint
-        ).slice(0, 19)}…) and zero-filled ${
-          scrubResult.scrubbedCount
-        } ciphertext records in IndexedDB.`,
-        shredAck: {
-          requestId: reqId,
-          shreddedByEmail: ackSender.email,
-          purgedKeyFingerprint: oldFingerprint,
-          scrubbedEmailIdsCount: scrubResult.scrubbedCount,
-          idbCiphertextZeroed: scrubResult.idbCiphertextZeroed,
-          attestedBuildHash: DCP_COMPLIANT_BUNDLE_SHA256.slice(0, 16),
-          completedAt: ackTimeIso,
-        },
-      },
-      sentAt: ackTimeIso,
-    };
-
-    const allPubKeys = updatedUsers
-      .filter((u) => u.hasAppInstalled && u.pgpKeyPair)
-      .map((u) => u.pgpKeyPair!.publicKeyArmored);
-
-    const encReq = await encryptDcpPayloadAsymmetric({
-      cleartextJson: JSON.stringify(shredReqPacket),
-      recipientPublicKeysArmored: allPubKeys,
-      senderPublicKeyArmored: activeUser.pgpKeyPair.publicKeyArmored,
-      senderPrivateKeyArmored: activeUser.pgpKeyPair.privateKeyArmored,
-    });
-
-    const encAck = await encryptDcpPayloadAsymmetric({
-      cleartextJson: JSON.stringify(shredAckPacket),
-      recipientPublicKeysArmored: allPubKeys,
-      senderPublicKeyArmored:
-        ackSender.pgpKeyPair?.publicKeyArmored ||
-        activeUser.pgpKeyPair.publicKeyArmored,
-      senderPrivateKeyArmored:
-        ackSender.pgpKeyPair?.privateKeyArmored ||
-        activeUser.pgpKeyPair.privateKeyArmored,
-    });
-
-    const mimeReq = buildDcpMimeEmail({
-      packet: shredReqPacket,
-      encryptedPacketArmored: encReq,
-    });
-    const mimeAck = buildDcpMimeEmail({
-      packet: shredAckPacket,
-      encryptedPacketArmored: encAck,
-    });
-
-    const finalEmails = [...remainingEmails];
-    setTransportEmails(finalEmails);
-    setSelectedEmailId(finalEmails[0]?.id || '');
-    await saveTransportEmailsToIdb(finalEmails);
-    void mimeReq;
-    void mimeAck;
-  }
 
   // Add Member to Group or Broadcast Channel (Hard Capped at 99 Users to prevent personal email spam limits)
   async function handleAddMemberToChannel(e: React.FormEvent) {
@@ -4470,50 +3313,9 @@ export function App() {
     });
   }
 
-  // Start or jump to an existing 1-on-1 chat (Regular first, then Burner in that order), or create Regular if neither exists
+  // Open an existing 1-on-1 DM or create a new one
   function handleOpenExistingOrStartContactChat(email: string) {
-    const targetEmail = email.trim().toLowerCase();
-    if (!targetEmail) return;
-
-    const existingRegularDm = channels.find(
-      (c) =>
-        c.type === 'dm' &&
-        !c.isBurner &&
-        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
-        c.participants.some(
-          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-    );
-
-    if (existingRegularDm) {
-      setContactSearchQuery('');
-      menuDirectoryDialogRef.current?.close();
-      groupInfoDialogRef.current?.close();
-      newChannelModalRef.current?.close();
-      openMobileChat(existingRegularDm.id);
-      return;
-    }
-
-    const existingBurnerDm = channels.find(
-      (c) =>
-        c.type === 'dm' &&
-        Boolean(c.isBurner) &&
-        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
-        c.participants.some(
-          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-    );
-
-    if (existingBurnerDm) {
-      setContactSearchQuery('');
-      menuDirectoryDialogRef.current?.close();
-      groupInfoDialogRef.current?.close();
-      newChannelModalRef.current?.close();
-      openMobileChat(existingBurnerDm.id);
-      return;
-    }
-
-    handleStartOrOpenContactChat(targetEmail);
+    handleStartOrOpenContactChat(email);
   }
 
   // Start or jump to a regular 1-on-1 DM with any Contact
@@ -4524,7 +3326,6 @@ export function App() {
     const existingDm = channels.find(
       (c) =>
         c.type === 'dm' &&
-        !c.isBurner &&
         c.participants.some((p) => p.toLowerCase() === targetEmail) &&
         c.participants.some(
           (p) => p.toLowerCase() === activeUser.email.toLowerCase()
@@ -4576,107 +3377,6 @@ export function App() {
     openMobileChat(dmCh.id);
   }
 
-  // Start or jump to a 1-on-1 Burner Chat with any Contact (20s sequential cascade delete)
-  function handleStartOrOpenBurnerContactChat(email: string) {
-    const targetEmail = email.trim().toLowerCase();
-    if (!targetEmail) return;
-
-    const existingBurnerDm = channels.find(
-      (c) =>
-        c.type === 'dm' &&
-        c.isBurner &&
-        c.participants.some((p) => p.toLowerCase() === targetEmail) &&
-        c.participants.some(
-          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-    );
-
-    if (existingBurnerDm) {
-      setContactSearchQuery('');
-      menuDirectoryDialogRef.current?.close();
-      groupInfoDialogRef.current?.close();
-      newChannelModalRef.current?.close();
-      openMobileChat(existingBurnerDm.id);
-      return;
-    }
-
-    let existingUser = users.find(
-      (u) => u.email.toLowerCase() === targetEmail
-    );
-    if (!existingUser) {
-      const displayName = targetEmail.split('@')[0];
-      existingUser = {
-        email: targetEmail,
-        displayName: `${displayName} (No App Yet)`,
-        handle: `@${displayName.replace(/[^a-z0-9]/gi, '')}`,
-        provider: targetEmail.includes('proton')
-          ? 'proton'
-          : targetEmail.includes('outlook')
-          ? 'outlook'
-          : targetEmail.includes('gmail')
-          ? 'gmail'
-          : 'yahoo',
-        hasAppInstalled: false,
-      };
-      setUsers((prev) => [...prev, existingUser!]);
-    }
-
-    const burnerDmCh: DcpChannelMeta = {
-      id: `burner_dm_${Date.now().toString(36)}`,
-      type: 'dm',
-      name: `${existingUser.displayName.replace(' (No App Yet)', '')} (Burner)`,
-      participants: [activeUser.email, existingUser.email],
-      isBurner: true,
-      ephemeralTimerSeconds: 20,
-      createdAt: new Date().toISOString(),
-    };
-    setChannels((prev) => [burnerDmCh, ...prev]);
-    setContactSearchQuery('');
-    menuDirectoryDialogRef.current?.close();
-    groupInfoDialogRef.current?.close();
-    newChannelModalRef.current?.close();
-    openMobileChat(burnerDmCh.id);
-  }
-
-  // Start or jump to a Burner Group Chat for an existing group (20s sequential cascade delete)
-  function handleStartOrOpenBurnerGroupChat(sourceGroup: DcpChannelMeta) {
-    if (sourceGroup.isBurner) {
-      menuDirectoryDialogRef.current?.close();
-      openMobileChat(sourceGroup.id);
-      return;
-    }
-
-    const burnerName = sourceGroup.name.endsWith('-burner')
-      ? sourceGroup.name
-      : `${sourceGroup.name}-burner`;
-
-    const existingBurnerGroup = channels.find(
-      (c) =>
-        c.type === 'workspace-channel' &&
-        c.isBurner &&
-        (c.name.toLowerCase() === burnerName.toLowerCase() ||
-          c.id === `burner_${sourceGroup.id}`)
-    );
-
-    if (existingBurnerGroup) {
-      menuDirectoryDialogRef.current?.close();
-      openMobileChat(existingBurnerGroup.id);
-      return;
-    }
-
-    const burnerGroupCh: DcpChannelMeta = {
-      id: `burner_${sourceGroup.id}_${Date.now().toString(36)}`,
-      type: 'workspace-channel',
-      name: burnerName,
-      participants: [...sourceGroup.participants],
-      isBurner: true,
-      ephemeralTimerSeconds: 20,
-    };
-    setChannels((prev) => [burnerGroupCh, ...prev]);
-    menuDirectoryDialogRef.current?.close();
-    openMobileChat(burnerGroupCh.id);
-  }
-
   // Send message from the Free-Flowing Messenger Composer
   async function handleMessengerSend(
     e?: React.FormEvent | React.KeyboardEvent
@@ -4687,11 +3387,8 @@ export function App() {
 
     const cleanText =
       composerText.trim() ||
-      `Sent ${pendingAttachments.length} encrypted attachment(s)`;
+      `Sent ${pendingAttachments.length} attachment(s)`;
     const linkPreview = extractClientSideLinkPreview(cleanText);
-    const effectiveBurnSec = activeChannel.isBurner
-      ? 20
-      : composerBurnSeconds || activeChannel.ephemeralTimerSeconds || undefined;
 
     // If activeChannel is a broadcast-channel and activeUser is the creator,
     // aggregate all incoming subscriber reactions and push updated channelReactionTotals out to all BCC subscribers!
@@ -4764,7 +3461,6 @@ export function App() {
       replyToMessageId: replyingToMessage?.packet.payload.messageId,
       attachments:
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
-      ephemeralTtlSeconds: effectiveBurnSec,
       linkPreview,
       channelReactionTotals: nextChannelReactionTotals,
       storyCard: nextStoryCard,
@@ -4782,95 +3478,8 @@ export function App() {
     }
   }
 
-  // Send or Recognize Collection on a Peer-to-Peer IOU (`chat.iou`)
-  async function handleSendOrSettleIou(params: {
-    action: 'send-iou' | 'request-iou' | 'collect';
-    peerEmail: string;
-    amount: number;
-    note?: string;
-  }) {
-    const cleanPeer = params.peerEmail.trim().toLowerCase();
-    if (!cleanPeer || params.amount <= 0) return;
-
-    const peerUser = users.find((u) => u.email.toLowerCase() === cleanPeer);
-    const peerName = (
-      peerUser?.displayName || cleanPeer.split('@')[0]
-    ).replace(' (No App Yet)', '');
-
-    let targetDm = channels.find(
-      (c) =>
-        c.type === 'dm' &&
-        !c.isBurner &&
-        c.participants.some((p) => p.toLowerCase() === cleanPeer) &&
-        c.participants.some(
-          (p) => p.toLowerCase() === activeUser.email.toLowerCase()
-        )
-    );
-    if (!targetDm) {
-      targetDm = {
-        id: `dm_${Date.now().toString(36)}`,
-        type: 'dm',
-        name: peerName,
-        participants: [activeUser.email, cleanPeer],
-      };
-      setChannels((prev) => [targetDm!, ...prev]);
-    }
-
-    const isCreditorMe =
-      params.action === 'request-iou' ||
-      (params.action === 'collect' &&
-        (iouLedgerSummary.rows.find((r) => r.peerEmail === cleanPeer)
-          ?.netAmount || 0) > 0);
-
-    const debtorEmail =
-      params.action === 'send-iou'
-        ? activeUser.email
-        : params.action === 'request-iou'
-        ? cleanPeer
-        : isCreditorMe
-        ? cleanPeer
-        : activeUser.email;
-
-    const creditorEmail =
-      debtorEmail.toLowerCase() === activeUser.email.toLowerCase()
-        ? cleanPeer
-        : activeUser.email;
-
-    const iouPayload: DcpIouPayload = {
-      iouId: `iou_${Date.now().toString(36)}`,
-      action: params.action,
-      amount: params.amount,
-      unit: 'IOU',
-      note: params.note || (params.action === 'collect' ? 'Settled up' : 'IOU'),
-      debtorEmail,
-      creditorEmail,
-      settledAt:
-        params.action === 'collect' ? new Date().toISOString() : undefined,
-    };
-
-    const summaryText =
-      params.action === 'collect'
-        ? `Recognized collection of ${params.amount} from ${peerName}`
-        : `Sent ${params.amount} to ${peerName}${
-            params.note ? ` (${params.note})` : ''
-          }`;
-
-    await dispatchDcpEmailPacket({
-      channel: targetDm,
-      type: 'chat.iou',
-      text: summaryText,
-      iou: iouPayload,
-    });
-
-    setSelectedIouPeerEmail(null);
-    setShowIouIssueForm(false);
-    setIouSendNote('');
-    setSafetyBannerNotice(summaryText);
-    setTimeout(() => setSafetyBannerNotice(''), 4000);
-  }
-
-  // Subscriber Burn Local Channel & Block (sends encrypted Unsubscribe packet back to Creator to remove from BCC)
-  async function handleSubscriberBurnAndUnsubscribeChannel(
+  // Unsubscribe from a Broadcast Channel & clear local channel emails
+  async function handleSubscriberUnsubscribeChannel(
     channelToUnsub: DcpChannelMeta
   ) {
     if (channelToUnsub.type !== 'broadcast-channel') return;
@@ -4881,7 +3490,7 @@ export function App() {
       (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
     );
 
-    // 1. Send encrypted unsubscribe email back to the creator
+    // 1. Send unsubscribe notice back to the creator
     await dispatchDcpEmailPacket({
       channel: channelToUnsub,
       type: 'chat.member-update',
@@ -4894,11 +3503,12 @@ export function App() {
       },
     });
 
-    // 2. Burn local channel messages from IndexedDB
+    // 2. Remove local channel messages from IndexedDB
     const channelHeaderTag = `[${channelToUnsub.id}]`;
     const emailIdsToScrub = transportEmails
       .filter(
         (eml) =>
+          eml.headers['X-ATME-Channel-Id'] === channelToUnsub.id ||
           eml.headers['X-@me-Channel-Id'] === channelToUnsub.id ||
           eml.subject.includes(channelHeaderTag)
       )
@@ -4927,165 +3537,9 @@ export function App() {
       setActiveChannelId(fallbackCh.id);
     }
     setSafetyBannerNotice(
-      `Unsubscribed & burned local feed #${channelToUnsub.name} (sent removal notice to ${creatorEmail})`
+      `Unsubscribed from #${channelToUnsub.name} (sent removal notice to ${creatorEmail})`
     );
     setTimeout(() => setSafetyBannerNotice(''), 4500);
-  }
-
-  // Create and dispatch an Encrypted Poll (`chat.poll`)
-  async function handleCreateEncryptedPoll(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeChannel || !pollQuestionInput.trim()) return;
-    const validOptions = pollOptionsInput
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .map((text, idx) => ({
-        id: `opt_${idx}_${Date.now().toString(36)}`,
-        text,
-      }));
-    if (validOptions.length < 2) return;
-
-    const pollPayload: DcpPollPayload = {
-      pollId: `poll_${Date.now().toString(36)}`,
-      question: pollQuestionInput.trim(),
-      options: validOptions,
-    };
-
-    pollCreatorDialogRef.current?.close();
-    setPollQuestionInput('');
-
-    await dispatchDcpEmailPacket({
-      channel: activeChannel,
-      type: 'chat.poll',
-      text: `📊 Poll: ${pollPayload.question}`,
-      poll: pollPayload,
-    });
-  }
-
-  // Vote on an Encrypted Poll (`chat.poll-vote`)
-  async function handleVoteOnEncryptedPoll(
-    targetMessageId: string,
-    pollId: string,
-    optionId: string,
-    optionText: string
-  ) {
-    if (!activeChannel) return;
-    await dispatchDcpEmailPacket({
-      channel: activeChannel,
-      type: 'chat.poll-vote',
-      targetMessageId,
-      pollVote: { pollId, optionId },
-      text: `Voted for ${optionText}`,
-    });
-  }
-
-  // Pin or Unpin a message in the active conversation (`chat.pin`)
-  async function handleTogglePinMessage(msg: FreeflowChatMessage) {
-    if (!activeChannel) return;
-    const currentPinned = pinnedMessageByChannel[activeChannel.id];
-    const isUnpin =
-      currentPinned?.messageId === msg.packet.payload.messageId;
-
-    if (isUnpin) {
-      setPinnedMessageByChannel((prev) => {
-        const next = { ...prev };
-        delete next[activeChannel.id];
-        return next;
-      });
-    } else {
-      setPinnedMessageByChannel((prev) => ({
-        ...prev,
-        [activeChannel.id]: {
-          messageId: msg.packet.payload.messageId,
-          text: (
-            msg.packet.payload.poll?.question ||
-            msg.packet.payload.text ||
-            'Encrypted attachment'
-          ).slice(0, 95),
-          senderName: msg.packet.sender.displayName,
-        },
-      }));
-    }
-
-    await dispatchDcpEmailPacket({
-      channel: activeChannel,
-      type: 'chat.pin',
-      targetMessageId: msg.packet.payload.messageId,
-      pinUpdate: {
-        targetMessageId: msg.packet.payload.messageId,
-        action: isUnpin ? 'unpin' : 'pin',
-        pinnedPreviewText: (msg.packet.payload.text || '').slice(0, 80),
-      },
-      text: `${activeUser.displayName} ${
-        isUnpin ? 'unpinned' : 'pinned'
-      } a message.`,
-    });
-  }
-
-  // Open or jump to the active user's Personal Encrypted Vault (`Vault (@me)`)
-  function handleOpenPersonalVault() {
-    const vaultId = `vault_${activeUser.email.toLowerCase()}`;
-    const existingVault = channels.find((c) => c.id === vaultId);
-    if (!existingVault) {
-      const newVault: DcpChannelMeta = {
-        id: vaultId,
-        type: 'vault',
-        name: 'Vault (@me)',
-        participants: [activeUser.email],
-      };
-      setChannels((prev) => [newVault, ...prev]);
-    }
-    openMobileChat(vaultId);
-  }
-
-  // Unlock App Lock via PIN or Duress/Panic PIN
-  async function handleUnlockWithPinOrDuress(e: React.FormEvent) {
-    e.preventDefault();
-    const outcome = evaluatePinOrDuressCode({
-      enteredPin: lockScreenPinInput,
-      normalPin: appLockPin,
-      duressPin: duressPanicPin,
-    });
-    if (outcome === 'unlock') {
-      setIsAppLocked(false);
-      setLockScreenPinInput('');
-      setLockScreenError('');
-      return;
-    }
-    if (outcome === 'duress-shred') {
-      // Silently scrub non-vault sensitive threads from IndexedDB and memory before unlocking!
-      const sensitiveIds = transportEmails
-        .filter((e) => !e.subject.includes('reg_'))
-        .map((e) => e.id);
-      await cryptographicScrubPeerAndEmailsInIdb({
-        emailIdsToScrub: sensitiveIds,
-      });
-      setTransportEmails([]);
-      setInspections([]);
-      setIsAppLocked(false);
-      setLockScreenPinInput('');
-      setLockScreenError('');
-      setDuressTriggeredBanner(
-        'Duress / Panic PIN Executed: All conversation keys and IndexedDB message ciphertexts were zero-filled prior to unlock.'
-      );
-      return;
-    }
-    setLockScreenError('Incorrect PIN or Passkey. Try 2580 (or 9999 for Duress Panic Wipe).');
-  }
-
-  // Unlock App Lock via WebAuthn Passkey / Biometrics
-  async function handleUnlockWithWebAuthnPasskey() {
-    const res = await verifyWebAuthnPasskeyLock({
-      credentialIdBase64Url: passkeyRegisteredId,
-    });
-    if (res.verified) {
-      if (res.credentialId) {
-        setPasskeyRegisteredId(res.credentialId);
-      }
-      setIsAppLocked(false);
-      setLockScreenPinInput('');
-      setLockScreenError('');
-    }
   }
 
   // Send Emoji Reaction Packet over Email
@@ -5104,25 +3558,8 @@ export function App() {
     });
   }
 
-  function handleOpenPacketModal(emailId: string) {
-    setSelectedEmailId(emailId);
-    packetModalRef.current?.showModal();
-  }
-
   async function handleCreateNewChannelOrDm(e: React.FormEvent) {
     e.preventDefault();
-    let createdAliasEmail: string | undefined;
-
-    if (useShieldedAliasInNewChat) {
-      const alias = await createShieldedBurnerAlias({
-        parentEmail: activeUser.email,
-        displayName: activeUser.displayName,
-        label: newChatAliasLabel || 'shield',
-        strategy: newChatAliasStrategy,
-      });
-      setShieldedAliases((prev) => [alias, ...prev]);
-      createdAliasEmail = alias.aliasEmail;
-    }
 
     if (newChatType === 'broadcast-channel') {
       const id = `ch_broadcast_${Date.now().toString(36)}`;
@@ -5155,7 +3592,6 @@ export function App() {
       setNewChatName('');
       setNewChannelDescription('');
       setSelectedGroupMemberEmails([]);
-      setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
       openMobileChat(newBroadcastCh.id);
@@ -5163,9 +3599,7 @@ export function App() {
     }
 
     if (newChatType === 'workspace-channel') {
-      const id = isNewChatBurner
-        ? `burner_ch_${Date.now().toString(36)}`
-        : `ch_custom_${Date.now().toString(36)}`;
+      const id = `ch_custom_${Date.now().toString(36)}`;
       const selectedFriendNames = selectedGroupMemberEmails
         .map(
           (em) =>
@@ -5180,17 +3614,12 @@ export function App() {
           ? `${activeUser.displayName.toLowerCase()}-${selectedFriendNames.join(
               '-'
             )}`
-          : isNewChatBurner
-          ? 'burner-group'
           : 'new-group';
-      let cleanName =
+      const cleanName =
         newChatName
           .trim()
           .toLowerCase()
           .replace(/[^a-z0-9-]/g, '-') || fallbackGroupName;
-      if (isNewChatBurner && !cleanName.endsWith('-burner')) {
-        cleanName = `${cleanName}-burner`;
-      }
       const groupParticipants =
         selectedGroupMemberEmails.length > 0
           ? Array.from(
@@ -5205,15 +3634,11 @@ export function App() {
         type: 'workspace-channel',
         name: cleanName,
         participants: groupParticipants,
-        shieldedAliasEmail: createdAliasEmail,
-        isBurner: isNewChatBurner,
-        ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
         createdAt: new Date().toISOString(),
       };
       setChannels((prev) => [newCh, ...prev]);
       setNewChatName('');
       setSelectedGroupMemberEmails([]);
-      setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
       openMobileChat(newCh.id);
@@ -5245,7 +3670,6 @@ export function App() {
       const existingDm = channels.find(
         (c) =>
           c.type === 'dm' &&
-          Boolean(c.isBurner) === Boolean(isNewChatBurner) &&
           c.participants.some((p) => p.toLowerCase() === targetEmail) &&
           c.participants.some(
             (p) => p.toLowerCase() === activeUser.email.toLowerCase()
@@ -5254,7 +3678,6 @@ export function App() {
 
       if (existingDm) {
         setNewChatRecipientEmail('');
-        setIsNewChatBurner(false);
         newChannelModalRef.current?.close();
         menuDirectoryDialogRef.current?.close();
         openMobileChat(existingDm.id);
@@ -5263,20 +3686,14 @@ export function App() {
 
       const rawName = existingUser.displayName.replace(' (No App Yet)', '');
       const dmCh: DcpChannelMeta = {
-        id: isNewChatBurner
-          ? `burner_dm_${Date.now().toString(36)}`
-          : `dm_${Date.now().toString(36)}`,
+        id: `dm_${Date.now().toString(36)}`,
         type: 'dm',
-        name: isNewChatBurner ? `${rawName} (Burner)` : rawName,
+        name: rawName,
         participants: [activeUser.email, existingUser.email],
-        shieldedAliasEmail: createdAliasEmail,
-        isBurner: isNewChatBurner,
-        ephemeralTimerSeconds: isNewChatBurner ? 20 : undefined,
         createdAt: new Date().toISOString(),
       };
       setChannels((prev) => [dmCh, ...prev]);
       setNewChatRecipientEmail('');
-      setIsNewChatBurner(false);
       newChannelModalRef.current?.close();
       menuDirectoryDialogRef.current?.close();
       openMobileChat(dmCh.id);
@@ -5336,9 +3753,14 @@ export function App() {
               displayName: profile.name,
               provider: 'gmail',
               liveAccessToken: result.accessToken,
+              expiresInSeconds: result.expiresInSeconds,
             });
             return;
           }
+          setConnectorStatusMsg(
+            'Google OAuth connected, but profile email could not be loaded. Check email/profile scopes.'
+          );
+          return;
         } else {
           setOutlookAccessToken(result.accessToken);
         }
@@ -5397,7 +3819,7 @@ export function App() {
         });
       }
       setConnectorStatusMsg(
-        `Gmail Sync Complete • ${fetchedEmails.length} ATME/1.0 encrypted packet(s) synced`
+        `Gmail Sync Complete • ${fetchedEmails.length} ATME/1.0 packet(s) synced`
       );
     } catch (err) {
       setConnectorStatusMsg(
@@ -5433,13 +3855,14 @@ export function App() {
     }
   }
 
-  // Complete Sign-In from the OAuth Consent Portal or Custom Domain Portal:
-  // Generates a fresh Curve25519 OpenPGP keypair on-device, saves the identity to IndexedDB, and logs right in!
+  // Complete Sign-In from OAuth Consent Portal or Custom Domain Portal:
+  // Logs in immediately without blocking, and generates an optional Curve25519 keypair in the background for encrypted peer interop.
   async function handleCompletePortalSignIn(params: {
     email: string;
     displayName: string;
     provider: 'gmail' | 'outlook' | 'proton' | 'yahoo' | 'custom-domain';
     liveAccessToken?: string;
+    expiresInSeconds?: number;
   }) {
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.displayName.trim() || cleanEmail.split('@')[0];
@@ -5447,64 +3870,76 @@ export function App() {
 
     setIsSending(true);
     try {
-      const kp = await generateDeviceKeyPair(cleanName, cleanEmail);
       const newIdentity: UserIdentity = {
         email: cleanEmail,
         displayName: cleanName,
         handle,
-        bio: `Signed in via ${params.provider.toUpperCase()} OAuth • ATME/1.0 OpenPGP`,
+        bio: `Signed in via ${params.provider.toUpperCase()} OAuth • ATME/1.0`,
         profileUpdatedAt: new Date().toISOString(),
         provider: params.provider,
         hasAppInstalled: true,
-        pgpKeyPair: kp,
       };
 
-      const exists = users.some(
-        (u) => u.email.toLowerCase() === cleanEmail
-      );
-      const updatedUsers = exists
-        ? users.map((u) =>
-            u.email.toLowerCase() === cleanEmail ? newIdentity : u
-          )
-        : [newIdentity, ...users];
-
-      setUsers(updatedUsers);
-      await saveUserIdentitiesToIdb(updatedUsers);
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.email.toLowerCase() === cleanEmail);
+        const next = exists
+          ? prev.map((u) =>
+              u.email.toLowerCase() === cleanEmail ? newIdentity : u
+            )
+          : [newIdentity, ...prev];
+        void saveUserIdentitiesToIdb(next);
+        return next;
+      });
       setActiveUserEmail(newIdentity.email);
       setProfileNameInput(newIdentity.displayName);
       setProfileHandleInput(newIdentity.handle || handle);
       setForceBroadcastProfileNext(true);
       setSimulatedOAuthProvider(null);
 
-      // Ensure personal Notes (@me) vault channel exists for the newly signed-in Google user
+      // Ensure personal Notes (@me) vault channel exists for the newly signed-in user
       const vaultId = `vault_${cleanEmail}`;
-      if (!channels.some((c) => c.id === vaultId)) {
-        const nextChannels: DcpChannelMeta[] = [
-          ...channels,
-          {
-            id: vaultId,
-            type: 'vault',
-            name: 'Notes (@me)',
-            participants: [cleanEmail],
-            createdAt: new Date().toISOString(),
-          },
-        ];
-        setChannels(nextChannels);
-      }
+      setChannels((prev) =>
+        prev.some((c) => c.id === vaultId)
+          ? prev
+          : [
+              ...prev,
+              {
+                id: vaultId,
+                type: 'vault',
+                name: 'Notes (@me)',
+                participants: [cleanEmail],
+                createdAt: new Date().toISOString(),
+              },
+            ]
+      );
 
       if (params.liveAccessToken && params.provider === 'gmail') {
+        const ttlMs = (params.expiresInSeconds || 3500) * 1000;
         saveGoogleOAuthSession({
           email: cleanEmail,
           accessToken: params.liveAccessToken,
-          expiresAtMs: Date.now() + 3500 * 1000,
+          expiresAtMs: Date.now() + ttlMs,
         });
         void handleSyncLiveGmailPackets(params.liveAccessToken);
       }
 
+      // Lazily generate Curve25519 keys in background so encrypted ATME/1.0 peers can interop
+      void generateDeviceKeyPair(cleanName, cleanEmail)
+        .then((kp) => {
+          setUsers((prev) => {
+            const next = prev.map((u) =>
+              u.email.toLowerCase() === cleanEmail && !u.pgpKeyPair
+                ? { ...u, pgpKeyPair: kp }
+                : u
+            );
+            void saveUserIdentitiesToIdb(next);
+            return next;
+          });
+        })
+        .catch(() => undefined);
+
       setConnectorStatusMsg(
-        `Signed in as ${newIdentity.displayName} (${newIdentity.email})! On-device OpenPGP keypair (${formatFingerprint(
-          kp.fingerprint
-        ).slice(0, 19)}…) generated & ATME/1.0 inbox filter active.`
+        `Signed in as ${newIdentity.displayName} (${newIdentity.email}) • ATME/1.0 ready.`
       );
     } finally {
       setIsSending(false);
@@ -5574,92 +4009,6 @@ export function App() {
     }
   }
 
-  // Stage 1 Workbench Composer Submit
-  async function handleSendEncryptedPacket(e: React.FormEvent) {
-    e.preventDefault();
-    const targetChannel: DcpChannelMeta = {
-      id: `ch_${channelName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-      type: recipientUser.hasAppInstalled ? 'workspace-channel' : 'dm',
-      name: channelName,
-      participants: Array.from(
-        new Set([activeUser.email, recipientUser.email])
-      ),
-    };
-    const lastAcceptedMsgId =
-      acceptedPackets[0]?.decryptedPacket?.payload.messageId || 'msg_seed_01';
-
-    await dispatchDcpEmailPacket({
-      channel: targetChannel,
-      type: packetType,
-      text:
-        packetType === 'chat.reaction'
-          ? `Reacted ${reactionEmoji} to ${lastAcceptedMsgId}`
-          : messageText.trim(),
-      targetMessageId:
-        packetType === 'chat.reaction' ? lastAcceptedMsgId : undefined,
-      reactionEmoji:
-        packetType === 'chat.reaction' ? reactionEmoji : undefined,
-    });
-
-    if (packetType === 'chat.message') {
-      setMessageText('');
-    }
-  }
-
-  async function handleInjectRegularEmail() {
-    const samples = [
-      {
-        from: '"Netflix" <info@mailer.netflix.com>',
-        subject: 'New sign-in to your Netflix account on Apple TV',
-        body: 'We noticed a new sign-in to your Netflix account. Standard email without DCP/1.0 headers.',
-      },
-      {
-        from: '"Chase Bank" <no-reply@alertsp.chase.com>',
-        subject: 'Your monthly statement is ready to view',
-        body: 'Your statement for account ending in 4491 is now available online.',
-      },
-      {
-        from: '"Linear" <notifications@linear.app>',
-        subject: '[ENG-209] Update mobile PWA viewport safe-area insets',
-        body: 'Issue ENG-209 was moved to In Progress.',
-      },
-    ];
-    const pick = samples[Math.floor(Math.random() * samples.length)];
-    const id = `reg_injected_${Date.now().toString(36)}`;
-    const nowIso = new Date().toISOString();
-
-    const newRegEmail: RawTransportEmail = {
-      id,
-      from: pick.from,
-      to: [activeUser.email],
-      subject: pick.subject,
-      date: nowIso,
-      headers: {
-        'MIME-Version': '1.0',
-        From: pick.from,
-        To: activeUser.email,
-        Subject: pick.subject,
-        'Content-Type': 'text/plain; charset="utf-8"',
-      },
-      rawMime: [
-        'MIME-Version: 1.0',
-        `From: ${pick.from}`,
-        `To: ${activeUser.email}`,
-        `Subject: ${pick.subject}`,
-        `Date: ${new Date(nowIso).toUTCString()}`,
-        'Content-Type: text/plain; charset="utf-8"',
-        '',
-        pick.body,
-      ].join('\r\n'),
-      textFallbackPart: pick.body,
-    };
-
-    const updated = [newRegEmail, ...transportEmails];
-    setTransportEmails(updated);
-    setSelectedEmailId(newRegEmail.id);
-    await saveTransportEmailsToIdb(updated);
-  }
-
   async function handleSimulateInstallAppForUser(emailToUpgrade: string) {
     const target = users.find((u) => u.email === emailToUpgrade);
     if (!target) return;
@@ -5681,6 +4030,8 @@ export function App() {
 
   async function handleResetDemoState() {
     if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('atme_simple_seed_v1');
+      window.localStorage.removeItem('atme_simple_channels_v1');
       window.localStorage.removeItem('dontcall_seed_v5');
       window.localStorage.removeItem('dontcall_seed_v6');
       window.localStorage.removeItem('dontcall_seed_v7');
@@ -5691,6 +4042,7 @@ export function App() {
       window.localStorage.removeItem('atme_blocked_emails');
       window.localStorage.removeItem('atme_whitelisted_emails');
       window.localStorage.removeItem('atme_whitelist_only');
+      window.localStorage.removeItem('atme_google_oauth_session');
     }
     await clearIdbDatabase();
     window.location.reload();
@@ -5704,9 +4056,7 @@ export function App() {
           '--dc-custom-color': customBubbleHex,
         } as React.CSSProperties
       }
-      className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''} ${
-        surfaceMode === 'messenger-ui' ? 'messenger-viewport' : ''
-      }`}
+      className={`dc-root-viewport ${isIphoneFrame ? 'iphone-frame' : ''} messenger-viewport`}
     >
       {/* Hidden File Inputs for Real File/Image Attachments and Profile Avatar Upload */}
       <input
@@ -5743,93 +4093,9 @@ export function App() {
       )}
 
       {/* =====================================================================
-          DURESS / PANIC WIPE ALERT BANNER (When unlocked via Duress PIN 9999)
+          ANDROID / iMESSAGE TEXTING UI WITH FREE-FLOWING THREADS
          ===================================================================== */}
-      {duressTriggeredBanner && (
-        <div className="dc-duress-wiped-banner" role="status">
-          <div className="dc-duress-wiped-left">
-            <AlertTriangle size={15} />
-            <span>{duressTriggeredBanner}</span>
-          </div>
-          <button
-            type="button"
-            className="dc-icon-btn"
-            onClick={() => setDuressTriggeredBanner('')}
-            aria-label="Dismiss duress notice"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* =====================================================================
-          BIOMETRIC PASSKEY (WebAuthn) & DURESS PIN APP LOCK OVERLAY
-         ===================================================================== */}
-      {isAppLocked && (
-        <div
-          className="dc-applock-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="@me Encrypted App Lock"
-        >
-          <div className="dc-applock-card">
-            <div className="dc-applock-icon-ring">
-              <Fingerprint size={28} />
-            </div>
-            <h2>🔒 Locked</h2>
-
-            <button
-              type="button"
-              className="dc-btn-passkey-unlock"
-              onClick={handleUnlockWithWebAuthnPasskey}
-            >
-              <Fingerprint size={16} /> 👆 Face / Touch ID
-            </button>
-
-            <div className="dc-applock-divider">
-              <span>OR PIN</span>
-            </div>
-
-            <form
-              className="dc-applock-pin-form"
-              onSubmit={handleUnlockWithPinOrDuress}
-            >
-              <input
-                type="password"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={8}
-                value={lockScreenPinInput}
-                onChange={(e) => setLockScreenPinInput(e.target.value)}
-                placeholder="🔢 PIN (2580)"
-                aria-label="PIN"
-              />
-              <button type="submit" className="dc-btn-send">
-                <Lock size={14} /> 🔓 Unlock
-              </button>
-            </form>
-
-            {lockScreenError && (
-              <div className="dc-applock-error">{lockScreenError}</div>
-            )}
-
-            <div className="dc-applock-hints">
-              <span>
-                <KeyRound size={11} /> 🔑 PIN: <code>{appLockPin}</code>
-              </span>
-              <span>
-                <Flame size={11} className="dc-flame-fire-icon" /> Wipe: <code>{duressPanicPin}</code>
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          DEFAULT ANDROID / iMESSAGE TEXTING UI WITH FREE-FLOWING THREADS
-         ===================================================================== */}
-      {surfaceMode === 'messenger-ui' && (
-        <div className="dc-texting-layout">
+      <div className="dc-texting-layout">
           {/* Left Pane: Recent Text Threads + Instant Contact Search */}
           <aside
             className={`dc-threads-pane ${
@@ -5908,8 +4174,8 @@ export function App() {
                       type="button"
                       className={`dc-compose-circle-btn ${isAddMenuOpen ? 'active' : ''}`}
                       onClick={() => setIsAddMenuOpen((prev) => !prev)}
-                      title="New Message or Burner Chat"
-                      aria-label="New Message or Burner Chat"
+                      title="New Conversation"
+                      aria-label="New Conversation"
                       aria-expanded={isAddMenuOpen}
                     >
                       <Plus size={16} />
@@ -5928,13 +4194,11 @@ export function App() {
                           onClick={() => {
                             setIsAddMenuOpen(false);
                             setNewChatType('dm');
-                            setIsNewChatBurner(false);
                             setNewChatRecipientEmail('');
                             setSelectedGroupMemberEmails([]);
-                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
-                          title="New Message (Regular or Burner)"
+                          title="New Message"
                           aria-label="New Message"
                         >
                           <MessageCircle size={19} />
@@ -5947,13 +4211,11 @@ export function App() {
                           onClick={() => {
                             setIsAddMenuOpen(false);
                             setNewChatType('workspace-channel');
-                            setIsNewChatBurner(false);
                             setNewChatName('');
                             setSelectedGroupMemberEmails([]);
-                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
-                          title="New Group (Regular or Burner)"
+                          title="New Group"
                           aria-label="New Group"
                         >
                           <Users size={19} />
@@ -5966,10 +4228,8 @@ export function App() {
                           onClick={() => {
                             setIsAddMenuOpen(false);
                             setNewChatType('broadcast-channel');
-                            setIsNewChatBurner(false);
                             setNewChatName('');
                             setSelectedGroupMemberEmails([]);
-                            setShowNewChatContactPicker(false);
                             newChannelModalRef.current?.showModal();
                           }}
                           title="Setup Broadcast Channel (BCC Live Feed)"
@@ -6112,38 +4372,6 @@ export function App() {
                           </span>
                         </button>
 
-                        <button
-                          type="button"
-                          className="dc-header-menu-item"
-                          role="menuitem"
-                          onClick={() => {
-                            setIsAvatarMenuOpen(false);
-                            setSelectedIouPeerEmail(null);
-                            setShowIouIssueForm(false);
-                            iouDialogRef.current?.showModal();
-                          }}
-                        >
-                          <span className="dc-header-menu-icon icon-iou">
-                            <Coins size={15} />
-                          </span>
-                          <span className="dc-header-menu-label">
-                            IOUs
-                          </span>
-                          {iouLedgerSummary.rows.length > 0 && (
-                            <span
-                              className={`dc-header-menu-badge ${
-                                iouLedgerSummary.netBalance >= 0
-                                  ? 'is-positive'
-                                  : 'is-negative'
-                              }`}
-                            >
-                              {iouLedgerSummary.netBalance >= 0
-                                ? `+${iouLedgerSummary.netBalance}`
-                                : iouLedgerSummary.netBalance}
-                            </span>
-                          )}
-                        </button>
-
                         <div className="dc-header-menu-divider" />
 
                         <div className="dc-avatar-theme-picker">
@@ -6267,18 +4495,6 @@ export function App() {
                         <div className="dc-header-menu-divider" />
 
                         <div className="dc-avatar-menu-footer">
-                          <button
-                            type="button"
-                            className="dc-avatar-footer-btn"
-                            onClick={() => {
-                              setIsAvatarMenuOpen(false);
-                              setLockScreenPinInput('');
-                              setLockScreenError('');
-                              setIsAppLocked(true);
-                            }}
-                          >
-                            🔒 Lock
-                          </button>
                           <button
                             type="button"
                             className="dc-avatar-footer-btn"
@@ -6411,14 +4627,14 @@ export function App() {
                         type="button"
                         className={`dc-thread-card ${isActive ? 'active' : ''} ${
                           isVault ? 'vault-thread-card' : ''
-                        } ${ch.isBurner ? 'burner-thread-card' : ''} ${
+                        } ${
                           isBroadcast ? 'broadcast-thread-card' : ''
                         } ${unreadCount > 0 ? 'has-unread' : ''}`}
                         onClick={() => {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {!isGroup && !isVault && !isBroadcast && !ch.isBurner ? (
+                        {!isGroup && !isVault && !isBroadcast ? (
                           renderUserAvatar(
                             peerUser,
                             ch.name,
@@ -6427,9 +4643,7 @@ export function App() {
                         ) : (
                           <div
                             className={`dc-thread-avatar ${
-                              ch.isBurner
-                                ? 'burner-avatar'
-                                : isBroadcast
+                              isBroadcast
                                 ? 'broadcast-avatar'
                                 : isVault
                                 ? 'vault-avatar'
@@ -6440,9 +4654,7 @@ export function App() {
                                 : 'invite-avatar'
                             }`}
                           >
-                            {ch.isBurner ? (
-                              <Flame size={17} className="dc-flame-fire-icon" />
-                            ) : isBroadcast ? (
+                            {isBroadcast ? (
                               <Radio size={17} />
                             ) : isVault ? (
                               <Bookmark size={17} />
@@ -6455,21 +4667,6 @@ export function App() {
                         <div className="dc-thread-card-body">
                           <div className="dc-thread-card-top">
                             <span className="dc-thread-title">
-                              {ch.isBurner &&
-                                !isGroup &&
-                                !isVault &&
-                                !isBroadcast &&
-                                Boolean(peerUser?.avatarDataUrl) && (
-                                  <span
-                                    className="dc-burner-badge-card"
-                                    title="Burner Chat (20s cascade)"
-                                  >
-                                    <Flame
-                                      size={13}
-                                      className="dc-flame-fire-icon"
-                                    />
-                                  </span>
-                                )}
                               {isBroadcast && (
                                 <span
                                   className="dc-broadcast-badge-card"
@@ -6503,15 +4700,7 @@ export function App() {
                           </div>
 
                           <div className="dc-thread-card-bottom">
-                            <div className="dc-thread-snippet">
-                              {ch.isBurner && (
-                                <Flame
-                                  size={11}
-                                  className="dc-flame-fire-icon dc-snippet-flame"
-                                />
-                              )}
-                              {lastText}
-                            </div>
+                            <div className="dc-thread-snippet">{lastText}</div>
                             {unreadCount > 0 && (
                               <span
                                 className="dc-thread-unread-badge"
@@ -6637,11 +4826,7 @@ export function App() {
                               : activeChannelDisplayTitle
                           }
                         >
-                          {activeChannel.isBurner ? (
-                            <div className="dc-header-avatar burner-avatar">
-                              <Flame size={17} className="dc-flame-fire-icon" />
-                            </div>
-                          ) : isBroadcast ? (
+                          {isBroadcast ? (
                             isBroadcastCreator ? (
                               <div className="dc-header-avatar broadcast-avatar">
                                 <Radio size={17} />
@@ -6681,7 +4866,7 @@ export function App() {
                   </div>
 
                   <div className="dc-freeflow-header-actions">
-                    {/* Top-Right 3-Line Dropdown Menu (Add People, Burn Thread, Settings) */}
+                    {/* Top-Right 3-Line Dropdown Menu (People, Block, Settings) */}
                     <div
                       className="dc-header-menu-wrap"
                       ref={headerMenuContainerRef}
@@ -6694,8 +4879,8 @@ export function App() {
                         onClick={() => setIsHeaderMenuOpen((prev) => !prev)}
                         aria-expanded={isHeaderMenuOpen}
                         aria-haspopup="menu"
-                        aria-label="Open conversation menu (Add People, Burn Thread, Settings)"
-                        title="Menu: Add People, Burn Thread & Settings"
+                        aria-label="Open conversation menu"
+                        title="Conversation Menu & Settings"
                       >
                         <Menu size={17} />
                       </button>
@@ -6706,72 +4891,68 @@ export function App() {
                           role="menu"
                           aria-label="Conversation actions and settings"
                         >
-                          <div
-                            className="dc-header-menu-actions-row"
-                            role="toolbar"
-                            aria-label="Conversation actions"
-                          >
-                            {activeChannel.type !== 'vault' &&
-                              activeChannel.type !== 'dm' &&
-                              (activeChannel.type !== 'broadcast-channel' ||
-                                (
-                                  activeChannel.creatorEmail ||
-                                  activeChannel.participants[0] ||
-                                  ''
-                                ).toLowerCase() ===
-                                  activeUser.email.toLowerCase()) && (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="dc-header-action-btn action-people"
-                                onClick={() => {
-                                  setIsHeaderMenuOpen(false);
-                                  groupInfoDialogRef.current?.showModal();
-                                }}
-                                title={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
-                                aria-label={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
-                              >
-                                <UserPlus size={16} />
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="dc-header-action-btn action-clear"
-                              onClick={() => {
-                                setIsHeaderMenuOpen(false);
-                                setPendingShredOptions({
-                                  shredScope: 'peer-pgp-key-and-threads',
-                                });
-                                shredConfirmDialogRef.current?.showModal();
-                              }}
-                              title="Clear chat"
-                              aria-label="Clear chat"
-                            >
-                              <Flame size={16} />
-                            </button>
-
-                            {activeChannel.type !== 'vault' &&
+                          {((activeChannel.type !== 'vault' &&
+                            activeChannel.type !== 'dm' &&
+                            (activeChannel.type !== 'broadcast-channel' ||
+                              (
+                                activeChannel.creatorEmail ||
+                                activeChannel.participants[0] ||
+                                ''
+                              ).toLowerCase() ===
+                                activeUser.email.toLowerCase())) ||
+                            (activeChannel.type !== 'vault' &&
                               activeChannel.participants.length <= 2 &&
-                              activeChannelPeerUser && (
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="dc-header-action-btn action-block"
-                                  onClick={() => {
-                                    setIsHeaderMenuOpen(false);
-                                    handleBlockEmail(activeChannelPeerUser.email);
-                                  }}
-                                  title="Block user"
-                                  aria-label="Block user"
-                                >
-                                  <UserMinus size={16} />
-                                </button>
-                              )}
-                          </div>
+                              Boolean(activeChannelPeerUser))) && (
+                            <>
+                              <div
+                                className="dc-header-menu-actions-row"
+                                role="toolbar"
+                                aria-label="Conversation actions"
+                              >
+                                {activeChannel.type !== 'dm' &&
+                                  (activeChannel.type !== 'broadcast-channel' ||
+                                    (
+                                      activeChannel.creatorEmail ||
+                                      activeChannel.participants[0] ||
+                                      ''
+                                    ).toLowerCase() ===
+                                      activeUser.email.toLowerCase()) && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="dc-header-action-btn action-people"
+                                      onClick={() => {
+                                        setIsHeaderMenuOpen(false);
+                                        groupInfoDialogRef.current?.showModal();
+                                      }}
+                                      title={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
+                                      aria-label={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
+                                    >
+                                      <UserPlus size={16} />
+                                    </button>
+                                  )}
 
-                          <div className="dc-header-menu-divider" />
+                                {activeChannel.participants.length <= 2 &&
+                                  activeChannelPeerUser && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="dc-header-action-btn action-block"
+                                      onClick={() => {
+                                        setIsHeaderMenuOpen(false);
+                                        handleBlockEmail(activeChannelPeerUser.email);
+                                      }}
+                                      title="Block user"
+                                      aria-label="Block user"
+                                    >
+                                      <UserMinus size={16} />
+                                    </button>
+                                  )}
+                              </div>
+
+                              <div className="dc-header-menu-divider" />
+                            </>
+                          )}
 
                           <div
                             className="dc-header-settings-panel"
@@ -6998,44 +5179,6 @@ export function App() {
                   </div>
                 </header>
 
-                {/* Pinned Message Banner (Feature 5 — hidden while showPinAndPacketControls is false, preserved for future restore) */}
-                {showPinAndPacketControls &&
-                  pinnedMessageByChannel[activeChannel.id] && (
-                  <div className="dc-pinned-message-banner">
-                    <div className="dc-pinned-banner-left">
-                      <Pin size={13} className="dc-pin-icon" />
-                      <div>
-                        <strong>
-                          Pinned by{' '}
-                          {
-                            pinnedMessageByChannel[activeChannel.id]!
-                              .senderName
-                          }
-                          :
-                        </strong>{' '}
-                        <span>
-                          {pinnedMessageByChannel[activeChannel.id]!.text}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="dc-pinned-unpin-btn"
-                      onClick={() =>
-                        setPinnedMessageByChannel((prev) => {
-                          const next = { ...prev };
-                          delete next[activeChannel.id];
-                          return next;
-                        })
-                      }
-                      title="Unpin message"
-                      aria-label="Unpin message"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                )}
-
             {/* Non-App Recipient Onboarding Banner */}
             {channelHasNonAppParticipant && (
               <div className="dc-non-app-banner">
@@ -7077,7 +5220,7 @@ export function App() {
                 </div>
               )}
 
-              {freeflowStream.map((msg, index) => {
+              {freeflowStream.map((msg) => {
                 const isOwn =
                   msg.packet.sender.email.toLowerCase() ===
                   activeUser.email.toLowerCase();
@@ -7086,7 +5229,6 @@ export function App() {
                     r.senderEmail.toLowerCase() ===
                     activeUser.email.toLowerCase()
                 );
-                const isFirstUnread = index === firstUnreadMsgIndex;
                 const isMsgUnread =
                   !isOwn &&
                   !alreadyReadByMe &&
@@ -7101,18 +5243,6 @@ export function App() {
                 const displayHandle =
                   senderIdentity?.handle || msg.packet.sender.handle;
                 const hasBeenReadByPeer = msg.receipts.length > 0;
-                const effectiveBurnTtl =
-                  msg.packet.payload.ephemeralTtlSeconds ||
-                  activeChannel.ephemeralTimerSeconds ||
-                  0;
-                const userKey = `${activeUser.email.toLowerCase()}:${msg.packet.payload.messageId}`;
-                const isBurnHiddenInManualMode =
-                  !isOwn &&
-                  readReceiptMode === 'manual' &&
-                  effectiveBurnTtl > 0 &&
-                  !alreadyReadByMe &&
-                  !burnReadStartedAtMs[userKey] &&
-                  !burnReadStartedAtMs[msg.packet.payload.messageId];
 
                 // System Pill for Adding / Removing Group Members
                 if (msg.packet.type === 'chat.member-update') {
@@ -7123,25 +5253,6 @@ export function App() {
                     >
                       <Users size={13} />
                       <span>{msg.packet.payload.text}</span>
-                    </div>
-                  );
-                }
-
-                // Crypto-inspired IOU Token Card inside DM stream
-                if (msg.packet.type === 'chat.iou' && msg.packet.payload.iou) {
-                  const iou = msg.packet.payload.iou;
-                  return (
-                    <div
-                      key={msg.emailId}
-                      className="dc-system-event-pill dc-iou-event-pill"
-                      onClick={() => iouDialogRef.current?.showModal()}
-                      title="Open IOU Wallet"
-                    >
-                      <Coins size={14} />
-                      <span>
-                        <strong>{iou.amount}</strong> &bull;{' '}
-                        {msg.packet.payload.text}
-                      </span>
                     </div>
                   );
                 }
@@ -7168,17 +5279,6 @@ export function App() {
 
                 return (
                   <React.Fragment key={msg.emailId}>
-                    {activeUnseenMarkerMsgId ===
-                      msg.packet.payload.messageId && (
-                      <div
-                        id="dc-first-unread-marker"
-                        key={`unseen-dotted-${activeChannel.id}-${msg.packet.payload.messageId}`}
-                        className="dc-unseen-dotted-line"
-                        role="separator"
-                        aria-label="Unseen messages"
-                      />
-                    )}
-
                     {showMessageTimestamps && (
                       <div className="dc-gmsg-timestamp-divider">
                         <span>
@@ -7223,10 +5323,8 @@ export function App() {
                           {/* Message Bubble — clicking directly opens the Top 5 Emoji Reaction Bar */}
                           <div
                             className={`dc-imessage-bubble ${
-                              isBurnHiddenInManualMode
-                                ? 'burn-shrouded-bubble'
-                                : ''
-                            } ${isMsgUnread ? 'is-unread-bubble' : ''}`}
+                              isMsgUnread ? 'is-unread-bubble' : ''
+                            }`}
                             onClick={() =>
                               setActiveReactionPickerMsgId((prev) =>
                                 prev === msg.packet.payload.messageId
@@ -7243,40 +5341,7 @@ export function App() {
                                 aria-label="Unread"
                               />
                             )}
-                            {isBurnHiddenInManualMode ? (
-                              <div
-                                className="dc-burn-shroud-card"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="dc-burn-shroud-header">
-                                  <Timer size={14} />
-                                  <strong>
-                                    Burn-After-Reading Message Hidden (
-                                    {effectiveBurnTtl}s Timer)
-                                  </strong>
-                                </div>
-                                <p>
-                                  Manual Read Receipts are on. Non-time-sensitive
-                                  messages remain visible without sending
-                                  receipts, while burn-after-reading messages
-                                  stay sealed until you view them.
-                                </p>
-                                <button
-                                  type="button"
-                                  className="dc-btn-reveal-burn"
-                                  onClick={() =>
-                                    handleSendReadReceipt(
-                                      msg.packet.payload.messageId
-                                    )
-                                  }
-                                >
-                                  <Eye size={13} /> Click to View &amp; Send
-                                  Read Receipt (Starts {effectiveBurnTtl}s Burn)
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                {/* Broadcast Channel Story Card (Live Feed Image + Badge) */}
+                            {/* Broadcast Channel Story Card (Live Feed Image + Badge) */}
                                 {msg.packet.payload.storyCard && (
                                   <div
                                     className="dc-broadcast-story-card"
@@ -7316,94 +5381,9 @@ export function App() {
                                   </div>
                                 )}
 
-                                {!msg.packet.payload.poll && (
-                                  <p>{msg.packet.payload.text}</p>
-                                )}
+                                <p>{msg.packet.payload.text}</p>
 
-                                {/* Encrypted Interactive Poll Card (Feature 5) */}
-                                {msg.packet.payload.poll &&
-                                  (() => {
-                                    const poll = msg.packet.payload.poll;
-                                    const totalVotes = msg.pollVotes.length;
-                                    return (
-                                      <div
-                                        className="dc-encrypted-poll-card"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <div className="dc-poll-header">
-                                          <span className="dc-poll-badge">
-                                            <BarChart3 size={12} /> Encrypted
-                                            Poll
-                                          </span>
-                                          <span className="dc-poll-total">
-                                            {totalVotes}{' '}
-                                            {totalVotes === 1
-                                              ? 'vote'
-                                              : 'votes'}
-                                          </span>
-                                        </div>
-                                        <strong className="dc-poll-question">
-                                          {poll.question}
-                                        </strong>
-                                        <div className="dc-poll-options">
-                                          {poll.options.map((opt) => {
-                                            const optVotes =
-                                              msg.pollVotes.filter(
-                                                (v) => v.optionId === opt.id
-                                              );
-                                            const count = optVotes.length;
-                                            const pct =
-                                              totalVotes > 0
-                                                ? Math.round(
-                                                    (count / totalVotes) * 100
-                                                  )
-                                                : 0;
-                                            const votedByMe = optVotes.some(
-                                              (v) =>
-                                                v.senderEmail.toLowerCase() ===
-                                                activeUser.email.toLowerCase()
-                                            );
-                                            return (
-                                              <button
-                                                key={opt.id}
-                                                type="button"
-                                                className={`dc-poll-option-btn ${
-                                                  votedByMe ? 'voted' : ''
-                                                }`}
-                                                onClick={() =>
-                                                  handleVoteOnEncryptedPoll(
-                                                    msg.packet.payload
-                                                      .messageId,
-                                                    poll.pollId,
-                                                    opt.id,
-                                                    opt.text
-                                                  )
-                                                }
-                                              >
-                                                <div
-                                                  className="dc-poll-option-fill"
-                                                  style={{ width: `${pct}%` }}
-                                                />
-                                                <div className="dc-poll-option-content">
-                                                  <span className="dc-poll-opt-label">
-                                                    {votedByMe && (
-                                                      <CheckCircle2 size={13} />
-                                                    )}
-                                                    {opt.text}
-                                                  </span>
-                                                  <span className="dc-poll-opt-stats">
-                                                    {pct}% ({count})
-                                                  </span>
-                                                </div>
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-
-                                {/* Client-Side Encrypted Link Preview Card (Feature 5) */}
+                                {/* Client-Side Link Preview Card */}
                                 {msg.packet.payload.linkPreview && (
                                   <a
                                     href={msg.packet.payload.linkPreview.url}
@@ -7473,8 +5453,7 @@ export function App() {
                                               {isAudio && (
                                                 <div className="dc-voice-note-player">
                                                   <div className="dc-voice-note-label">
-                                                    <Mic size={13} /> Encrypted
-                                                    Voice Note ({att.filename})
+                                                    <Mic size={13} /> Voice Note ({att.filename})
                                                   </div>
                                                   <audio
                                                     controls
@@ -7494,8 +5473,7 @@ export function App() {
                                                       {(
                                                         att.sizeBytes / 1024
                                                       ).toFixed(1)}{' '}
-                                                      KB &bull; Encrypted MIME
-                                                      (cid:{att.cid})
+                                                      KB &bull; ATME/1.0 (cid:{att.cid})
                                                     </div>
                                                   </div>
                                                 </div>
@@ -7506,10 +5484,8 @@ export function App() {
                                       )}
                                     </div>
                                   )}
-                              </>
-                            )}
 
-                            {/* Bottom-Right Reactions Badge (Emoji only; hover lists reactor names like in Teams) */}
+                            {/* Bottom-Right Reactions Badge (Emoji only; hover lists reactor names) */}
                             {groupedReactions.length > 0 && (
                               <div
                                 className="dc-gmsg-reaction-cluster"
@@ -7550,150 +5526,29 @@ export function App() {
                               </div>
                             )}
                           </div>
-
-                          {/* Optional Manual Read Receipt & Preserved Hidden Controls */}
-                          {((!isOwn &&
-                            readReceiptMode === 'manual' &&
-                            !alreadyReadByMe) ||
-                            showPinAndPacketControls) && (
-                            <div className="dc-subtle-bubble-actions">
-                              {!isOwn &&
-                                readReceiptMode === 'manual' &&
-                                !alreadyReadByMe && (
-                                  <button
-                                    type="button"
-                                    className="dc-subtle-action-icon"
-                                    onClick={() =>
-                                      handleSendReadReceipt(
-                                        msg.packet.payload.messageId
-                                      )
-                                    }
-                                    title="Send encrypted Read Receipt"
-                                    aria-label="Send read receipt"
-                                  >
-                                    <CheckCheck size={14} />
-                                  </button>
-                                )}
-
-                              {/* Pin and Email Packet preserved in code, hidden while showPinAndPacketControls is false */}
-                              {showPinAndPacketControls && (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="dc-subtle-action-icon"
-                                    onClick={() => handleTogglePinMessage(msg)}
-                                    title="Pin or unpin message"
-                                  >
-                                    <Pin size={13} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="dc-subtle-action-icon"
-                                    onClick={() =>
-                                      handleOpenPacketModal(msg.emailId)
-                                    }
-                                    title="Inspect Email Packet"
-                                  >
-                                    <Code2 size={13} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
                         </div>
 
-                        {/* Subtle Status Footnote (Whisper-quiet Checkmarks & Burn Countdown when applicable) */}
-                        {(isOwn ||
-                          Boolean(msg.burnerStatus?.isBurner) ||
-                          Boolean(
-                            msg.packet.payload.ephemeralTtlSeconds &&
-                              msg.packet.payload.ephemeralTtlSeconds > 0
-                          )) && (
+                        {/* Subtle Status Footnote (Whisper-quiet Checkmarks) */}
+                        {isOwn && (
                           <div className="dc-subtle-status-row">
-                            {msg.burnerStatus?.isBurner ? (
-                              <span
-                                className={`dc-burn-countdown-badge ${
-                                  msg.burnerStatus.isActive
-                                    ? 'dc-burner-active-badge'
-                                    : 'dc-burner-unread-badge'
-                                }`}
-                                title={
-                                  msg.burnerStatus.summaryLabel ||
-                                  (msg.burnerStatus.isActive
-                                    ? `Cascade active: deletes in ${msg.burnerStatus.remainingSeconds}s`
-                                    : 'In queue: starts 20s burn after previous message is deleted')
-                                }
-                              >
-                                <Flame
-                                  size={11}
-                                  className={
-                                    msg.burnerStatus.isActive
-                                      ? 'dc-flame-active-glow'
-                                      : 'dc-flame-unread-icon'
-                                  }
-                                />{' '}
-                                {msg.burnerStatus.isActive
-                                  ? `${msg.burnerStatus.remainingSeconds}s`
-                                  : '20s'}
-                                {!isTwoPersonChat
-                                  ? ` (${msg.burnerStatus.unreadCount ?? 1})`
-                                  : ''}
-                              </span>
-                            ) : Boolean(
-                              msg.packet.payload.ephemeralTtlSeconds &&
-                                msg.packet.payload.ephemeralTtlSeconds > 0
-                            ) ? (
-                              <span
-                                className="dc-burn-countdown-badge"
-                                title="Burn-After-Reading self-destruct timer"
-                              >
-                                <Timer size={10} />{' '}
-                                {msg.receipts.length > 0
-                                  ? (() => {
-                                      const earliestReadMs = Math.min(
-                                        ...msg.receipts.map((r) =>
-                                          new Date(
-                                            r.readAtIso || msg.packet.sentAt
-                                          ).getTime()
-                                        )
-                                      );
-                                      const remainingSec = Math.max(
-                                        0,
-                                        Math.ceil(
-                                          (earliestReadMs +
-                                            msg.packet.payload
-                                              .ephemeralTtlSeconds! *
-                                              1000 -
-                                            burnTickNowMs) /
-                                            1000
-                                        )
-                                      );
-                                      return `${remainingSec}s`;
-                                    })()
-                                  : `${msg.packet.payload.ephemeralTtlSeconds}s`}
-                              </span>
-                            ) : null}
-
-                            {isOwn && (
-                              <span
-                                className={`dc-subtle-receipt-check ${
-                                  hasBeenReadByPeer ? 'is-read' : 'is-delivered'
-                                }`}
-                                title={
-                                  hasBeenReadByPeer
-                                    ? `Read by ${msg.receipts
-                                        .map((r) => r.senderName)
-                                        .join(', ')}`
-                                    : 'Delivered (Encrypted MIME)'
-                                }
-                              >
-                                {hasBeenReadByPeer ? (
-                                  <CheckCheck size={13} />
-                                ) : (
-                                  <Check size={12} />
-                                )}
-                              </span>
-                            )}
+                            <span
+                              className={`dc-subtle-receipt-check ${
+                                hasBeenReadByPeer ? 'is-read' : 'is-delivered'
+                              }`}
+                              title={
+                                hasBeenReadByPeer
+                                  ? `Read by ${msg.receipts
+                                      .map((r) => r.senderName)
+                                      .join(', ')}`
+                                  : 'Delivered (ATME/1.0)'
+                              }
+                            >
+                              {hasBeenReadByPeer ? (
+                                <CheckCheck size={13} />
+                              ) : (
+                                <Check size={12} />
+                              )}
+                            </span>
                           </div>
                         )}
 
@@ -7819,53 +5674,6 @@ export function App() {
                 </div>
               )}
 
-              {(composerBurnSeconds > 0 || activeChannel.isBurner) && (
-                <div
-                  className={`dc-composer-active-burn-bar ${
-                    activeChannel.isBurner ? 'is-locked-burner' : ''
-                  }`}
-                >
-                  <span>
-                    <Flame
-                      size={13}
-                      className={activeChannel.isBurner ? 'dc-flame-fire-icon' : ''}
-                    />{' '}
-                    <strong>
-                      {activeChannel.isBurner
-                        ? '20s Cascade'
-                        : `${
-                            composerBurnSeconds === 20
-                              ? '20s'
-                              : composerBurnSeconds === 60
-                              ? '1m'
-                              : composerBurnSeconds === 300
-                              ? '5m'
-                              : composerBurnSeconds === 15
-                              ? '15s'
-                              : composerBurnSeconds === 3600
-                              ? '1h'
-                              : '24h'
-                          }`}
-                    </strong>
-                    {activeChannel.isBurner && (
-                      <small className="dc-locked-tag">
-                        <Lock size={11} />
-                      </small>
-                    )}
-                  </span>
-                  {!activeChannel.isBurner && (
-                    <button
-                      type="button"
-                      onClick={() => setComposerBurnSeconds(0)}
-                      aria-label="Clear burn timer"
-                      title="Turn off timer"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-              )}
-
               {activeChannel.type === 'broadcast-channel' &&
               activeChannel.creatorEmail?.toLowerCase() !==
                 activeUser.email.toLowerCase() ? (
@@ -7881,20 +5689,17 @@ export function App() {
                     type="button"
                     className="dc-btn-danger-confirm dc-broadcast-unsub-btn"
                     onClick={() =>
-                      void handleSubscriberBurnAndUnsubscribeChannel(
-                        activeChannel
-                      )
+                      void handleSubscriberUnsubscribeChannel(activeChannel)
                     }
-                    title="Burn local channel & send Unsubscribe email to remove from BCC"
-                    aria-label="Burn local channel and unsubscribe"
+                    title="Unsubscribe & remove local broadcast channel"
+                    aria-label="Unsubscribe from broadcast channel"
                   >
-                    <Flame size={14} className="dc-flame-fire-icon" />
-                    <UserMinus size={14} />
+                    <UserMinus size={14} /> Unsubscribe
                   </button>
                 </div>
               ) : (
               <div className="dc-imessage-input-row">
-                {/* Collapsed Bottom-Left '+' Action Menu (Upload, Time Burn, Voice, Poll Group) */}
+                {/* Collapsed Bottom-Left '+' Action Menu (Camera, Upload, Voice) */}
                 <div
                   className="dc-composer-plus-wrap"
                   ref={actionMenuContainerRef}
@@ -7903,7 +5708,7 @@ export function App() {
                     type="button"
                     className={`dc-circle-icon-btn dc-composer-plus-btn ${
                       isPlusMenuOpen ? 'is-open' : ''
-                    } ${composerBurnSeconds > 0 ? 'has-active-burn' : ''}`}
+                    }`}
                     onClick={() => setIsPlusMenuOpen((prev) => !prev)}
                     aria-expanded={isPlusMenuOpen}
                     aria-haspopup="menu"
@@ -7915,12 +5720,6 @@ export function App() {
                     title="Actions"
                   >
                     <Plus size={18} className="dc-plus-glyph" />
-                    {composerBurnSeconds > 0 && !isPlusMenuOpen && (
-                      <span
-                        className="dc-plus-burn-dot"
-                        aria-hidden="true"
-                      />
-                    )}
                   </button>
 
                   {isPlusMenuOpen && (
@@ -7980,74 +5779,6 @@ export function App() {
                         >
                           <Mic size={19} />
                         </button>
-
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="dc-action-icon-btn action-poll"
-                          onClick={() => {
-                            setIsPlusMenuOpen(false);
-                            pollCreatorDialogRef.current?.showModal();
-                          }}
-                          title="Poll"
-                          aria-label="Poll"
-                        >
-                          <BarChart3 size={19} />
-                        </button>
-                      </div>
-
-                      <div
-                        className="dc-action-menu-burn-row"
-                        role="group"
-                        aria-label="Self-destruct timer"
-                      >
-                        <span
-                          className="dc-action-timer-icon"
-                          title="Timer"
-                          aria-label="Timer"
-                        >
-                          <Timer size={16} />
-                        </span>
-                        {activeChannel.isBurner ? (
-                          <div className="dc-action-menu-burn-locked">
-                            <Flame size={14} className="dc-flame-fire-icon" />
-                            <span>20s Cascade</span>
-                          </div>
-                        ) : (
-                          <div className="dc-action-menu-burn-pills">
-                            {(
-                              [
-                                { value: 0, label: 'Off' },
-                                { value: 20, label: '20s' },
-                                { value: 60, label: '1m' },
-                                { value: 300, label: '5m' },
-                              ] as const
-                            ).map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                className={`dc-burn-option-chip ${
-                                  composerBurnSeconds === opt.value
-                                    ? 'is-selected'
-                                    : ''
-                                }`}
-                                title={
-                                  opt.value === 0
-                                    ? 'Timer Off'
-                                    : `Self-destruct: ${opt.label}`
-                                }
-                                onClick={() => {
-                                  setComposerBurnSeconds(
-                                    opt.value as EphemeralTimerSeconds
-                                  );
-                                  setIsPlusMenuOpen(false);
-                                }}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -8238,7 +5969,7 @@ export function App() {
                     isSending ||
                     (!composerText.trim() && pendingAttachments.length === 0)
                   }
-                  aria-label="Send encrypted message"
+                  aria-label="Send message"
                 >
                   <Send size={15} />
                 </button>
@@ -8249,449 +5980,6 @@ export function App() {
             )}
           </section>
         </div>
-      )}
-
-      {/* =====================================================================
-          STAGE 1: PROTOCOL & ENCRYPTION WORKBENCH
-         ===================================================================== */}
-      {surfaceMode === 'protocol-workbench' && (
-        <div className="dc-app-shell">
-          <section className="dc-metrics-strip">
-            <div className="dc-metric-card">
-              <div className="dc-metric-label">
-                <KeyRound size={14} /> Active Device PGP Fingerprint
-              </div>
-              <div className="dc-metric-value dc-mono">
-                {isInitializingKeys
-                  ? 'Generating Curve25519 Keypair…'
-                  : activeUser.pgpKeyPair
-                  ? formatFingerprint(activeUser.pgpKeyPair.fingerprint).slice(
-                      0,
-                      29
-                    ) + '…'
-                  : 'No App Installed'}
-              </div>
-            </div>
-
-            <div className="dc-metric-card dc-metric-success">
-              <div className="dc-metric-label">
-                <CheckCircle2 size={14} /> Accepted ATME/1.0 Chat Packets
-              </div>
-              <div className="dc-metric-value">
-                {acceptedPackets.length} Encrypted Packets Decrypted
-              </div>
-            </div>
-
-            <div className="dc-metric-card dc-metric-filtered">
-              <div className="dc-metric-label">
-                <Filter size={14} /> Regular Emails Ignored by App
-              </div>
-              <div className="dc-metric-value">
-                {ignoredRegularEmails.length} Normal Emails Blocked from Chat
-              </div>
-            </div>
-
-            <div className="dc-metric-card">
-              <div className="dc-metric-label">
-                <Smartphone size={14} /> Peer Profile Sync
-              </div>
-              <div className="dc-metric-value">
-                Avatar + @Handle Synced on 1st Message
-              </div>
-            </div>
-          </section>
-
-          <main className="dc-workbench-grid">
-            <section className="dc-left-column">
-              <div className="dc-panel">
-                <div className="dc-panel-header">
-                  <h2>
-                    <Send size={16} /> 1. Outbound Messaging &amp; OpenPGP MIME
-                    Formatter
-                  </h2>
-                  <span className="dc-tag">
-                    Device → Encrypted → Email Server
-                  </span>
-                </div>
-
-                <form
-                  className="dc-composer-form"
-                  onSubmit={handleSendEncryptedPacket}
-                >
-                  <div className="dc-form-row">
-                    <div className="dc-form-group">
-                      <label htmlFor="recipient-select">
-                        Send To (Recipient Email)
-                      </label>
-                      <select
-                        id="recipient-select"
-                        value={recipientEmail}
-                        onChange={(e) => setRecipientEmail(e.target.value)}
-                      >
-                        {users
-                          .filter((u) => u.email !== activeUser.email)
-                          .map((u) => (
-                            <option key={u.email} value={u.email}>
-                              {u.displayName} ({u.handle || u.email}){' '}
-                              {u.hasAppInstalled
-                                ? '🔒 [Has App + PGP Key]'
-                                : '📲 [No App — Sends Store Invite]'}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
-                    <div className="dc-form-group">
-                      <label htmlFor="channel-input">
-                        Channel / Thread Name
-                      </label>
-                      <input
-                        id="channel-input"
-                        type="text"
-                        value={channelName}
-                        onChange={(e) => setChannelName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="dc-form-row">
-                    <div className="dc-form-group">
-                      <label htmlFor="packet-type-select">
-                        ATME/1.0 Packet Type
-                      </label>
-                      <select
-                        id="packet-type-select"
-                        value={packetType}
-                        onChange={(e) =>
-                          setPacketType(e.target.value as DcpPacketType)
-                        }
-                      >
-                        <option value="chat.message">
-                          chat.message (Encrypted Message + Profile Card)
-                        </option>
-                        <option value="chat.reaction">
-                          chat.reaction (Emoji Reaction Packet)
-                        </option>
-                        <option value="chat.branch-mod">
-                          chat.branch-mod (Custom Squad Branch Mod)
-                        </option>
-                      </select>
-                    </div>
-
-                    <div className="dc-form-group">
-                      <label>Resolved Encryption Mode</label>
-                      <div className="dc-encryption-pill">
-                        {recipientUser.hasAppInstalled ? (
-                          <>
-                            <Lock size={13} /> Asymmetric OpenPGP (Curve25519)
-                          </>
-                        ) : (
-                          <>
-                            <Smartphone size={13} /> Ephemeral Invite Key + App
-                            Store Card
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="dc-form-group">
-                    <label htmlFor="message-textarea">
-                      Cleartext Message (Encrypted on-device before leaving
-                      browser)
-                    </label>
-                    <textarea
-                      id="message-textarea"
-                      rows={3}
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="dc-composer-actions">
-                    <button
-                      type="submit"
-                      className="dc-btn-send"
-                      disabled={isSending || isInitializingKeys}
-                    >
-                      <Lock size={15} />
-                      {isSending
-                        ? 'Encrypting & Formatting MIME…'
-                        : `Encrypt & Push via ${activeUser.provider.toUpperCase()}`}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="dc-btn-secondary-action"
-                      onClick={handleInjectRegularEmail}
-                    >
-                      <PlusCircle size={15} /> Simulate Incoming Regular Email
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              <div className="dc-panel dc-inbox-list-panel">
-                <div className="dc-panel-header">
-                  <h2>
-                    <Mail size={16} /> 2. Email Server Stream &amp; Strict
-                    Filter Gate
-                  </h2>
-                  <span className="dc-tag">Click any email to inspect</span>
-                </div>
-
-                <div className="dc-email-stream">
-                  {inspections.map((item) => {
-                    const isSelected = item.emailId === selectedEmail?.id;
-                    return (
-                      <button
-                        key={item.emailId}
-                        type="button"
-                        className={`dc-email-row ${
-                          isSelected ? 'selected' : ''
-                        } ${item.accepted ? 'accepted' : 'ignored'}`}
-                        onClick={() => setSelectedEmailId(item.emailId)}
-                      >
-                        <div className="dc-email-row-top">
-                          <span
-                            className={`dc-status-pill ${
-                              item.accepted ? 'pill-accepted' : 'pill-ignored'
-                            }`}
-                          >
-                            {item.accepted ? (
-                              <>
-                                <CheckCircle2 size={12} /> ATME/1.0 ACCEPTED
-                              </>
-                            ) : (
-                              <>
-                                <XCircle size={12} /> REGULAR EMAIL IGNORED
-                              </>
-                            )}
-                          </span>
-                          <span className="dc-email-time">
-                            {new Date(item.receivedAt).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-
-                        <div className="dc-email-subject">{item.subject}</div>
-                        <div className="dc-email-from">From: {item.from}</div>
-                        <div className="dc-email-reason">{item.reason}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            <section className="dc-right-column">
-              <div className="dc-panel dc-inspector-panel">
-                <nav
-                  className="dc-tabs-nav"
-                  aria-label="Technical Inspector Tabs"
-                >
-                  <button
-                    type="button"
-                    className={`dc-tab-btn ${
-                      activeTab === 'chat-bridge' ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveTab('chat-bridge')}
-                  >
-                    <MessageSquare size={15} /> Decrypted Stream (
-                    {acceptedPackets.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`dc-tab-btn ${
-                      activeTab === 'non-app-fallback' ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveTab('non-app-fallback')}
-                  >
-                    <Eye size={15} /> Non-App Recipient View
-                  </button>
-                  <button
-                    type="button"
-                    className={`dc-tab-btn ${
-                      activeTab === 'mime-inspector' ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveTab('mime-inspector')}
-                  >
-                    <Code2 size={15} /> Raw RFC 5322 MIME
-                  </button>
-                  <button
-                    type="button"
-                    className={`dc-tab-btn ${
-                      activeTab === 'filter-gate' ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveTab('filter-gate')}
-                  >
-                    <Filter size={15} /> Strict Filter Audit (
-                    {ignoredRegularEmails.length} Ignored)
-                  </button>
-                  <button
-                    type="button"
-                    className={`dc-tab-btn ${
-                      activeTab === 'provider-connectors' ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveTab('provider-connectors')}
-                  >
-                    <Sparkles size={15} /> Provider Connectors
-                  </button>
-                </nav>
-
-                <div className="dc-tab-content">
-                  {activeTab === 'chat-bridge' && (
-                    <div className="dc-decrypted-messages-list">
-                      {acceptedPackets.map((item) => {
-                        const pkt = item.decryptedPacket!;
-                        return (
-                          <div
-                            key={item.emailId}
-                            className="dc-chat-card"
-                            onClick={() => setSelectedEmailId(item.emailId)}
-                          >
-                            <div className="dc-chat-card-header">
-                              <div className="dc-chat-sender">
-                                {renderUserAvatar(
-                                  pkt.sender.email,
-                                  pkt.sender.displayName
-                                )}
-                                <div>
-                                  <strong>{pkt.sender.displayName}</strong>{' '}
-                                  {pkt.sender.handle && (
-                                    <span className="dc-handle-tag">
-                                      {pkt.sender.handle}
-                                    </span>
-                                  )}
-                                  <span className="dc-provider-badge">
-                                    {pkt.sender.provider.toUpperCase()}
-                                  </span>
-                                  <div className="dc-chat-meta">
-                                    #{pkt.channel.name} &bull;{' '}
-                                    <code>{pkt.type}</code>
-                                  </div>
-                                </div>
-                              </div>
-                              <span className="dc-sig-badge">
-                                <ShieldCheck size={12} /> PGP Verified
-                              </span>
-                            </div>
-                            <div className="dc-chat-body">
-                              <p>{pkt.payload.text}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {activeTab === 'non-app-fallback' && selectedEmail && (
-                    <div className="dc-fallback-preview-pane">
-                      <div className="dc-mock-email-client">
-                        <div className="dc-mock-email-header">
-                          <div>Subject: {selectedEmail.subject}</div>
-                          <div>
-                            From: {selectedEmail.from} → To:{' '}
-                            {selectedEmail.to.join(', ')}
-                          </div>
-                        </div>
-                        <div
-                          ref={invitePreviewRef}
-                          className="dc-mock-email-body"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'mime-inspector' && selectedEmail && (
-                    <div className="dc-mime-inspector-pane">
-                      {selectedInspection?.decryptedPacket && (
-                        <div className="dc-code-section">
-                          <h3>
-                            Decrypted JSON Payload (Including{' '}
-                            <code>sender.profileCard</code>)
-                          </h3>
-                          <pre className="dc-code-block dc-code-json">
-                            {JSON.stringify(
-                              selectedInspection.decryptedPacket,
-                              null,
-                              2
-                            )}
-                          </pre>
-                        </div>
-                      )}
-                      <div className="dc-code-section">
-                        <h3>Raw RFC 5322 Multipart MIME</h3>
-                        <pre className="dc-code-block">
-                          {selectedEmail.rawMime}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'filter-gate' && (
-                    <table className="dc-audit-table">
-                      <thead>
-                        <tr>
-                          <th>Status</th>
-                          <th>From</th>
-                          <th>Subject</th>
-                          <th>Decision</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inspections.map((item) => (
-                          <tr
-                            key={item.emailId}
-                            onClick={() => setSelectedEmailId(item.emailId)}
-                          >
-                            <td>
-                              <span
-                                className={`dc-status-pill ${
-                                  item.accepted
-                                    ? 'pill-accepted'
-                                    : 'pill-ignored'
-                                }`}
-                              >
-                                {item.accepted ? 'ACCEPTED' : 'IGNORED'}
-                              </span>
-                            </td>
-                            <td>{item.from}</td>
-                            <td>{item.subject}</td>
-                            <td>{item.reason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {activeTab === 'provider-connectors' && (
-                    <div className="dc-connectors-pane">
-                      <div className="dc-provider-grid">
-                        {getProviderTechnicalSpecs().map((spec) => (
-                          <div key={spec.id} className="dc-provider-card">
-                            <h3>{spec.name}</h3>
-                            <div className="dc-provider-detail">
-                              <strong>Query:</strong>{' '}
-                              <code>{spec.strictFilterQuery}</code>
-                            </div>
-                            <div className="dc-provider-detail">
-                              <strong>Inbox Rule:</strong>{' '}
-                              {spec.inboxIsolationRule}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          </main>
-        </div>
-      )}
 
       {/* =====================================================================
           MODAL 1: PLAYFUL ONBOARDING & PROFILE BUILDER -> SHAREABLE @ME QR PASS
@@ -8793,8 +6081,8 @@ export function App() {
                       onClick={() => {
                         profileDialogRef.current?.close();
                         setConnectModalMode('easy');
-                        setSimulatedOAuthProvider('google');
                         connectWizardDialogRef.current?.showModal();
+                        void handleOneClickOAuthPopup('google');
                       }}
                       title="Sign in with Google OAuth"
                     >
@@ -9169,7 +6457,7 @@ export function App() {
           {safetyModalTab === 'whitelist' && (
             <div className="dc-safety-tab-panel">
               <div className="dc-whitelist-toggle-card">
-                <label className="dc-burner-toggle-row dc-pill-switch-row">
+                <label className="dc-pill-switch-row">
                   <div>
                     <strong>
                       🛡️ Approved Only
@@ -9377,7 +6665,7 @@ export function App() {
                   </span>
                   <div className="dc-google-btn-copy">
                     <strong>Continue with Google</strong>
-                    <span>1-Click Gmail &amp; School Google OAuth &bull; Auto PGP Key</span>
+                    <span>1-Click Gmail &amp; Workspace OAuth &bull; Zero Passwords</span>
                   </div>
                   <ChevronRight size={18} />
                 </button>
@@ -9608,8 +6896,8 @@ export function App() {
                           {easyEmailInput.trim()})
                         </strong>
                         <span>
-                          One-click OAuth2 sign-in &bull; Generates your
-                          on-device OpenPGP keypair
+                          One-click OAuth2 sign-in &bull; ATME/1.0 JSON + PGP
+                          Interop
                         </span>
                       </div>
                     </button>
@@ -9630,8 +6918,7 @@ export function App() {
                           {easyEmailInput.trim()})
                         </strong>
                         <span>
-                          One-click OAuth2 PKCE sign-in &bull; Generates your
-                          on-device OpenPGP keypair
+                          One-click OAuth2 PKCE sign-in &bull; ATME/1.0 Ready
                         </span>
                       </div>
                     </button>
@@ -9687,7 +6974,7 @@ export function App() {
                         }
                       >
                         <CheckCircle2 size={14} /> Connect{' '}
-                        {easyEmailInput.trim()} &amp; Generate PGP Keys
+                        {easyEmailInput.trim()} &amp; Sign In
                       </button>
                     </div>
                   )}
@@ -9756,7 +7043,28 @@ export function App() {
                           ? window.location.origin
                           : 'http://localhost:5173'}
                       </code>
+                      {typeof window !== 'undefined' &&
+                        window.location.hostname === '127.0.0.1' && (
+                          <>
+                            {' '}
+                            &mdash; Open on <code>http://localhost:5173</code>{' '}
+                            instead of <code>127.0.0.1</code> for Google OAuth.
+                          </>
+                        )}
                     </small>
+                    {(() => {
+                      const check = validateGoogleClientId(googleClientId);
+                      if (!check.sanitized) return null;
+                      return check.valid ? (
+                        <small className="dc-form-hint">
+                          ✅ Valid Client ID format &mdash; <strong>Continue with Google</strong> uses live Google OAuth.
+                        </small>
+                      ) : (
+                        <small className="dc-form-hint" style={{ color: '#ef4444' }}>
+                          ⚠️ {check.reason}
+                        </small>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -10201,23 +7509,9 @@ export function App() {
                 <div className="dc-menu-section-head-actions">
                   <button
                     type="button"
-                    className="dc-pill-action-btn dc-burner-pill-btn"
-                    onClick={() => {
-                      setNewChatType('workspace-channel');
-                      setIsNewChatBurner(true);
-                      newChannelModalRef.current?.showModal();
-                    }}
-                    title="New Burner Group"
-                    aria-label="New Burner Group"
-                  >
-                    <Flame size={14} className="dc-flame-fire-icon" />
-                  </button>
-                  <button
-                    type="button"
                     className="dc-pill-action-btn"
                     onClick={() => {
                       setNewChatType('workspace-channel');
-                      setIsNewChatBurner(false);
                       newChannelModalRef.current?.showModal();
                     }}
                     title="New Group"
@@ -10230,7 +7524,6 @@ export function App() {
                     className="dc-pill-action-btn"
                     onClick={() => {
                       setNewChatType('broadcast-channel');
-                      setIsNewChatBurner(false);
                       newChannelModalRef.current?.showModal();
                     }}
                     title="New Broadcast Channel"
@@ -10253,9 +7546,7 @@ export function App() {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {ch.isBurner ? (
-                          <Flame size={16} className="dc-flame-fire-icon" />
-                        ) : ch.type === 'broadcast-channel' ? (
+                        {ch.type === 'broadcast-channel' ? (
                           <Radio size={16} />
                         ) : (
                           <Hash size={16} />
@@ -10270,23 +7561,11 @@ export function App() {
                                   activeUser.email.toLowerCase()
                               ).length
                             }
-                            {ch.isBurner && ' • 20s'}
                             {ch.type === 'broadcast-channel' && ' • BCC'}
                           </span>
                         </div>
                       </div>
                       <div className="dc-menu-item-actions">
-                        {ch.type !== 'broadcast-channel' && (
-                          <button
-                            type="button"
-                            className="dc-btn-ghost dc-btn-burner-icon"
-                            onClick={() => handleStartOrOpenBurnerGroupChat(ch)}
-                            title="Start Burner Group Chat (20s Cascade)"
-                            aria-label={`Start Burner Group Chat for #${ch.name}`}
-                          >
-                            <Flame size={14} className="dc-flame-fire-icon" />
-                          </button>
-                        )}
                         <button
                           type="button"
                           className="dc-btn-ghost"
@@ -10318,23 +7597,9 @@ export function App() {
                 <div className="dc-menu-section-head-actions">
                   <button
                     type="button"
-                    className="dc-pill-action-btn dc-burner-pill-btn"
-                    onClick={() => {
-                      setNewChatType('dm');
-                      setIsNewChatBurner(true);
-                      newChannelModalRef.current?.showModal();
-                    }}
-                    title="New Burner Chat"
-                    aria-label="New Burner Chat"
-                  >
-                    <Flame size={14} className="dc-flame-fire-icon" />
-                  </button>
-                  <button
-                    type="button"
                     className="dc-pill-action-btn"
                     onClick={() => {
                       setNewChatType('dm');
-                      setIsNewChatBurner(false);
                       newChannelModalRef.current?.showModal();
                     }}
                     title="Add Friend"
@@ -10375,22 +7640,11 @@ export function App() {
                       <div className="dc-menu-item-actions">
                         <button
                           type="button"
-                          className="dc-btn-ghost dc-btn-burner-icon"
-                          onClick={() =>
-                            handleStartOrOpenBurnerContactChat(contact.email)
-                          }
-                          title="Start Burner Chat (20s Cascade)"
-                          aria-label={`Start Burner Chat with ${contact.displayName}`}
-                        >
-                          <Flame size={14} className="dc-flame-fire-icon" />
-                        </button>
-                        <button
-                          type="button"
                           className="dc-btn-ghost"
                           onClick={() =>
                             handleStartOrOpenContactChat(contact.email)
                           }
-                          title="Start regular chat"
+                          title="Start chat"
                           aria-label={`Chat with ${contact.displayName}`}
                         >
                           <MessageCircle size={14} />
@@ -10477,30 +7731,14 @@ export function App() {
                     <div className="dc-single-contact-modes">
                       <button
                         type="button"
-                        className={`dc-mode-chip ${
-                          !activeChannel.isBurner ? 'is-active' : ''
-                        }`}
+                        className="dc-mode-chip is-active"
                         onClick={() => {
                           if (peerEmail) {
                             handleStartOrOpenContactChat(peerEmail);
                           }
                         }}
                       >
-                        <MessageCircle size={15} /> Regular Chat
-                      </button>
-                      <button
-                        type="button"
-                        className={`dc-mode-chip ${
-                          activeChannel.isBurner ? 'is-active is-burner' : ''
-                        }`}
-                        onClick={() => {
-                          if (peerEmail) {
-                            handleStartOrOpenBurnerContactChat(peerEmail);
-                          }
-                        }}
-                      >
-                        <Flame size={15} className="dc-flame-fire-icon" />{' '}
-                        Burner (20s)
+                        <MessageCircle size={15} /> Open Chat
                       </button>
                     </div>
                   </div>
@@ -10610,122 +7848,7 @@ export function App() {
       </dialog>
 
       {/* =====================================================================
-          MODAL 4B: WARNING & CONFIRMATION POPUP FOR BURNING / CLEARING THREAD
-         ===================================================================== */}
-      <dialog
-        ref={shredConfirmDialogRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby={shredConfirmDialogTitleId}
-        className="dc-modal-dialog dc-modal-sm"
-      >
-        <div className="dc-modal-inner">
-          <div className="dc-modal-header">
-            <h2 id={shredConfirmDialogTitleId} className="dc-shred-modal-title">
-              <Flame size={17} className="dc-flame-fire-icon" /> Clear Chat?
-            </h2>
-            <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
-                <X size={16} />
-              </button>
-            </form>
-          </div>
-
-          <div className="dc-shred-warning-body">
-            <div className="dc-shred-warning-banner">
-              <strong>Deletes for everyone.</strong>
-            </div>
-
-            <div className="dc-modal-actions">
-              <button
-                type="button"
-                className="dc-btn-ghost"
-                onClick={() => {
-                  setPendingShredOptions(null);
-                  shredConfirmDialogRef.current?.close();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="dc-btn-danger-confirm"
-                onClick={async () => {
-                  const opts = pendingShredOptions || {
-                    shredScope: 'peer-pgp-key-and-threads',
-                  };
-                  setPendingShredOptions(null);
-                  shredConfirmDialogRef.current?.close();
-                  await handleRemoteKeyShredAndScrub(opts);
-                }}
-              >
-                <Flame size={14} className="dc-flame-fire-icon" /> Clear
-              </button>
-            </div>
-          </div>
-        </div>
-      </dialog>
-
-      {/* =====================================================================
-          MODAL 5: Inspect Raw MIME & Non-App Invite Card
-         ===================================================================== */}
-      <dialog
-        ref={packetModalRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby={packetDialogTitleId}
-        className="dc-modal-dialog"
-      >
-        <div className="dc-modal-inner">
-          <div className="dc-modal-header">
-            <h2 id={packetDialogTitleId}>
-              <Lock size={16} /> {ACTIVE_BRANCH_MANIFEST.branchBadge} Encrypted Email Packet Inspector
-            </h2>
-            <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
-                <X size={16} />
-              </button>
-            </form>
-          </div>
-
-          {selectedEmail && (
-            <div className="dc-modal-body">
-              <div className="dc-code-section">
-                <h3>
-                  1. What a Non-App User Sees in Regular Email (App Store Invite
-                  Card)
-                </h3>
-                <div
-                  ref={modalPacketRenderRef}
-                  className="dc-mock-email-body"
-                />
-              </div>
-
-              {selectedInspection?.decryptedPacket && (
-                <div className="dc-code-section">
-                  <h3>
-                    2. Decrypted On-Device JSON Packet (Note{' '}
-                    <code>sender.profileCard</code>)
-                  </h3>
-                  <pre className="dc-code-block dc-code-json">
-                    {JSON.stringify(
-                      selectedInspection.decryptedPacket,
-                      null,
-                      2
-                    )}
-                  </pre>
-                </div>
-              )}
-
-              <div className="dc-code-section">
-                <h3>3. Raw RFC 5322 Multipart MIME Email</h3>
-                <pre className="dc-code-block">{selectedEmail.rawMime}</pre>
-              </div>
-            </div>
-          )}
-        </div>
-      </dialog>
-
-      {/* =====================================================================
-          MODAL 6: Create New Encrypted Group, DM, or Broadcast Channel (+ Add Friend from Contacts)
+          MODAL 6: Create New Group, DM, or Broadcast Channel (+ Add Friend from Contacts)
          ===================================================================== */}
       <dialog
         ref={newChannelModalRef}
@@ -10742,21 +7865,11 @@ export function App() {
                 </>
               ) : newChatType === 'workspace-channel' ? (
                 <>
-                  {isNewChatBurner ? (
-                    <Flame size={17} className="dc-flame-fire-icon" />
-                  ) : (
-                    <Users size={17} />
-                  )}{' '}
-                  {isNewChatBurner ? 'Burner Group' : 'New Group'}
+                  <Users size={17} /> New Group
                 </>
               ) : (
                 <>
-                  {isNewChatBurner ? (
-                    <Flame size={17} className="dc-flame-fire-icon" />
-                  ) : (
-                    <MessageCircle size={17} />
-                  )}{' '}
-                  {isNewChatBurner ? 'Burner Chat' : 'New Chat'}
+                  <MessageCircle size={17} /> New Chat
                 </>
               )}
             </h2>
@@ -10765,33 +7878,11 @@ export function App() {
                 type="submit"
                 className="dc-icon-btn"
                 aria-label="Close"
-                onClick={() => setIsNewChatBurner(false)}
               >
                 <X size={16} />
               </button>
             </form>
           </div>
-
-          {newChatType !== 'broadcast-channel' && (
-            <div className="dc-chat-mode-toggle">
-              <button
-                type="button"
-                className={`dc-mode-chip ${!isNewChatBurner ? 'is-active' : ''}`}
-                onClick={() => setIsNewChatBurner(false)}
-              >
-                <MessageCircle size={14} /> Regular Chat
-              </button>
-              <button
-                type="button"
-                className={`dc-mode-chip ${
-                  isNewChatBurner ? 'is-active is-burner' : ''
-                }`}
-                onClick={() => setIsNewChatBurner(true)}
-              >
-                <Flame size={14} className="dc-flame-fire-icon" /> Burner (20s)
-              </button>
-            </div>
-          )}
 
           <form
             className="dc-modal-form"
@@ -10835,29 +7926,15 @@ export function App() {
                   type="text"
                   value={newChatName}
                   onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder={
-                    isNewChatBurner ? 'secret-squad-burner' : 'squad-chat'
-                  }
+                  placeholder="squad-chat"
                   required={selectedGroupMemberEmails.length === 0}
                 />
               </div>
             ) : (
               <div className="dc-form-group">
-                <div className="dc-label-with-action">
-                  <label htmlFor="new-dm-email">
-                    <Mail size={12} /> Friend&apos;s Email
-                  </label>
-                  <button
-                    type="button"
-                    className="dc-contact-picker-toggle-btn"
-                    onClick={() =>
-                      setShowNewChatContactPicker((prev) => !prev)
-                    }
-                    title="Add Friend from Contacts"
-                  >
-                    <Users size={13} /> Contacts
-                  </button>
-                </div>
+                <label htmlFor="new-dm-email">
+                  <Mail size={12} /> Friend&apos;s Email
+                </label>
                 <input
                   id="new-dm-email"
                   type="email"
@@ -10941,20 +8018,10 @@ export function App() {
             )}
 
             <div className="dc-modal-actions">
-              <button
-                type="submit"
-                className={`dc-btn-send ${
-                  isNewChatBurner ? 'dc-btn-burner-send' : ''
-                }`}
-              >
+              <button type="submit" className="dc-btn-send">
                 {newChatType === 'broadcast-channel' ? (
                   <>
                     <Radio size={15} /> Launch Channel
-                  </>
-                ) : isNewChatBurner ? (
-                  <>
-                    <Flame size={15} className="dc-flame-fire-icon" /> Start
-                    Burner
                   </>
                 ) : (
                   <>
@@ -10968,535 +8035,7 @@ export function App() {
       </dialog>
 
       {/* =====================================================================
-          MODAL 6B: CRYPTO-INSPIRED PEER-TO-PEER IOU WALLET & LEDGER (`IOUs`)
-         ===================================================================== */}
-      <dialog
-        ref={iouDialogRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby={iouDialogTitleId}
-        className="dc-modal-dialog dc-modal-md"
-      >
-        <div className="dc-modal-inner">
-          <div className="dc-modal-header">
-            <h2 id={iouDialogTitleId}>
-              <Coins size={18} /> IOUs
-            </h2>
-            <div className="dc-profile-modal-tabs">
-              <button
-                type="button"
-                className={`dc-profile-step-tab ${
-                  showIouIssueForm ? 'active' : ''
-                }`}
-                onClick={() => setShowIouIssueForm((prev) => !prev)}
-                title="Send or Log IOU"
-                aria-label="Send or Log IOU"
-              >
-                <Plus size={14} /> IOU
-              </button>
-              <form method="dialog">
-                <button
-                  type="submit"
-                  className="dc-icon-btn"
-                  aria-label="Close"
-                >
-                  <X size={16} />
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div className="dc-iou-wallet-body">
-            {/* Crypto-Style Net Balance Hero Card */}
-            <div className="dc-iou-hero-card">
-              <div className="dc-iou-hero-top">
-                <span className="dc-iou-token-pill">
-                  <Coins size={12} /> P2P IOU LEDGER
-                </span>
-              </div>
-              <div className="dc-iou-net-balance">
-                <strong
-                  className={
-                    iouLedgerSummary.netBalance > 0
-                      ? 'is-positive'
-                      : iouLedgerSummary.netBalance < 0
-                      ? 'is-negative'
-                      : ''
-                  }
-                >
-                  {iouLedgerSummary.netBalance > 0
-                    ? `+${iouLedgerSummary.netBalance}`
-                    : iouLedgerSummary.netBalance}
-                </strong>
-                <span>Net Position</span>
-              </div>
-              <div className="dc-iou-stats-split">
-                <div className="dc-iou-stat-box is-owed">
-                  <small>Friends Owe You</small>
-                  <strong>+{iouLedgerSummary.owedToMeTotal}</strong>
-                </div>
-                <div className="dc-iou-stat-box is-owing">
-                  <small>Outstanding IOUs</small>
-                  <strong>-{iouLedgerSummary.iOweTotal}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Send IOU Form (You can only Send IOUs that you owe) */}
-            {showIouIssueForm && (
-              <form
-                className="dc-iou-issue-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const amt = Math.max(
-                    1,
-                    Math.floor(Number(iouSendAmount) || 0)
-                  );
-                  void handleSendOrSettleIou({
-                    action: 'send-iou',
-                    peerEmail: iouSendPeerEmail,
-                    amount: amt,
-                    note: iouSendNote.trim() || undefined,
-                  });
-                }}
-              >
-                <div className="dc-form-row">
-                  <div className="dc-form-group">
-                    <label htmlFor="iou-friend-select">Send IOU To</label>
-                    <select
-                      id="iou-friend-select"
-                      value={iouSendPeerEmail}
-                      onChange={(e) => setIouSendPeerEmail(e.target.value)}
-                    >
-                      {users
-                        .filter((u) => u.email !== activeUser.email)
-                        .map((u) => (
-                          <option key={u.email} value={u.email}>
-                            {u.displayName.replace(' (No App Yet)', '')} (
-                            {u.handle || u.email})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="dc-form-group">
-                    <label htmlFor="iou-amount-input">Amount</label>
-                    <input
-                      id="iou-amount-input"
-                      type="number"
-                      min={1}
-                      max={9999}
-                      step={1}
-                      value={iouSendAmount}
-                      onChange={(e) =>
-                        setIouSendAmount(
-                          e.target.value.replace(/[^0-9]/g, '')
-                        )
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="dc-inline-input-btn">
-                  <input
-                    type="text"
-                    value={iouSendNote}
-                    onChange={(e) => setIouSendNote(e.target.value)}
-                    placeholder="Note (e.g. pizza slice, arcade tokens)…"
-                  />
-                  <button type="submit" className="dc-btn-send">
-                    <Send size={14} /> Send IOU
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* 2-Column Split Ledger: People That Owe You (Left) vs Outstanding IOUs (Right) */}
-            <div className="dc-iou-split-ledger-grid">
-              {/* LEFT COLUMN: People That Owe You (Clickable -> Recognize Collection Popup) */}
-              <div className="dc-iou-ledger-column is-left-owed">
-                <div className="dc-iou-column-header is-owed">
-                  <span>Owe You</span>
-                  <strong>+{iouLedgerSummary.owedToMeTotal}</strong>
-                </div>
-
-                {iouLedgerSummary.rows.filter((r) => r.netAmount > 0).length ===
-                0 ? (
-                  <div className="dc-iou-column-empty">0</div>
-                ) : (
-                  iouLedgerSummary.rows
-                    .filter((r) => r.netAmount > 0)
-                    .map((row) => {
-                      const isSelected = selectedIouPeerEmail === row.peerEmail;
-                      return (
-                        <div
-                          key={row.peerEmail}
-                          className={`dc-iou-peer-card ${
-                            isSelected ? 'is-expanded' : ''
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            className="dc-iou-peer-row-btn"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedIouPeerEmail(null);
-                              } else {
-                                setSelectedIouPeerEmail(row.peerEmail);
-                                setIouCollectAmountInput('1');
-                              }
-                            }}
-                            title={`Click to recognize collection from ${row.displayName}`}
-                          >
-                            <div className="dc-iou-peer-left">
-                              {renderUserAvatar(
-                                row.peerUser || row.peerEmail,
-                                row.displayName
-                              )}
-                              <div>
-                                <strong>{row.displayName}</strong>
-                                <span>{row.handle}</span>
-                              </div>
-                            </div>
-
-                            <div className="dc-iou-peer-total is-owed-to-me">
-                              <strong>+{row.netAmount}</strong>
-                            </div>
-                          </button>
-
-                          {isSelected && (
-                            <div className="dc-iou-collect-popup">
-                              <div className="dc-iou-collect-popup-head">
-                                <span>Recognize Collection</span>
-                                <button
-                                  type="button"
-                                  className="dc-iou-collect-all-btn"
-                                  onClick={() =>
-                                    void handleSendOrSettleIou({
-                                      action: 'collect',
-                                      peerEmail: row.peerEmail,
-                                      amount: row.netAmount,
-                                      note: 'Collected all',
-                                    })
-                                  }
-                                >
-                                  All ({row.netAmount})
-                                </button>
-                              </div>
-
-                              <form
-                                className="dc-iou-collect-partial-form"
-                                onSubmit={(e) => {
-                                  e.preventDefault();
-                                  const cleanWhole = Math.min(
-                                    row.netAmount,
-                                    Math.max(
-                                      1,
-                                      Math.floor(
-                                        Number(iouCollectAmountInput) || 1
-                                      )
-                                    )
-                                  );
-                                  void handleSendOrSettleIou({
-                                    action: 'collect',
-                                    peerEmail: row.peerEmail,
-                                    amount: cleanWhole,
-                                    note: 'Recognized collection',
-                                  });
-                                }}
-                              >
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={row.netAmount}
-                                  step={1}
-                                  value={iouCollectAmountInput}
-                                  onChange={(e) =>
-                                    setIouCollectAmountInput(
-                                      e.target.value.replace(/[^0-9]/g, '')
-                                    )
-                                  }
-                                  placeholder={`1–${row.netAmount}`}
-                                  aria-label="Whole number amount collected"
-                                  required
-                                />
-                                <button
-                                  type="submit"
-                                  className="dc-btn-send dc-iou-accept-btn"
-                                  title="Accept collection amount"
-                                  aria-label="Accept collection amount"
-                                >
-                                  <Check size={14} />
-                                </button>
-                              </form>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                )}
-              </div>
-
-              {/* RIGHT COLUMN: Outstanding IOUs (People You Owe — Read-Only) */}
-              <div className="dc-iou-ledger-column is-right-owing">
-                <div className="dc-iou-column-header is-owing">
-                  <span>Outstanding</span>
-                  <strong>-{iouLedgerSummary.iOweTotal}</strong>
-                </div>
-
-                {iouLedgerSummary.rows.filter((r) => r.netAmount < 0).length ===
-                0 ? (
-                  <div className="dc-iou-column-empty">0</div>
-                ) : (
-                  iouLedgerSummary.rows
-                    .filter((r) => r.netAmount < 0)
-                    .map((row) => (
-                      <div
-                        key={row.peerEmail}
-                        className="dc-iou-peer-card is-readonly-owing"
-                      >
-                        <div className="dc-iou-peer-row-btn is-static">
-                          <div className="dc-iou-peer-left">
-                            {renderUserAvatar(
-                              row.peerUser || row.peerEmail,
-                              row.displayName
-                            )}
-                            <div>
-                              <strong>{row.displayName}</strong>
-                              <span>{row.handle}</span>
-                            </div>
-                          </div>
-
-                          <div className="dc-iou-peer-total is-i-owe">
-                            <strong>{row.netAmount}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </dialog>
-
-      {/* =====================================================================
-          MODAL 7: Signal-Style 60-Digit Safety Number & QR Code Verification (Feature 4)
-         ===================================================================== */}
-      <dialog
-        ref={safetyNumberDialogRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby={safetyNumberDialogTitleId}
-        className="dc-modal-dialog dc-modal-sm"
-      >
-        <div className="dc-modal-inner">
-          <div className="dc-modal-header">
-            <h2 id={safetyNumberDialogTitleId}>
-              <QrCode size={17} /> Verify Safety Number &amp; Peer PGP Key
-            </h2>
-            <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
-                <X size={16} />
-              </button>
-            </form>
-          </div>
-
-          {safetyBundle && (
-            <div className="dc-safety-modal-body">
-              <p className="dc-safety-intro">
-                Compare this <strong>60-digit Safety Number</strong> or scan the
-                QR code with <strong>{activeChannelDisplayTitle}</strong> to
-                verify end-to-end encryption keys out-of-band.
-              </p>
-
-              {/* Deterministic 21x21 SVG QR Matrix */}
-              <div className="dc-safety-qr-frame">
-                <svg
-                  viewBox="0 0 21 21"
-                  className="dc-safety-qr-svg"
-                  role="img"
-                  aria-label="Safety Number Verification QR Code"
-                >
-                  {safetyBundle.qrMatrix.map((row, rIdx) =>
-                    row.map((cell, cIdx) =>
-                      cell ? (
-                        <rect
-                          key={`${rIdx}_${cIdx}`}
-                          x={cIdx}
-                          y={rIdx}
-                          width={1}
-                          height={1}
-                          fill="#0f172a"
-                        />
-                      ) : null
-                    )
-                  )}
-                </svg>
-              </div>
-
-              {/* 12 Groups of 5 Digits (60-Digit Safety Number) */}
-              <div className="dc-safety-number-grid">
-                {safetyBundle.groups.map((grp, idx) => (
-                  <code key={`${grp}_${idx}`} className="dc-safety-digit-group">
-                    {grp}
-                  </code>
-                ))}
-              </div>
-
-              <div className="dc-safety-fingerprints">
-                <div>
-                  <small>Your Key ({activeUser.email}):</small>
-                  <code>
-                    {formatFingerprint(
-                      activeUser.pgpKeyPair?.fingerprint || ''
-                    ).slice(0, 29)}
-                    …
-                  </code>
-                </div>
-                {activeChannelPeerUser && (
-                  <div>
-                    <small>
-                      Peer Key ({activeChannelPeerUser.email}):
-                    </small>
-                    <code>
-                      {formatFingerprint(
-                        activeChannelPeerUser.pgpKeyPair?.fingerprint || ''
-                      ).slice(0, 29)}
-                      …
-                    </code>
-                  </div>
-                )}
-              </div>
-
-              <div className="dc-modal-actions">
-                <button
-                  type="button"
-                  className="dc-btn-ghost"
-                  onClick={() => safetyNumberDialogRef.current?.close()}
-                >
-                  Close
-                </button>
-                {activeChannelPeerUser && (
-                  <button
-                    type="button"
-                    className="dc-btn-send"
-                    onClick={() => {
-                      const peerKey =
-                        activeChannelPeerUser.email.toLowerCase();
-                      setVerifiedPeersMap((prev) => {
-                        const next = { ...prev };
-                        if (next[peerKey]) {
-                          delete next[peerKey];
-                        } else {
-                          next[peerKey] =
-                            activeChannelPeerUser.pgpKeyPair?.fingerprint ||
-                            'verified';
-                        }
-                        return next;
-                      });
-                    }}
-                  >
-                    <ShieldCheck size={14} />{' '}
-                    {verifiedPeersMap[
-                      activeChannelPeerUser.email.toLowerCase()
-                    ]
-                      ? 'Verified ✓ (Tap to Unmark)'
-                      : 'Mark Peer Key Verified'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </dialog>
-
-      {/* =====================================================================
-          MODAL 8: Create Encrypted Interactive Poll (`chat.poll`) (Feature 5)
-         ===================================================================== */}
-      <dialog
-        ref={pollCreatorDialogRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby={pollCreatorDialogTitleId}
-        className="dc-modal-dialog dc-modal-sm"
-      >
-        <div className="dc-modal-inner">
-          <div className="dc-modal-header">
-            <h2 id={pollCreatorDialogTitleId}>
-              📊 Poll
-            </h2>
-            <form method="dialog">
-              <button type="submit" className="dc-icon-btn" aria-label="Close">
-                <X size={16} />
-              </button>
-            </form>
-          </div>
-
-          <form
-            className="dc-modal-form"
-            onSubmit={handleCreateEncryptedPoll}
-          >
-            <div className="dc-form-group">
-              <label htmlFor="poll-question-input">❓ Question</label>
-              <input
-                id="poll-question-input"
-                type="text"
-                value={pollQuestionInput}
-                onChange={(e) => setPollQuestionInput(e.target.value)}
-                placeholder="Where to meet?"
-                required
-              />
-            </div>
-
-            <div className="dc-form-group">
-              <label>🗳️ Choices</label>
-              <div className="dc-poll-creator-options">
-                {pollOptionsInput.map((opt, idx) => (
-                  <input
-                    key={idx}
-                    type="text"
-                    value={opt}
-                    onChange={(e) =>
-                      setPollOptionsInput((prev) =>
-                        prev.map((item, i) =>
-                          i === idx ? e.target.value : item
-                        )
-                      )
-                    }
-                    placeholder={`Choice ${idx + 1}`}
-                    required={idx < 2}
-                  />
-                ))}
-              </div>
-              {pollOptionsInput.length < 5 && (
-                <button
-                  type="button"
-                  className="dc-btn-ghost dc-btn-add-poll-opt"
-                  onClick={() =>
-                    setPollOptionsInput((prev) => [...prev, ''])
-                  }
-                >
-                  ➕ Choice
-                </button>
-              )}
-            </div>
-
-            <div className="dc-modal-actions">
-              <button
-                type="button"
-                className="dc-btn-ghost"
-                onClick={() => pollCreatorDialogRef.current?.close()}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="dc-btn-send">
-                🚀 Send
-              </button>
-            </div>
-          </form>
-        </div>
-      </dialog>
-
-      {/* =====================================================================
-          MODAL 9: IN-APP EPHEMERAL CAMERA CAPTURE (Encrypted in LocalDB only; never saved to device camera roll)
+          MODAL 9: IN-APP CAMERA CAPTURE (Local DB only)
          ===================================================================== */}
       <dialog
         ref={cameraCaptureDialogRef}
@@ -11518,99 +8057,14 @@ export function App() {
           </div>
 
           <div className="dc-camera-modal-body">
-            <div
-              ref={cameraViewportRef}
-              className="dc-camera-viewport"
-              onPointerMove={(e) => {
-                const drag = draggingStampRef.current;
-                if (!drag || !cameraViewportRef.current) return;
-                const rect = cameraViewportRef.current.getBoundingClientRect();
-                if (rect.width <= 0 || rect.height <= 0) return;
-                const nextX = Math.min(
-                  95,
-                  Math.max(5, ((e.clientX - rect.left) / rect.width) * 100)
-                );
-                const nextY = Math.min(
-                  95,
-                  Math.max(5, ((e.clientY - rect.top) / rect.height) * 100)
-                );
-                setCameraStamps((prev) =>
-                  prev.map((s) =>
-                    s.id === drag.stampId
-                      ? { ...s, xPct: nextX, yPct: nextY }
-                      : s
-                  )
-                );
-              }}
-              onPointerUp={() => {
-                draggingStampRef.current = null;
-              }}
-              onPointerCancel={() => {
-                draggingStampRef.current = null;
-              }}
-            >
+            <div className="dc-camera-viewport">
               {capturedPhotoDataUrl ? (
-                <>
-                  <img
-                    src={capturedPhotoDataUrl}
-                    alt="Captured preview"
-                    className="dc-camera-preview-img"
-                    draggable={false}
-                    onClick={() => setSelectedCameraStampId(null)}
-                  />
-
-                  {/* Interactive Draggable & Resizable Emoji Stamps Layer */}
-                  {cameraStamps.map((st) => {
-                    const isSelected = selectedCameraStampId === st.id;
-                    return (
-                      <div
-                        key={st.id}
-                        className={`dc-camera-emoji-stamp ${
-                          isSelected ? 'is-selected' : ''
-                        }`}
-                        style={{
-                          left: `${st.xPct}%`,
-                          top: `${st.yPct}%`,
-                          fontSize: `${st.sizePx}px`,
-                        }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          setSelectedCameraStampId(st.id);
-                          draggingStampRef.current = {
-                            stampId: st.id,
-                            pointerId: e.pointerId,
-                          };
-                          try {
-                            e.currentTarget.setPointerCapture(e.pointerId);
-                          } catch {
-                            // Ignore pointer capture errors
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Emoji stamp ${st.emoji}`}
-                        title="Drag to move stamp"
-                      >
-                        <span className="dc-camera-stamp-glyph">{st.emoji}</span>
-                        {isSelected && (
-                          <button
-                            type="button"
-                            className="dc-camera-stamp-delete-badge"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteCameraStamp(st.id);
-                            }}
-                            title="Remove stamp"
-                            aria-label="Remove stamp"
-                          >
-                            <X size={11} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </>
+                <img
+                  src={capturedPhotoDataUrl}
+                  alt="Captured preview"
+                  className="dc-camera-preview-img"
+                  draggable={false}
+                />
               ) : (
                 <>
                   <video
@@ -11629,100 +8083,7 @@ export function App() {
                   )}
                 </>
               )}
-              <span
-                className="dc-camera-privacy-pill dc-camera-privacy-icon-only"
-                title="Encrypted in app only"
-                aria-label="Encrypted in app only"
-              >
-                <Lock size={13} />
-              </span>
             </div>
-
-            {/* Emoji Stamp Picker & Size / Delete Controls (When Photo Is Captured) */}
-            {capturedPhotoDataUrl && isCameraStampPickerOpen && (
-              <div className="dc-camera-stamp-tray">
-                <div className="dc-camera-stamp-emoji-strip">
-                  {[
-                    '😎',
-                    '🤠',
-                    '👽',
-                    '🤖',
-                    '🐱',
-                    '🐶',
-                    '🦊',
-                    '🐼',
-                    '🐸',
-                    '🙈',
-                    '👻',
-                    '💀',
-                    '🥸',
-                    '🤩',
-                    '😷',
-                    '🎃',
-                    '👑',
-                    '🧢',
-                    '⭐',
-                    '❤️',
-                    '🔒',
-                    '🚫',
-                  ].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="dc-camera-stamp-pick-btn"
-                      onClick={() => handleAddCameraEmojiStamp(emoji)}
-                      title={`Add ${emoji} stamp`}
-                      aria-label={`Add ${emoji} stamp`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-
-                {selectedCameraStampId &&
-                  cameraStamps.some((s) => s.id === selectedCameraStampId) && (
-                    <div className="dc-camera-stamp-size-bar">
-                      <span className="dc-camera-active-stamp-preview">
-                        {
-                          cameraStamps.find(
-                            (s) => s.id === selectedCameraStampId
-                          )?.emoji
-                        }
-                      </span>
-                      <input
-                        type="range"
-                        min={28}
-                        max={220}
-                        value={
-                          cameraStamps.find(
-                            (s) => s.id === selectedCameraStampId
-                          )?.sizePx || 88
-                        }
-                        onChange={(e) =>
-                          handleUpdateCameraStampSize(
-                            selectedCameraStampId,
-                            Number(e.target.value)
-                          )
-                        }
-                        className="dc-camera-stamp-slider"
-                        aria-label="Stamp size"
-                        title="Adjust stamp size"
-                      />
-                      <button
-                        type="button"
-                        className="dc-camera-stamp-trash-btn"
-                        onClick={() =>
-                          handleDeleteCameraStamp(selectedCameraStampId)
-                        }
-                        title="Delete selected stamp"
-                        aria-label="Delete selected stamp"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  )}
-              </div>
-            )}
 
             <div className="dc-camera-controls-row">
               {!capturedPhotoDataUrl ? (
@@ -11762,27 +8123,12 @@ export function App() {
                     className="dc-camera-icon-btn"
                     onClick={() => {
                       setCapturedPhotoDataUrl(null);
-                      setCameraStamps([]);
-                      setSelectedCameraStampId(null);
                       void startCameraStream(cameraFacingMode);
                     }}
                     title="Retake photo"
                     aria-label="Retake photo"
                   >
                     <RefreshCw size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`dc-camera-icon-btn dc-camera-stamp-toggle ${
-                      isCameraStampPickerOpen ? 'is-active' : ''
-                    }`}
-                    onClick={() =>
-                      setIsCameraStampPickerOpen((prev) => !prev)
-                    }
-                    title="Emoji Stamps"
-                    aria-label="Emoji Stamps"
-                  >
-                    <Smile size={19} />
                   </button>
                   <button
                     type="button"

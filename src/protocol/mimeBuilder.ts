@@ -1,19 +1,18 @@
 /**
  * RFC 5322 Multipart MIME Builder & Non-App Invite Fallback Generator (`ATME/1.0`)
  *
- * Every outbound chat action (message, reply, emoji reaction, edit, read receipt, attachment, or squad mod)
- * is formatted as a standards-compliant Multipart Email containing:
- *   1. Strict `X-ATME-*` headers (plus `X-DontCall-*` compatibility mirrors) so the app can query/filter
- *      ONLY messaging packets and completely ignore regular emails.
- *   2. `text/html` & `text/plain` Fallback Card: When a recipient does NOT have the app
- *      installed (or views the message in standard Gmail/Outlook/Apple Mail), it displays an
- *      encrypted notification card with a message to download the app and links to the
- *      iOS App Store, Google Play Store, and Instant Web App.
- *   3. `application/vnd.atme.packet+pgp` MIME part: The OpenPGP-encrypted JSON packet.
- *   4. `application/pgp-keys` MIME part: The sender's public key for automatic zero-friction E2EE.
+ * Formats outbound `@me` chat actions into standards-compliant Multipart Email messages:
+ *   1. Strict `X-ATME-*` headers (plus `X-DontCall-*` compatibility mirrors) so `@me`
+ *      filters ONLY messaging packets and ignores 100% of regular personal/work emails.
+ *   2. `text/html` & `text/plain` Fallback Card for recipients reading in regular email clients.
+ *   3. Packet Attachment Part:
+ *      - Simple mode (`cleartext-json`): `application/vnd.atme.packet+json` (`atme-packet.json`)
+ *      - Encrypted interop (`openpgp-*`): `application/vnd.atme.packet+pgp` (`atme-packet.pgp`)
+ *        plus optional `application/pgp-keys` (`sender-pubkey.asc`).
  */
 
 import {
+  ATME_JSON_PACKET_TYPE,
   ATME_MIME_PACKET_TYPE,
   ATME_PROTOCOL_VERSION,
   ATME_SUBJECT_PREFIX,
@@ -26,7 +25,8 @@ import { formatFingerprint } from '../crypto/openpgpService';
 
 export interface BuildMimeEmailOptions {
   packet: DcpPacket;
-  encryptedPacketArmored: string;
+  /** Optional armored OpenPGP ciphertext; omit when sending in simple `cleartext-json` mode */
+  encryptedPacketArmored?: string;
   inviteKeyFragment?: string;
   appStoreUrl?: string;
   playStoreUrl?: string;
@@ -44,7 +44,7 @@ function escapeHtml(input: string): string {
 
 /**
  * Generates the HTML fallback card shown when a recipient opens the email in a normal
- * email client (or does not have Dont Call installed yet).
+ * email client (or does not have `@me` installed yet).
  */
 export function buildNonAppInviteHtmlCard(options: {
   packet: DcpPacket;
@@ -57,45 +57,53 @@ export function buildNonAppInviteHtmlCard(options: {
   const senderName = escapeHtml(packet.sender.displayName);
   const senderEmail = escapeHtml(packet.sender.email);
   const channelName = escapeHtml(packet.channel.name);
-  const fpFormatted = escapeHtml(
-    formatFingerprint(packet.sender.pgpFingerprint).slice(0, 24) + '…'
-  );
+  const isCleartext = packet.encryptionMode === 'cleartext-json';
+  const rawFp = packet.sender.pgpFingerprint?.trim() || '';
+  const fpFormatted = rawFp
+    ? escapeHtml(formatFingerprint(rawFp).slice(0, 24) + '…')
+    : '';
 
   const actionLabel =
     packet.type === 'chat.reaction'
       ? `reacted (${escapeHtml(packet.payload.reactionEmoji || '👍')}) to a message`
       : packet.type === 'chat.edit'
-      ? 'edited an encrypted message'
+      ? 'edited a message'
       : packet.type === 'chat.receipt'
       ? `marked message as ${escapeHtml(packet.payload.receiptStatus || 'read')}`
       : packet.type === 'chat.member-update'
       ? `updated group members (${escapeHtml(
           packet.payload.memberUpdate?.action || 'update'
         )} ${escapeHtml(packet.payload.memberUpdate?.targetEmail || '')})`
-      : packet.type === 'chat.shred-request'
-      ? 'issued a Cryptographic Key Erase & Thread Shred Command'
-      : packet.type === 'chat.shred-ack'
-      ? 'confirmed Cryptographic Key Erasure & IndexedDB Scrub'
+      : isCleartext
+      ? 'sent you a message on @me'
       : 'sent you an end-to-end encrypted message';
 
+  const previewText =
+    isCleartext && packet.payload.text
+      ? escapeHtml(packet.payload.text)
+      : `This message was packaged for @me on ${senderName}'s device. Open it in @me to read and reply instantly via messaging.`;
+
+  const badgeText = isCleartext
+    ? `@me MESSAGING PACKET (${ATME_PROTOCOL_VERSION})`
+    : 'LOCKED END-TO-END ENCRYPTED MESSAGE (@me / OPENPGP)';
+
+  const openCtaText = isCleartext ? 'Open in @me Web App' : 'Decrypt in @me Web App';
+
   return `<div class="dc-fallback-card">
-  <div class="dc-fallback-badge">LOCKED END-TO-END ENCRYPTED MESSAGE (@me / OPENPGP)</div>
+  <div class="dc-fallback-badge">${badgeText}</div>
   <h2 class="dc-fallback-title">${senderName} ${actionLabel}</h2>
   <p class="dc-fallback-sub">From <strong>${senderEmail}</strong> in channel <strong>#${channelName}</strong></p>
   <div class="dc-fallback-cipherbox">
-    <p class="dc-fallback-cipher-notice">
-      This message was encrypted on ${senderName}&#39;s device before reaching your email provider.
-      To decrypt, read, and reply instantly via messaging, download <strong>@me</strong> on iPhone or Android.
-    </p>
-    <p class="dc-fallback-fp">PGP Key Fingerprint: <code>${fpFormatted}</code></p>
+    <p class="dc-fallback-cipher-notice">${previewText}</p>
+    ${fpFormatted ? `<p class="dc-fallback-fp">PGP Key Fingerprint: <code>${fpFormatted}</code></p>` : ''}
   </div>
   <div class="dc-fallback-actions">
     <a class="dc-btn-primary" href="${escapeHtml(appStoreUrl)}" target="_blank" rel="noopener noreferrer">Download @me on the App Store (iOS)</a>
     <a class="dc-btn-secondary" href="${escapeHtml(playStoreUrl)}" target="_blank" rel="noopener noreferrer">Get @me on Google Play (Android)</a>
-    <a class="dc-btn-tertiary" href="${escapeHtml(webAppDeepLink)}" target="_blank" rel="noopener noreferrer">Decrypt in @me Web App</a>
+    <a class="dc-btn-tertiary" href="${escapeHtml(webAppDeepLink)}" target="_blank" rel="noopener noreferrer">${openCtaText}</a>
   </div>
   <p class="dc-fallback-footer">
-    Powered by @me Zero-Server Email Messaging &bull; Protocol ${ATME_PROTOCOL_VERSION}
+    Sent via @me over Recycled Email &bull; Protocol ${ATME_PROTOCOL_VERSION}
   </p>
 </div>`;
 }
@@ -114,6 +122,9 @@ export function buildDcpMimeEmail(
     playStoreUrl = 'https://play.google.com/store/apps/details?id=app.atme.messenger',
     webAppBaseUrl = 'https://app.atme.chat',
   } = options;
+
+  const isCleartextJson =
+    packet.encryptionMode === 'cleartext-json' || !encryptedPacketArmored?.trim();
 
   const boundaryMixed = `----=_ATME_Mixed_${packet.packetId}`;
   const boundaryAlt = `----=_ATME_Alt_${packet.packetId}`;
@@ -142,7 +153,9 @@ export function buildDcpMimeEmail(
     ? `${webAppBaseUrl}/#packet=${encodeURIComponent(packet.packetId)}&inviteKey=${encodeURIComponent(inviteKeyFragment)}`
     : `${webAppBaseUrl}/#packet=${encodeURIComponent(packet.packetId)}`;
 
-  const subject = `${ATME_SUBJECT_PREFIX} Encrypted ${packet.type.replace('chat.', '')} (${packet.channel.name}) [${packet.channel.id}]`;
+  const subject = isCleartextJson
+    ? `${ATME_SUBJECT_PREFIX} Message in #${packet.channel.name} [${packet.channel.id}]`
+    : `${ATME_SUBJECT_PREFIX} Encrypted ${packet.type.replace('chat.', '')} (${packet.channel.name}) [${packet.channel.id}]`;
 
   const headers: Record<string, string> = {
     'MIME-Version': '1.0',
@@ -167,20 +180,19 @@ export function buildDcpMimeEmail(
     'X-ATME-Packet-Type': packet.type,
     'X-ATME-Channel-Id': packet.channel.id,
     'X-ATME-Channel-Type': packet.channel.type,
-    'X-ATME-Encryption': packet.encryptionMode,
-    'X-ATME-Sender-FP': packet.sender.pgpFingerprint,
+    'X-ATME-Encryption': isCleartextJson ? 'cleartext-json' : packet.encryptionMode,
+    ...(packet.sender.pgpFingerprint
+      ? { 'X-ATME-Sender-FP': packet.sender.pgpFingerprint }
+      : {}),
     'X-DontCall-Protocol': ATME_PROTOCOL_VERSION,
     'X-DontCall-Packet-Id': packet.packetId,
     'X-DontCall-Packet-Type': packet.type,
     'X-DontCall-Channel-Id': packet.channel.id,
     'X-DontCall-Channel-Type': packet.channel.type,
-    'X-DontCall-Encryption': packet.encryptionMode,
-    'X-DontCall-Sender-FP': packet.sender.pgpFingerprint,
-    'X-DontCall-Compliant-Build':
-      packet.complianceAttestation?.buildVersion || '1.5.0-atme-compliant',
-    'X-DontCall-Bundle-SHA256':
-      packet.complianceAttestation?.bundleSha256 ||
-      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    'X-DontCall-Encryption': isCleartextJson ? 'cleartext-json' : packet.encryptionMode,
+    ...(packet.sender.pgpFingerprint
+      ? { 'X-DontCall-Sender-FP': packet.sender.pgpFingerprint }
+      : {}),
     'Auto-Submitted': 'auto-generated',
   };
 
@@ -193,18 +205,34 @@ export function buildDcpMimeEmail(
     headers['References'] = `<${packet.channel.id}@atme.local>`;
   }
 
-  const textFallbackPart = [
-    `[LOCKED END-TO-END ENCRYPTED MESSAGE — @me (${ATME_PROTOCOL_VERSION})]`,
-    `From: ${packet.sender.displayName} <${packet.sender.email}>`,
-    `Channel: #${packet.channel.name}`,
-    `PGP Fingerprint: ${formatFingerprint(packet.sender.pgpFingerprint)}`,
-    ``,
-    `This message is encrypted on-device. Your regular email client cannot read the encrypted chat payload.`,
-    `Download @me to read and respond via instant messaging:`,
-    `- iOS App Store: ${appStoreUrl}`,
-    `- Google Play Store: ${playStoreUrl}`,
-    `- Open @me Web App: ${webAppDeepLink}`,
-  ].join('\r\n');
+  const textFallbackPart = isCleartextJson
+    ? [
+        `[@me MESSAGING PACKET — ${ATME_PROTOCOL_VERSION}]`,
+        `From: ${packet.sender.displayName} <${packet.sender.email}>`,
+        `Channel: #${packet.channel.name}`,
+        packet.payload.text ? `Message: ${packet.payload.text}` : '',
+        ``,
+        `Sent via @me over Recycled Email:`,
+        `- Open @me Web App: ${webAppDeepLink}`,
+      ]
+        .filter(Boolean)
+        .join('\r\n')
+    : [
+        `[LOCKED END-TO-END ENCRYPTED MESSAGE — @me (${ATME_PROTOCOL_VERSION})]`,
+        `From: ${packet.sender.displayName} <${packet.sender.email}>`,
+        `Channel: #${packet.channel.name}`,
+        packet.sender.pgpFingerprint
+          ? `PGP Fingerprint: ${formatFingerprint(packet.sender.pgpFingerprint)}`
+          : '',
+        ``,
+        `This message is encrypted on-device. Your regular email client cannot read the encrypted chat payload.`,
+        `Download @me to read and respond via instant messaging:`,
+        `- iOS App Store: ${appStoreUrl}`,
+        `- Google Play Store: ${playStoreUrl}`,
+        `- Open @me Web App: ${webAppDeepLink}`,
+      ]
+        .filter(Boolean)
+        .join('\r\n');
 
   const htmlFallbackPart = buildNonAppInviteHtmlCard({
     packet,
@@ -218,7 +246,11 @@ export function buildDcpMimeEmail(
     .map(([k, v]) => `${k}: ${v}`)
     .join('\r\n');
 
-  const rawMime = [
+  const cleartextPacketJson = isCleartextJson
+    ? JSON.stringify(packet, null, 2)
+    : undefined;
+
+  const mimeParts: string[] = [
     headerLines,
     `Content-Type: multipart/mixed; boundary="${boundaryMixed}"`,
     ``,
@@ -239,21 +271,43 @@ export function buildDcpMimeEmail(
     ``,
     `--${boundaryAlt}--`,
     ``,
-    `--${boundaryMixed}`,
-    `Content-Type: ${ATME_MIME_PACKET_TYPE}; name="atme-packet.pgp"`,
-    `Content-Disposition: attachment; filename="atme-packet.pgp"`,
-    `Content-Description: @me Encrypted Messaging Packet (ATME/1.0)`,
-    ``,
-    encryptedPacketArmored.trim(),
-    ``,
-    `--${boundaryMixed}`,
-    `Content-Type: application/pgp-keys; name="sender-pubkey.asc"`,
-    `Content-Disposition: attachment; filename="sender-pubkey.asc"`,
-    ``,
-    packet.sender.publicKeyArmored.trim(),
-    ``,
-    `--${boundaryMixed}--`,
-  ].join('\r\n');
+  ];
+
+  if (isCleartextJson && cleartextPacketJson) {
+    mimeParts.push(
+      `--${boundaryMixed}`,
+      `Content-Type: ${ATME_JSON_PACKET_TYPE}; name="atme-packet.json"`,
+      `Content-Disposition: attachment; filename="atme-packet.json"`,
+      `Content-Description: @me Messaging Packet (ATME/1.0 JSON)`,
+      ``,
+      cleartextPacketJson,
+      ``
+    );
+  } else if (encryptedPacketArmored) {
+    mimeParts.push(
+      `--${boundaryMixed}`,
+      `Content-Type: ${ATME_MIME_PACKET_TYPE}; name="atme-packet.pgp"`,
+      `Content-Disposition: attachment; filename="atme-packet.pgp"`,
+      `Content-Description: @me Encrypted Messaging Packet (ATME/1.0)`,
+      ``,
+      encryptedPacketArmored.trim(),
+      ``
+    );
+  }
+
+  if (packet.sender.publicKeyArmored?.trim()) {
+    mimeParts.push(
+      `--${boundaryMixed}`,
+      `Content-Type: application/pgp-keys; name="sender-pubkey.asc"`,
+      `Content-Disposition: attachment; filename="sender-pubkey.asc"`,
+      ``,
+      packet.sender.publicKeyArmored.trim(),
+      ``
+    );
+  }
+
+  mimeParts.push(`--${boundaryMixed}--`);
+  const rawMime = mimeParts.join('\r\n');
 
   return {
     id: `eml_${packet.packetId}`,
@@ -267,8 +321,11 @@ export function buildDcpMimeEmail(
     rawMime,
     htmlFallbackPart,
     textFallbackPart,
-    encryptedPacketArmored,
-    attachedPublicKeyArmored: packet.sender.publicKeyArmored,
+    encryptedPacketArmored: isCleartextJson ? undefined : encryptedPacketArmored,
+    cleartextPacketJson,
+    attachedPublicKeyArmored: packet.sender.publicKeyArmored?.trim()
+      ? packet.sender.publicKeyArmored
+      : undefined,
     inviteKeyFragment,
   };
 }

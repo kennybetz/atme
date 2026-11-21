@@ -60,7 +60,7 @@ export class GmailDirectTransport {
    * Queries Gmail strictly for @me (ATME/1.0) protocol messages, ignoring 100% of normal emails
    */
   static getStrictGmailSearchQuery(): string {
-    return `subject:"${DCP_SUBJECT_PREFIX}" ("atme-packet.pgp" OR "dontcall-packet.pgp")`;
+    return `subject:"${DCP_SUBJECT_PREFIX}" ("atme-packet.json" OR "atme-packet.pgp" OR "dontcall-packet.pgp")`;
   }
 
   /**
@@ -174,6 +174,7 @@ export class GmailDirectTransport {
         headers: parsed.headers,
         rawMime,
         encryptedPacketArmored: parsed.encryptedPacketArmored,
+        cleartextPacketJson: parsed.cleartextPacketJson,
         attachedPublicKeyArmored: parsed.attachedPublicKeyArmored,
       });
     }

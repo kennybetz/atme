@@ -70,6 +70,7 @@ const PLACEHOLDER_CLIENT_IDS = new Set([
  * Strips common copy-paste artifacts from a Google OAuth Client ID:
  * - `VITE_GOOGLE_CLIENT_ID=` prefix (if pasted into Cloudflare env value by mistake)
  * - Surrounding single/double quotes or backticks
+ * - Accidental `https://` protocol prefix or trailing slashes
  * - Accidental whitespace or newlines
  */
 export function sanitizeGoogleClientId(raw: string): string {
@@ -79,6 +80,7 @@ export function sanitizeGoogleClientId(raw: string): string {
     clean = clean.replace(/^VITE_GOOGLE_CLIENT_ID\s*=/i, '').trim();
   }
   clean = clean.replace(/^["'`]+|["'`]+$/g, '').trim();
+  clean = clean.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
   clean = clean.replace(/\s+/g, '');
   return clean;
 }
@@ -114,6 +116,14 @@ export function validateGoogleClientId(raw: string): {
       sanitized,
       reason:
         'A Google Web Client ID must end with ".apps.googleusercontent.com".',
+    };
+  }
+  if (!/^[0-9]+-[a-z0-9_.-]+\.apps\.googleusercontent\.com$/i.test(sanitized)) {
+    return {
+      valid: false,
+      sanitized,
+      reason:
+        'Malformed Google Client ID (expected "<project-number>-<hash>.apps.googleusercontent.com").',
     };
   }
   return { valid: true, sanitized };
@@ -181,6 +191,44 @@ export function loadGoogleOAuthSession(): {
   } catch {
     return null;
   }
+}
+
+/**
+ * Checks if the main window landed from an OAuth redirect (`#access_token=...` or `#error=...`)
+ * on mobile or popup-blocked browsers, cleans the URL hash immediately, and returns the token.
+ */
+export function consumeRedirectOAuthHashToken(): {
+  accessToken: string;
+  expiresInSeconds: number;
+  error?: string;
+} | null {
+  if (typeof window === 'undefined' || !window.location.hash) return null;
+  const rawHash = window.location.hash.replace(/^#/, '');
+  const hashParams = new URLSearchParams(rawHash);
+  const accessToken = hashParams.get('access_token');
+  const error = hashParams.get('error');
+  if (!accessToken && !error) return null;
+
+  const expiresInSeconds = Number(hashParams.get('expires_in') || '3500');
+  try {
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname + window.location.search
+    );
+  } catch {
+    // Ignore history API restrictions
+  }
+
+  if (error && !accessToken) {
+    return {
+      accessToken: '',
+      expiresInSeconds: 0,
+      error: hashParams.get('error_description') || error,
+    };
+  }
+  if (!accessToken) return null;
+  return { accessToken, expiresInSeconds };
 }
 
 /**
@@ -666,10 +714,27 @@ export async function launchRealOAuthPopup(params: {
           reject(new Error('OAuth sign-in popup was closed before completion.'));
           return;
         }
-        if (popup.location.origin === redirectUri && popup.location.hash) {
+        if (popup.location.origin === redirectUri) {
           const hashParams = new URLSearchParams(
-            popup.location.hash.replace(/^#/, '')
+            (popup.location.hash || '').replace(/^#/, '')
           );
+          const searchParams = new URLSearchParams(
+            popup.location.search || ''
+          );
+          const oauthErr =
+            hashParams.get('error') || searchParams.get('error');
+          if (oauthErr) {
+            window.clearInterval(timer);
+            popup.close();
+            reject(
+              new Error(
+                hashParams.get('error_description') ||
+                  searchParams.get('error_description') ||
+                  oauthErr
+              )
+            );
+            return;
+          }
           const token = hashParams.get('access_token');
           const expiresIn = Number(hashParams.get('expires_in') || '3600');
           if (token) {

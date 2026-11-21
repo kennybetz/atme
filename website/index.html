@@ -1,613 +1,808 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#07090d" />
-    <title>@me (ATME/1.0) — Branch Your Squad Messenger with AI</title>
     <meta
       name="description"
-      content="Don't just download a chat app. Branch @me with AI for your 5 best friends. Powered by recycled 1982 email tech (SMTP/IMAP + OpenPGP) and the ATME/1.0 open protocol."
+      content="@me/simple — A clean, barebones TypeScript + React messaging scaffold over ATME/1.0 email packets, designed to teach AI-assisted feature building, automated testing, and Git version control."
     />
-    <link rel="icon" type="image/svg+xml" href="../public/favicon.svg" />
+    <title>@me/simple — Learn to Build Messaging Features with AI &amp; Git</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/atme-icon.svg" />
+    <link rel="icon" type="image/png" href="./assets/favicon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
     <header class="site-header">
-      <nav class="nav container" aria-label="Primary">
-        <a class="brand" href="#top">
+      <div class="container nav">
+        <a href="#top" class="brand">
           <img
-            src="../public/favicon.svg"
+            src="./assets/atme-app-icon.png"
             alt="@me logo"
-            width="32"
-            height="32"
+            width="30"
+            height="30"
           />
           <span>@me</span>
-          <span class="brand-pill">ATME/1.0</span>
+          <span class="simple-badge">simple branch</span>
         </a>
-        <ul class="nav-links">
-          <li><a href="#micro-groups">5-Friend Science</a></li>
-          <li><a href="#branches">🌿 Squad Branches</a></li>
-          <li><a href="#git-ai">🤖 Git + AI Flow</a></li>
-          <li><a href="#stack">🧰 $0 Stack</a></li>
-          <li><a href="#protocol">⚡ ATME/1.0</a></li>
-        </ul>
-        <a class="btn btn-small btn-primary" href="../index.html">Launch @me →</a>
-      </nav>
+
+        <nav aria-label="Primary navigation">
+          <ul class="nav-links">
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#git-workflow">AI &amp; Git</a></li>
+            <li><a href="#feature-labs">6 Feature Labs</a></li>
+            <li><a href="#google-oauth">Google OAuth</a></li>
+          </ul>
+        </nav>
+
+        <div style="display: flex; align-items: center; gap: 10px">
+          <a href="/?view=google-oauth&no_onboarding=1" class="btn btn-ghost btn-small">
+            🔑 Test OAuth
+          </a>
+          <a href="/?no_onboarding=1" class="btn btn-primary btn-small">
+            🚀 Open @me/simple
+          </a>
+        </div>
+      </div>
     </header>
 
-    <main id="top">
-      <!-- =================================================================
-           1. HERO: INFOGRAPHIC PIPELINE + LIVE SQUAD BRANCH PREVIEW
-           ================================================================= -->
-      <section class="hero container">
+    <main id="main">
+      <!-- ==================== HERO ==================== -->
+      <section id="top" class="hero container">
         <div class="hero-copy">
-          <p class="eyebrow">
+          <span class="eyebrow">
             <span class="dot" aria-hidden="true"></span>
-            AI-CODING SCAFFOLD &bull; RECYCLED EMAIL TECH &bull; ATME/1.0
-          </p>
+            Barebones Scaffold &bull; AI Coding + Git Version Control
+          </span>
           <h1>
-            Don’t just download a chat app.<br />
-            <span class="grad-accent">Branch yours with AI.</span>
+            Start Simple.<br />
+            <span class="grad-accent">Build Features With AI.</span><br />
+            Master Git.
           </h1>
           <p class="lede">
-            Built for <strong>3–5 best friends</strong> &amp; <strong>15-person squads</strong>.
-            Fork the <code>@me</code> blueprint, tell AI what feature your friend group wants,
-            and run your own encrypted messenger on recycled email for <strong>$0/mo</strong>.
+            <strong>@me/simple</strong> strips away heavy optional add-ons—leaving a
+            fast, crystal-clear React + TypeScript messaging core over
+            <strong>ATME/1.0</strong> recycled email. Fork this clean branch, practice
+            branching with AI, and build encryption, burners, polls, or WebRTC video
+            back in step by step.
           </p>
 
-          <!-- Visual 3-Step Icon Flow -->
-          <div class="hero-flow-strip" aria-label="3 steps to build your branch">
-            <div class="flow-step">
-              <span class="flow-icon" aria-hidden="true">🌿</span>
-              <strong>1. Branch</strong>
-              <small><code>git checkout -b squad</code></small>
-            </div>
-            <span class="flow-arrow" aria-hidden="true">→</span>
-            <div class="flow-step">
-              <span class="flow-icon" aria-hidden="true">🤖</span>
-              <strong>2. Prompt AI</strong>
-              <small>“Add a pixel duel mod”</small>
-            </div>
-            <span class="flow-arrow" aria-hidden="true">→</span>
-            <div class="flow-step">
-              <span class="flow-icon" aria-hidden="true">📲</span>
-              <strong>3. QR Share</strong>
-              <small>Live for your 5 friends</small>
-            </div>
-          </div>
-
           <div class="cta-row">
-            <a class="btn btn-primary" href="../index.html">
-              Launch @me Live Demo
+            <a href="#feature-labs" class="btn btn-primary">
+              Explore the 6 AI Labs →
             </a>
-            <a class="btn btn-burner" href="#branches">
-              🌿 Explore Squad Branches
-            </a>
-            <a class="btn btn-ghost" href="#git-ai">
-              🤖 How to AI Code It
+            <a href="/?no_onboarding=1" class="btn btn-ghost">
+              Launch Simple App
             </a>
           </div>
 
-          <ul class="trust-row" aria-label="Core specs">
-            <li>✉️ Recycled 1982 Email</li>
-            <li>🔒 OpenPGP E2EE</li>
-            <li>🔥 20s Burners</li>
-            <li>🪙 Honor IOUs</li>
-            <li>📡 99-Cap Channels</li>
+          <ul class="trust-row">
+            <li>ATME/1.0 JSON + PGP Interop</li>
+            <li>&lt;1ms Outbound Serialization</li>
+            <li>1-Click Google OAuth2</li>
+            <li>10/10 Vitest Core Suite</li>
           </ul>
         </div>
 
-        <!-- Phone Mockup with Branch Badge -->
-        <div class="hero-visual" aria-label="Interactive branch preview">
+        <div class="hero-visual" aria-label="@me/simple clean messaging preview">
           <div class="glow" aria-hidden="true"></div>
           <div class="phone">
             <div class="phone-notch" aria-hidden="true"></div>
             <div class="phone-screen">
               <div class="chat-head">
-                <div class="avatar a-group" aria-hidden="true">🕹️</div>
+                <div class="avatar a-group">#S</div>
                 <div class="chat-head-meta">
-                  <strong>#friday-hangout (4)</strong>
-                  <small><span class="flame-dot"></span> ATME/1.0 &bull; @me/arcade-squad</small>
+                  <strong>#simple-squad</strong>
+                  <small style="color: var(--green)">
+                    ATME/1.0 &bull; Clean Core
+                  </small>
                 </div>
-                <span class="locked-pill">🌿 Mod</span>
+                <span class="locked-pill" style="color: #60a5fa; border-color: rgba(10,132,255,0.45); background: rgba(10,132,255,0.14);">
+                  simple
+                </span>
               </div>
 
               <div class="chat-body">
-                <div class="sys-pill">
-                  🌿 Branch: <strong>@me/arcade-squad</strong> &bull; 4 Friends
+                <div class="sys-pill" style="color: #86efac; border-color: rgba(48,209,88,0.35); background: rgba(48,209,88,0.1);">
+                  ⚡ Outbound JSON (&lt;1ms) + OpenPGP Interop ✓
                 </div>
 
                 <div class="bubble in">
-                  <span class="b-author">Elena</span>
-                  I prompted AI to add a 1v1 Pixel Duel mod to our branch 🎮
-                </div>
-
-                <div class="mod-widget-preview">
-                  <div class="mod-widget-top">
-                    <span>🕹️ PIXEL DUEL MOD</span>
-                    <code>ATME/1.0</code>
-                  </div>
-                  <strong>Elena challenged Alex &bull; 1 IOU Wager</strong>
-                  <div class="mod-widget-btns">
-                    <span>⚔️ Accept</span>
-                    <span>🎲 Roll d20</span>
-                  </div>
+                  <span class="b-author">Alex &bull; Gmail</span>
+                  Welcome to @me/simple! Clean code, 1-click Google OAuth, and zero bloat.
                 </div>
 
                 <div class="bubble out">
-                  <span class="b-author">Alex (You)</span>
-                  No way that took 1 prompt?! Sending you 1 Boba IOU if you win 🧋
-                </div>
-                <div class="burn-tag sender-flame">
-                  🔥 20s (2)
+                  Just branched <code>feat/openpgp</code> with AI and ran Vitest — friends on main decrypt my packets automatically!
                 </div>
 
                 <div class="bubble in">
-                  <span class="b-author">Sam</span>
-                  Scanning the QR on my Chromebook right now!! ⚡
+                  <span class="b-author">Elena &bull; Proton Mail</span>
+                  Replying with an OpenPGP-encrypted ATME/1.0 packet — interoperability just works 👍
                 </div>
               </div>
 
-              <div class="chat-burn-lock-bar">
-                <span>✉️ SMTP/IMAP Zero-Server</span>
-                <span class="lock-tag">ATME/1.0</span>
-              </div>
-
               <div class="chat-input">
-                <span class="plus-btn">+</span>
-                <span>Message...</span>
-                <span class="send">↑</span>
+                <span class="plus-btn" aria-hidden="true">+</span>
+                <span>Message…</span>
+                <span class="send" aria-hidden="true">↑</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- =================================================================
-           2. PROOF STRIP: ICON + NUMBER INFOGRAPHICS
-           ================================================================= -->
-      <section class="proof container" aria-label="Key numbers">
-        <div>
-          <strong>👥 3 – 5</strong>
-          <span>Core daily friends (80% of all messages you send)</span>
-        </div>
-        <div>
-          <strong>🪑 10 – 15</strong>
-          <span>Extended squad (Lunch table, gaming crew, club)</span>
-        </div>
-        <div>
-          <strong>🛡️ 99 Max</strong>
-          <span>Hard cap per group/channel so personal email never flags spam</span>
-        </div>
-        <div>
-          <strong>♻️ $0 / mo</strong>
-          <span>Recycled email servers = zero backend bills forever</span>
-        </div>
-      </section>
-
-      <!-- =================================================================
-           3. THE HOMEWORK: MICRO-GROUPS VS BIG TECH (INFOGRAPHIC)
-           ================================================================= -->
-      <section id="micro-groups" class="section container">
-        <div class="section-head">
-          <p class="eyebrow">THE SOCIOLOGY HOMEWORK</p>
-          <h2>How many people do you <em>actually</em> message every day?</h2>
-          <p class="sub">
-            Anthropology (Dunbar’s number) &amp; Pew Research prove teen life happens in
-            <strong>tiny high-trust micro-groups</strong>—not 2-billion-stranger ad networks.
-          </p>
-        </div>
-
-        <div class="dunbar-infographic">
-          <article class="dunbar-ring ring-core">
-            <header class="ring-head">
-              <span class="ring-icon" aria-hidden="true">💎</span>
-              <span class="ring-count">3 – 5</span>
-            </header>
-            <h3>Core Ride-or-Die Clique</h3>
-            <p>66% of teens have 1–4 best friends. Over 80% of your daily texts happen right here.</p>
-            <footer class="ring-tag">Daily High-Frequency Chat</footer>
-          </article>
-
-          <article class="dunbar-ring ring-squad">
-            <header class="ring-head">
-              <span class="ring-icon" aria-hidden="true">🍕</span>
-              <span class="ring-count">10 – 15</span>
-            </header>
-            <h3>The Lunch Table / Squad</h3>
-            <p>Your gaming lobby, skate crew, band room, or robotics team. Tight enough to build together.</p>
-            <footer class="ring-tag">Group Burners &amp; IOUs</footer>
-          </article>
-
-          <article class="dunbar-ring ring-channel">
-            <header class="ring-head">
-              <span class="ring-icon" aria-hidden="true">📡</span>
-              <span class="ring-count">≤ 99</span>
-            </header>
-            <h3>Micro-Broadcast Channel</h3>
-            <p>Anonymous BCC story feed for your grade, club, or team without triggering email spam filters.</p>
-            <footer class="ring-tag">BCC Story Drops</footer>
-          </article>
-
-          <article class="dunbar-ring ring-bigtech">
-            <header class="ring-head">
-              <span class="ring-icon" aria-hidden="true">🚫</span>
-              <span class="ring-count">2.0B+</span>
-            </header>
-            <h3>Big Tech Ad Platforms</h3>
-            <p>Built for strangers, bots, and surveillance ads. Zero ability to customize for your friend group.</p>
-            <footer class="ring-tag">Why We Branch @me Instead</footer>
-          </article>
+      <!-- ==================== PROOF STRIP ==================== -->
+      <section class="container" aria-label="Scaffold Highlights">
+        <div class="proof">
+          <div>
+            <strong>Cleartext JSON</strong>
+            <span>Default outbound MIME for instant dev iteration</span>
+          </div>
+          <div>
+            <strong>PGP Interop</strong>
+            <span>Still decrypts encrypted peers via ATME/1.0</span>
+          </div>
+          <div>
+            <strong>6 Feature Labs</strong>
+            <span>Guided AI + Git builds from simple back to full</span>
+          </div>
+          <div>
+            <strong>$0 Infrastructure</strong>
+            <span>Runs locally with Vite &amp; pushes to Cloudflare Pages</span>
+          </div>
         </div>
       </section>
 
-      <!-- =================================================================
-           4. POPULAR SQUAD BRANCHES & MODS SHOWCASE (CHOICE / CONTENT CARDS)
-           ================================================================= -->
-      <section id="branches" class="section container">
+      <!-- ==================== ARCHITECTURE ==================== -->
+      <section id="architecture" class="section container">
         <div class="section-head">
-          <p class="eyebrow">COMMUNITY SQUAD BLUEPRINTS</p>
-          <h2>Most widely used <code>@me</code> branches &amp; mods.</h2>
+          <span class="eyebrow">1. Clean Starting Line</span>
+          <h2>What Is Inside <code>@me/simple</code>?</h2>
           <p class="sub">
-            Every branch below speaks <code>ATME/1.0</code> so they can all text each other—plus custom AI-coded powers for their specific squad.
+            Great software starts with a minimal, well-typed foundation. Notice what
+            we intentionally removed—and how cleanly the core stays interoperable.
           </p>
         </div>
 
-        <div class="branch-showcase-grid">
-          <article class="branch-card featured-branch">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">🔥</span>
-              <div class="branch-meta">
-                <code>@me/core (main)</code>
-                <span class="branch-pill">Base Trunk</span>
-              </div>
-            </header>
-            <h3>The Official Blueprint</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>🔥 20s Cascade Burner</span>
-                <span>🪙 Split IOU Ledger</span>
-                <span>📡 Anon BCC Stories</span>
-                <span>🎨 Emoji Face Stamps</span>
-                <span>🙂 Boring Avatars</span>
-              </div>
-              <p class="prompt-box">
-                <strong>Base Repo:</strong> Clone this trunk to start your own squad branch in 60 seconds.
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <a class="btn btn-small btn-primary" href="../index.html">Try @me/core Live</a>
-            </footer>
+        <div class="arch-grid">
+          <article class="arch-card">
+            <span class="arch-tag">src/protocol/mimeBuilder.ts</span>
+            <h3>⚡ Fast Cleartext JSON Outbound</h3>
+            <p>
+              Messages serialize as UTF-8 JSON inside
+              <code>application/vnd.atme.packet+json</code> (<code>atme-packet.json</code>)
+              instead of blocking on heavy OpenPGP key locks during UI prototyping.
+            </p>
           </article>
 
-          <article class="branch-card">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">🕹️</span>
-              <div class="branch-meta">
-                <code>@me/arcade-squad</code>
-                <span class="branch-pill">5-Friend Gaming</span>
-              </div>
-            </header>
-            <h3>1v1 Chat Bubble Mini-Games</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>⚔️ Pixel Duel</span>
-                <span>🎲 D20 Roller</span>
-                <span>🏆 IOU Wagers</span>
-              </div>
-              <p class="prompt-box">
-                <strong>🤖 AI Prompt:</strong> “Add a 1v1 Rock-Paper-Scissors &amp; D20 roller inside <code>ATME/1.0</code> chat bubbles.”
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
-            </footer>
+          <article class="arch-card">
+            <span class="arch-tag">src/protocol/mimeParser.ts</span>
+            <h3>🤝 Encrypted Peer Interoperability</h3>
+            <p>
+              Friends on encrypted <code>@me</code> branches still reach you seamlessly.
+              <code>inspectAndDecryptEmail()</code> accepts both cleartext JSON and
+              OpenPGP <code>application/vnd.atme.packet+pgp</code> packets.
+            </p>
           </article>
 
-          <article class="branch-card">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">🧋</span>
-              <div class="branch-meta">
-                <code>@me/lunch-table</code>
-                <span class="branch-pill">8-Friend Crew</span>
-              </div>
-            </header>
-            <h3>Boba Splitter &amp; Wheel Decider</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>🎡 Spin Wheel</span>
-                <span>🍕 1-Tap Snack IOUs</span>
-                <span>⏱️ Bell Countdown</span>
-              </div>
-              <p class="prompt-box">
-                <strong>🤖 AI Prompt:</strong> “Add 1-tap Boba &amp; Pizza IOU buttons and a lunch spot spin wheel.”
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
-            </footer>
+          <article class="arch-card">
+            <span class="arch-tag">src/transport/oauthPortal.ts</span>
+            <h3>🔑 Hardened 1-Click Google OAuth</h3>
+            <p>
+              Built-in GIS token flow, Client ID validation to catch accidental
+              <code>GOCSPX-</code> secrets before Google returns
+              <code>Error 401</code>, plus redirect-hash recovery if popups block.
+            </p>
           </article>
 
-          <article class="branch-card">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">🎸</span>
-              <div class="branch-meta">
-                <code>@me/band-room</code>
-                <span class="branch-pill">4-Piece Band</span>
-              </div>
-            </header>
-            <h3>Voice Riff Loops &amp; Synth Pad</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>🎹 8-Bit Synth</span>
-                <span>🎙️ Riff Stems</span>
-                <span>🥁 BPM Metronome</span>
-              </div>
-              <p class="prompt-box">
-                <strong>🤖 AI Prompt:</strong> “Add a WebAudio synth pad &amp; BPM badge to voice notes.”
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
-            </footer>
-          </article>
-
-          <article class="branch-card">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">⚡</span>
-              <div class="branch-meta">
-                <code>@me/study-vault</code>
-                <span class="branch-pill">Study Group</span>
-              </div>
-            </header>
-            <h3>Flashcard Drops &amp; Quiz Burners</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>🃏 Flip Cards</span>
-                <span>🔥 20s Hints</span>
-                <span>🪙 Homework Bounties</span>
-              </div>
-              <p class="prompt-box">
-                <strong>🤖 AI Prompt:</strong> “Add flip-card study decks that sync over encrypted email.”
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
-            </footer>
-          </article>
-
-          <article class="branch-card">
-            <header class="branch-card-head">
-              <span class="branch-emoji" aria-hidden="true">🛹</span>
-              <div class="branch-meta">
-                <code>@me/skate-spots</code>
-                <span class="branch-pill">After-School Crew</span>
-              </div>
-            </header>
-            <h3>Spot Pins &amp; Trick Clip Stories</h3>
-            <div class="branch-content">
-              <div class="icon-feature-pills">
-                <span>📍 Spot Radar</span>
-                <span>📸 Stamped Clips</span>
-                <span>📡 Crew BCC Feed</span>
-              </div>
-              <p class="prompt-box">
-                <strong>🤖 AI Prompt:</strong> “Add a skate spot check-in card with 1-tap ‘At the park’ status.”
-              </p>
-            </div>
-            <footer class="branch-footer">
-              <span class="compat-badge">✓ ATME/1.0 Compatible</span>
-            </footer>
+          <article class="arch-card">
+            <span class="arch-tag">Zero Feature Bloat</span>
+            <h3>🧹 Focused Core Messaging UX</h3>
+            <p>
+              Clean messaging, voice notes, camera photos, DMs, 99-user groups, and BCC
+              channels—with Burners, Polls, IOUs, Stickers, and unread lines extracted
+              into educational labs below.
+            </p>
           </article>
         </div>
       </section>
 
-      <!-- =================================================================
-           5. VISUAL GIT + AI WORKFLOW (WHAT IS VERSION CONTROL?)
-           ================================================================= -->
-      <section id="git-ai" class="section container">
+      <!-- ==================== AI + GIT PLAYBOOK ==================== -->
+      <section id="git-workflow" class="section container">
         <div class="section-head">
-          <p class="eyebrow">LEARN VERSION CONTROL + AI CODING</p>
-          <h2>How Git branching + AI works (in plain visual icons).</h2>
+          <span class="eyebrow">2. Best Practices</span>
+          <h2>The AI Coding + Git Version Control Loop</h2>
           <p class="sub">
-            Think of <strong>Git</strong> like video-game save files and parallel universes.
-            You never break the main app—you branch your own world and let AI write the code.
+            AI writes code fastest when you give it tight boundaries and Git safety
+            nets. Follow this 4-step rhythm for every feature you add.
           </p>
         </div>
 
-        <!-- Visual Git Branch Diagram -->
         <div class="git-diagram-card">
-          <div class="git-track git-main-track">
-            <span class="git-track-label">🌳 <code>main</code> (@me/core ATME/1.0 Trunk)</span>
+          <div class="git-track">
+            <span class="git-track-label">Stable Base: <code>simple</code></span>
             <div class="git-nodes">
-              <span class="git-node">● OpenPGP</span>
+              <span class="git-node">init scaffold</span>
               <span class="git-line"></span>
-              <span class="git-node">● 20s Burner</span>
+              <span class="git-node">google oauth fix</span>
               <span class="git-line"></span>
-              <span class="git-node">● IOUs &amp; Channels</span>
-              <span class="git-line"></span>
-              <span class="git-node">● Boring Avatars</span>
+              <span class="git-node">10/10 vitest pass</span>
             </div>
           </div>
-
-          <div class="git-fork-connector" aria-hidden="true">
-            <span>⤵ <code>git checkout -b my-squad</code> (Your safe playground!)</span>
+          <div class="git-fork-connector">
+            ↳ git checkout -b feat/in-chat-polls &nbsp;(isolate each AI experiment!)
           </div>
-
-          <div class="git-track git-squad-track">
-            <span class="git-track-label">🌿 <code>my-squad</code> (Your 5-Friend Custom Branch)</span>
+          <div class="git-track">
+            <span class="git-track-label">Feature Branch: <code>feat/*</code></span>
             <div class="git-nodes">
-              <span class="git-node squad-node">🤖 Prompt AI</span>
+              <span class="git-node squad-node">write type + parser</span>
               <span class="git-line squad-line"></span>
-              <span class="git-node squad-node">💾 <code>git commit</code> (Save Point)</span>
+              <span class="git-node squad-node">add vitest check</span>
               <span class="git-line squad-line"></span>
-              <span class="git-node squad-node">🚀 <code>git push</code> (Auto-Deploy)</span>
+              <span class="git-node squad-node">wire React UI</span>
               <span class="git-line squad-line"></span>
-              <span class="git-node squad-node">📲 Friends Scan QR</span>
+              <span class="git-node squad-node">git commit &amp; merge</span>
             </div>
           </div>
         </div>
 
-        <!-- 4 Visual Action Cards to Follow Along -->
-        <div class="ai-steps-grid">
-          <article class="ai-step-card">
-            <header class="ai-step-head">
-              <span class="ai-step-num">01</span>
-              <span class="ai-step-icon" aria-hidden="true">🍴</span>
-            </header>
-            <h3>Fork &amp; Branch</h3>
-            <p>Ask your AI IDE: <em>“Create a new git branch called <code>my-squad</code>.”</em> If AI messes up, one click rewinds to your last save point.</p>
-            <footer><code>git checkout -b my-squad</code></footer>
+        <div class="git-best-grid">
+          <article class="git-rule-card">
+            <span class="git-rule-num">RULE 01</span>
+            <h3>One Feature Per Branch</h3>
+            <p>
+              Never ask AI to overhaul 5 systems at once on <code>simple</code>. Run
+              <code>git checkout -b feat/my-feature</code> first so you can revert with
+              one command if an experiment goes sideways.
+            </p>
           </article>
 
-          <article class="ai-step-card">
-            <header class="ai-step-head">
-              <span class="ai-step-num">02</span>
-              <span class="ai-step-icon" aria-hidden="true">🏷️</span>
-            </header>
-            <h3>Edit Branch Manifest</h3>
-            <p>Open <code>src/protocol/branchManifest.ts</code>. Change your squad name, icon, and active mods in one beginner-friendly file.</p>
-            <footer><code>branchManifest.ts</code></footer>
+          <article class="git-rule-card">
+            <span class="git-rule-num">RULE 02</span>
+            <h3>Point AI to Protocol Contracts First</h3>
+            <p>
+              Reference exact files (<code>ATME_PROTOCOL.md</code>,
+              <code>src/protocol/types.ts</code>, <code>src/protocol/mimeParser.ts</code>)
+              so AI extends existing interfaces cleanly instead of duplicating logic.
+            </p>
           </article>
 
-          <article class="ai-step-card">
-            <header class="ai-step-head">
-              <span class="ai-step-num">03</span>
-              <span class="ai-step-icon" aria-hidden="true">🧪</span>
-            </header>
-            <h3>Verify ATME/1.0</h3>
-            <p>Tell AI: <em>“Run <code>npx vitest run</code> to make sure our new feature still passes all 12 <code>ATME/1.0</code> encryption tests.”</em></p>
-            <footer><code>12 / 12 Tests Pass ✓</code></footer>
+          <article class="git-rule-card">
+            <span class="git-rule-num">RULE 03</span>
+            <h3>Verify With Types &amp; Unit Tests</h3>
+            <p>
+              Require AI to add a test in <code>src/protocol.test.ts</code> and prove
+              <code>npx vitest run</code> + <code>npm run build</code> succeed before
+              committing.
+            </p>
           </article>
 
-          <article class="ai-step-card">
-            <header class="ai-step-head">
-              <span class="ai-step-num">04</span>
-              <span class="ai-step-icon" aria-hidden="true">☁️</span>
-            </header>
-            <h3>Push &amp; QR Share</h3>
-            <p>Push your branch to GitHub. Cloudflare Pages builds a live link in 45 seconds so your friends can scan &amp; install.</p>
-            <footer><code>git push origin my-squad</code></footer>
-          </article>
-        </div>
-      </section>
-
-      <!-- =================================================================
-           6. THE $0 TEEN BUILDER TOOLCHAIN (ICON GRID)
-           ================================================================= -->
-      <section id="stack" class="section container">
-        <div class="section-head">
-          <p class="eyebrow">THE COMPLETE $0 TOOLCHAIN</p>
-          <h2>6 free tools to go from idea → live on your friends’ phones.</h2>
-        </div>
-
-        <div class="toolchain-grid">
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">🐙</span>
-            <h3>GitHub</h3>
-            <p>Stores your repo in the cloud and hosts every friend’s branch tree.</p>
-            <footer class="tool-tag">Cloud Code Vault</footer>
-          </article>
-
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">🌿</span>
-            <h3>Git</h3>
-            <p>Version control time-machine: branch, commit save points, and merge.</p>
-            <footer class="tool-tag">Save Points &amp; Branches</footer>
-          </article>
-
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">🤖</span>
-            <h3>AI Coding Assistant</h3>
-            <p>Antigravity, Cursor, Claude, or Gemini—writes React &amp; TypeScript from plain English.</p>
-            <footer class="tool-tag">Prompt → Code</footer>
-          </article>
-
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">⚡</span>
-            <h3>Vite + React</h3>
-            <p>Instant hot-reload phone preview on your laptop or Chromebook.</p>
-            <footer class="tool-tag">localhost:5173</footer>
-          </article>
-
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">☁️</span>
-            <h3>Cloudflare Pages</h3>
-            <p>Auto-deploys every Git branch to a fast global <code>https://</code> URL for free.</p>
-            <footer class="tool-tag">Auto Branch Previews</footer>
-          </article>
-
-          <article class="tool-card">
-            <span class="tool-icon" aria-hidden="true">✉️</span>
-            <h3>Recycled Email + PGP</h3>
-            <p>Turns Gmail, Outlook, Proton, and iCloud into a $0 encrypted chat router.</p>
-            <footer class="tool-tag">Zero Backend Servers</footer>
+          <article class="git-rule-card">
+            <span class="git-rule-num">RULE 04</span>
+            <h3>Commit Small, Clean Diffs</h3>
+            <p>
+              Run <code>git status</code> and <code>git diff</code> before every
+              commit. Reject leftover commented-out code, debug logs, or unused CSS
+              selectors.
+            </p>
           </article>
         </div>
       </section>
 
-      <!-- =================================================================
-           7. ATME/1.0 PROTOCOL & RECYCLED EMAIL INFOGRAPHIC
-           ================================================================= -->
-      <section id="protocol" class="section container">
+      <!-- ==================== 6 INTERACTIVE AI FEATURE LABS ==================== -->
+      <section id="feature-labs" class="section container">
         <div class="section-head">
-          <p class="eyebrow">RECYCLING 1982 EMAIL TECH</p>
-          <h2>The <code>ATME/1.0</code> Open Interoperability Standard.</h2>
+          <span class="eyebrow">3. Hands-On Curriculum</span>
+          <h2>Rebuild Advanced Features Step by Step</h2>
           <p class="sub">
-            Why rent expensive cloud servers when every human already has a free email account?
-            <code>ATME/1.0</code> recycles old-school email into an encrypted packet pipe.
+            Pick a lab below, copy the Git setup + AI prompt, and practice extending
+            <code>@me/simple</code> using clean software architecture.
           </p>
         </div>
 
-        <div class="recycle-showcase">
-          <div class="recycle-col old-tech">
-            <div class="r-header">
-              <span class="r-icon" aria-hidden="true">📬</span>
-              <div>
-                <strong>1982 Email Server</strong>
-                <small>Gmail &bull; Outlook &bull; iCloud &bull; Proton</small>
-              </div>
-            </div>
-            <ul class="r-list">
-              <li><span>🆓</span> <div><strong>100% Free Forever:</strong> Already runs globally with 0 server bills.</div></li>
-              <li><span>🏫</span> <div><strong>Works on School Wi-Fi:</strong> Email ports stay open on Chromebooks &amp; iPads.</div></li>
-              <li><span>🛡️</span> <div><strong>99-User Anti-Spam Cap:</strong> Sized for real friend squads &amp; BCC channels.</div></li>
-            </ul>
+        <div class="labs-shell">
+          <div class="lab-tabs" role="tablist" aria-label="AI Coding Feature Labs">
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn is-active"
+              data-lab="lab-encryption"
+              aria-selected="true"
+            >
+              🔒 Lab 1: Outbound PGP
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn"
+              data-lab="lab-burners"
+              aria-selected="false"
+            >
+              🔥 Lab 2: 20s Burners
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn"
+              data-lab="lab-polls"
+              aria-selected="false"
+            >
+              📊 Lab 3: In-Chat Polls
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn"
+              data-lab="lab-ious"
+              aria-selected="false"
+            >
+              🪙 Lab 4: Honor IOUs
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn"
+              data-lab="lab-stickers"
+              aria-selected="false"
+            >
+              😎 Lab 5: Camera Stickers
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="lab-tab-btn"
+              data-lab="lab-webrtc"
+              aria-selected="false"
+            >
+              📹 Lab 6: P2P Audio/Video
+            </button>
           </div>
 
-          <div class="recycle-arrow" aria-hidden="true">
-            <span class="recycle-badge">♻️ ATME/1.0</span>
-            <span class="arrow-glyph">➔</span>
-          </div>
+          <!-- LAB 1: ENCRYPTION -->
+          <div id="lab-encryption" class="lab-panel is-active" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 01 &bull; Security &amp; MIME Layer</span>
+              <h3>Re-Enable Outbound OpenPGP Encryption</h3>
+              <p>
+                <code>@me/simple</code> already includes
+                <code>src/crypto/openpgpService.ts</code> for inbound interoperability.
+                Learn how to wire Curve25519 asymmetric encryption back into outbound
+                packet dispatch without duplicating MIME framing logic.
+              </p>
+              <div class="lab-files-list">
+                <code>src/crypto/openpgpService.ts</code>
+                <code>src/protocol/mimeBuilder.ts</code>
+                <code>src/App.tsx</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>Protocol skill:</strong> Encrypt serialized
+                  <code>DcpPacket</code> JSON with
+                  <code>encryptDcpPayloadAsymmetric()</code> before calling
+                  <code>buildDcpMimeEmail({ packet, encryptedPacketArmored })</code>.
+                </li>
+                <li>
+                  <strong>Edge case check:</strong> Fall back cleanly to invite-key or
+                  cleartext JSON when a peer lacks a public key yet.
+                </li>
+                <li>
+                  <strong>Verify:</strong> Assert
+                  <code>rawMime</code> contains
+                  <code>-----BEGIN PGP MESSAGE-----</code> in
+                  <code>src/protocol.test.ts</code>.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-1">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-1">git checkout simple && git pull
+git checkout -b feat/outbound-openpgp
+# After AI edits & tests pass:
+npx vitest run && npm run build
+git add src/ && git commit -m "feat: enable outbound OpenPGP packet encryption"</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-1">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-1">Read ATME_PROTOCOL.md, src/crypto/openpgpService.ts, src/protocol/mimeBuilder.ts, and dispatchDcpEmailPacket in src/App.tsx.
 
-          <div class="recycle-col new-tech">
-            <div class="r-header">
-              <span class="r-icon" aria-hidden="true">⚡</span>
-              <div>
-                <strong>2026 Squad Messenger</strong>
-                <small>Encrypted &bull; Ephemeral &bull; AI-Branchable</small>
+When sending a packet in dispatchDcpEmailPacket, if recipient users have a publicKeyArmored and activeUser has pgpKeyPair, encrypt the packet JSON with encryptDcpPayloadAsymmetric(), set encryptionMode to 'openpgp-asymmetric', and pass encryptedPacketArmored to buildDcpMimeEmail(). Keep cleartext-json as fallback for peers without keys. Add a Vitest test in src/protocol.test.ts and run npx vitest run.</pre>
               </div>
             </div>
-            <ul class="r-list">
-              <li><span>🔐</span> <div><strong>Curve25519 OpenPGP:</strong> Email providers only see locked ciphertext.</div></li>
-              <li><span>🚫</span> <div><strong>3-Gate Inbox Filter:</strong> Ignores 100% of normal emails; only reads <code>X-ATME-Protocol: ATME/1.0</code>.</div></li>
-              <li><span>🧩</span> <div><strong><code>branchMod</code> Slot:</strong> Custom branch mini-apps ride inside standard packets with automatic fallback text.</div></li>
-            </ul>
+          </div>
+
+          <!-- LAB 2: BURNERS -->
+          <div id="lab-burners" class="lab-panel" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 02 &bull; Pure State Machines &amp; Timers</span>
+              <h3>Build 20-Second Cascade Burner Chats</h3>
+              <p>
+                Learn why complex timing logic belongs in a pure, framework-free
+                TypeScript helper module instead of tangled React
+                <code>useEffect</code> intervals—making it trivial to unit-test.
+              </p>
+              <div class="lab-files-list">
+                <code>src/protocol/types.ts</code>
+                <code>src/protocol/burnerCascade.ts</code>
+                <code>src/App.tsx</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>Architecture lesson:</strong> Write a pure function
+                  <code>computeViewerBurnerCascade(messages, viewer, nowMs, ttl)</code>
+                  taking timestamps as input rather than reading <code>Date.now()</code>
+                  inside components.
+                </li>
+                <li>
+                  <strong>Per-viewer clock:</strong> Only start the 20s countdown after
+                  the recipient records a view event.
+                </li>
+                <li>
+                  <strong>Verify:</strong> Write deterministic millisecond tests for T=0s,
+                  T=20s, and T=40s transitions in Vitest.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-2">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-2">git checkout -b feat/cascade-burner-chats
+# Work incrementally: pure engine -> Vitest -> UI
+git add src/protocol/burnerCascade.ts src/protocol.test.ts
+git commit -m "test(burner): add deterministic cascade timer logic"</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-2">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-2">Let's design a modular Burner Chat feature on this branch.
+1. Create src/protocol/burnerCascade.ts with a pure function computeBurnerCascadeTimings(messages, nowMs, ttlSeconds = 20) where messages expire sequentially (20s per message after viewed).
+2. Write unit tests in src/protocol.test.ts verifying queued vs active vs expired states at 0s, 20s, and 40s.
+3. Once tests pass, add an optional isBurner toggle when starting a DM in src/App.tsx and render countdown badges cleanly.</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- LAB 3: POLLS -->
+          <div id="lab-polls" class="lab-panel" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 03 &bull; Event-Sourced Packet Reduction</span>
+              <h3>Add In-Chat Interactive Polls</h3>
+              <p>
+                Every message in <code>@me/simple</code> is an immutable email packet.
+                Learn event sourcing—reducing <code>chat.poll</code> + multiple
+                <code>chat.poll-vote</code> packets into live percentage bars on screen.
+              </p>
+              <div class="lab-files-list">
+                <code>src/protocol/types.ts</code>
+                <code>src/App.tsx</code>
+                <code>src/styles.css</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>Deduplication:</strong> Enforce one latest vote per
+                  <code>sender.email</code> inside your stream reducer so double-clicks
+                  never skew results.
+                </li>
+                <li>
+                  <strong>Accessibility:</strong> Use native semantic
+                  <code>&lt;button&gt;</code> elements with
+                  <code>aria-pressed</code> state and a visible percentage fill bar.
+                </li>
+                <li>
+                  <strong>Clean modal hygiene:</strong> Use native
+                  <code>&lt;dialog closedby="any"&gt;</code> for creating poll options.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-3">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-3">git checkout -b feat/in-chat-polls
+npx vitest run && npm run build
+git add src/ && git commit -m "feat: add event-sourced ATME/1.0 in-chat polls"</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-3">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-3">Read src/protocol/types.ts and freeflowStream in src/App.tsx.
+
+Implement interactive Polls using chat.poll and chat.poll-vote packets:
+1. Reduce incoming chat.poll-vote packets by sender email (keeping each user's latest choice per pollId).
+2. Add a Poll button in the composer '+' menu opening a <dialog closedby="any"> form (question + 2–5 choices).
+3. Render clickable vote option buttons with live percentage progress inside the chat bubble.</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- LAB 4: IOUs -->
+          <div id="lab-ious" class="lab-panel" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 04 &bull; Double-Entry Ledger Reduction</span>
+              <h3>Build a Peer-to-Peer Honor IOU Ledger</h3>
+              <p>
+                Practice ledger math without a database! Derive a peer's net balance
+                strictly from signed <code>chat.iou</code> email packets using explicit
+                integer arithmetic.
+              </p>
+              <div class="lab-files-list">
+                <code>src/protocol/types.ts</code>
+                <code>src/App.tsx</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>State invariant:</strong> Only the person who owes
+                  (debtor) issues an IOU, and only the creditor marks a settlement
+                  (<code>collect</code>)—preventing unilateral debt creation.
+                </li>
+                <li>
+                  <strong>Pure calculation:</strong> Compute <code>netPosition</code> in
+                  a tested <code>useMemo</code> or helper module from immutable packet
+                  history.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-4">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-4">git checkout -b feat/honor-iou-ledger
+npx tsc --noEmit && npx vitest run
+git commit -am "feat: add bilateral ATME/1.0 IOU ledger"</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-4">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-4">Create a pure helper src/protocol/iouLedger.ts that takes DcpPacket[] (type === 'chat.iou') and activeUserEmail, and returns per-peer net balances.
+Enforce integer whole numbers and bilateral rules (send-iou increases peer's claim on sender; collect reduces debtor's balance when signed by creditor).
+Write Vitest tests covering issue + partial collect + full settle, then add an IOU modal entry in the avatar menu.</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- LAB 5: CAMERA STICKERS -->
+          <div id="lab-stickers" class="lab-panel" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 05 &bull; DOM Pointer Events + Canvas 2D</span>
+              <h3>Add Drag-and-Drop Camera Emoji Stickers</h3>
+              <p>
+                Learn browser Pointer Events (<code>onPointerDown</code>,
+                <code>onPointerMove</code>, normalized coordinates) and HTML5
+                <code>&lt;canvas&gt;</code> compositing to bake stickers directly into
+                the photo PNG/JPEG attachment before sending.
+              </p>
+              <div class="lab-files-list">
+                <code>src/App.tsx (cameraCaptureDialogRef)</code>
+                <code>src/styles.css</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>Responsive math:</strong> Store coordinates as percentages
+                  (<code>xPct</code>, <code>yPct</code>) so dragging works identically on
+                  mobile screens and desktop modals.
+                </li>
+                <li>
+                  <strong>Bake on send:</strong> Draw base image onto offscreen
+                  <code>&lt;canvas&gt;</code>, then render <code>ctx.fillText()</code>
+                  stickers scaled proportionally to <code>canvas.width</code>.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-5">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-5">git checkout -b feat/camera-emoji-stickers
+npm run build
+git commit -am "feat: composite draggable emoji stickers onto camera photos"</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-5">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-5">In src/App.tsx inside cameraCaptureDialogRef, allow adding draggable & resizable emoji stickers on top of capturedPhotoDataUrl.
+Store each sticker as { id, emoji, xPct, yPct, sizePx }. Use pointer capture so dragging stays smooth, add a size slider + delete button, and composite the stickers onto an HTML5 <canvas> before sending via dispatchDcpEmailPacket().</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- LAB 6: P2P AUDIO & VIDEO -->
+          <div id="lab-webrtc" class="lab-panel" role="tabpanel">
+            <div class="lab-meta-col">
+              <span class="lab-kicker">Lab 06 &bull; Real-Time Media &amp; Signaling</span>
+              <h3>Add Zero-Server P2P Live Audio &amp; Video</h3>
+              <p>
+                Email carries asynchronous packets cleanly, but live calls need WebRTC.
+                Learn how to pair <code>@me</code>'s <code>ATME/1.0</code> channel ID as
+                the signaling handshake or room seed with <strong>Trystero</strong> or
+                <strong>PeerJS</strong>—with zero custom backend server.
+              </p>
+              <div class="lab-files-list">
+                <code>src/protocol/types.ts</code>
+                <code>ATME_PROTOCOL.md</code>
+                <code>src/App.tsx</code>
+              </div>
+              <ul class="lab-checklist">
+                <li>
+                  <strong>Signaling via @me:</strong> Send a custom
+                  <code>chat.branch-mod</code> packet
+                  (<code>modId: 'webrtc-room'</code>) containing an ephemeral room ID and
+                  <code>fallbackBody</code> so friends join with one tap.
+                </li>
+                <li>
+                  <strong>Media capture:</strong> Use
+                  <code>navigator.mediaDevices.getUserMedia({ audio: true, video: true })</code>
+                  and clean up tracks on hangup.
+                </li>
+              </ul>
+            </div>
+            <div class="lab-code-col">
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>1. Git Branch Setup</span>
+                  <button type="button" class="copy-btn" data-copy-target="git-lab-6">
+                    Copy Git
+                  </button>
+                </div>
+                <pre id="git-lab-6">git checkout -b feat/p2p-webrtc-calls
+npm install trystero   # serverless WebRTC signaling over MQTT/Nostr/BitTorrent
+npm run build</pre>
+              </div>
+              <div class="code-card">
+                <div class="code-card-head">
+                  <span>2. Copy-Paste AI Prompt</span>
+                  <button type="button" class="copy-btn" data-copy-target="prompt-lab-6">
+                    Copy Prompt
+                  </button>
+                </div>
+                <pre id="prompt-lab-6">Read ATME_PROTOCOL.md and src/App.tsx. Add a live P2P call feature using WebRTC (trystero):
+1. Add a Video Call button in the chat header that dispatches an ATME/1.0 chat.branch-mod invite packet (modId: 'p2p-call', data: { roomId }) with a clean fallbackBody.
+2. Open a call <dialog> that captures getUserMedia({ audio: true, video: true }), connects peers in the shared roomId, and stops all MediaStream tracks cleanly when the dialog closes.</pre>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
-        <!-- Bottom CTA Card -->
+      <!-- ==================== GOOGLE OAUTH SETUP GUIDE ==================== -->
+      <section id="google-oauth" class="section container">
+        <div class="section-head">
+          <span class="eyebrow">4. Authentication Checklist</span>
+          <h2>Setting Up 1-Click Google Sign-In Without Errors</h2>
+          <p class="sub">
+            Google Cloud OAuth rejects misconfigured origins or pasted secrets with
+            <code>Error 401: invalid_client</code>. Use this checklist when testing on
+            your machine or deploying to Cloudflare Pages.
+          </p>
+        </div>
+
+        <div class="oauth-guide-grid">
+          <div class="oauth-panel">
+            <h3>Step-by-Step Google Cloud Console Setup</h3>
+            <ol class="lab-checklist">
+              <li>
+                Open <strong>Google Cloud Console &rarr; APIs &amp; Services &rarr;
+                Credentials</strong> &rarr; <strong>Create Credentials &rarr; OAuth
+                client ID</strong>.
+              </li>
+              <li>
+                Choose Application Type: <strong>Web application</strong>.
+              </li>
+              <li>
+                Under <strong>Authorized JavaScript origins</strong>, add:
+                <code>http://localhost:5173</code> (plus your live
+                <code>https://&lt;your-app&gt;.pages.dev</code> URL).
+              </li>
+              <li>
+                Under <strong>Authorized redirect URIs</strong>, add
+                <code>http://localhost:5173/</code> so mobile/popup-blocked fallback
+                recovery works seamlessly too.
+              </li>
+              <li>
+                Copy ONLY the <strong>Client ID</strong> (ends with
+                <code>.apps.googleusercontent.com</code>), paste it in Account Settings
+                &rarr; <em>Set Google OAuth Client ID</em> (or
+                <code>.env.local</code> as <code>VITE_GOOGLE_CLIENT_ID=...</code>).
+              </li>
+            </ol>
+
+            <a href="/?view=google-oauth&no_onboarding=1" class="btn btn-primary" style="align-self: flex-start">
+              🔑 Open OAuth Portal &amp; Client ID Tester
+            </a>
+          </div>
+
+          <div class="oauth-panel">
+            <h3>Common OAuth Mistakes Caught Automatically</h3>
+
+            <div class="oauth-fix-box">
+              <strong>❌ Error 401: invalid_client</strong>
+              <p style="margin-top: 6px">
+                Happens when a <strong>Client Secret</strong>
+                (<code>GOCSPX-...</code>), a stray URL/quote, or a deleted Cloud
+                Client ID is entered. <code>@me/simple</code> now runs
+                <code>validateGoogleClientId()</code> before calling Google!
+              </p>
+            </div>
+
+            <div class="oauth-fix-box">
+              <strong>❌ Using http://127.0.0.1:5173 instead of localhost</strong>
+              <p style="margin-top: 6px">
+                Google blocks raw loopback IP JS origins by default. Always run and
+                open Vite on <code>http://localhost:5173</code>!
+              </p>
+            </div>
+
+            <div class="oauth-ok-box">
+              <strong>✅ Testing Offline / Without Cloud Credentials</strong>
+              <p style="margin-top: 6px">
+                Leave the Client ID blank and click
+                <strong>Continue with Google</strong> to use the built-in 1-Tap Demo
+                Account Chooser immediately.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== FINAL CTA ==================== -->
+      <section class="section container">
         <div class="final-cta-banner">
           <div>
-            <p class="eyebrow">READY TO FORK YOUR SQUAD OS?</p>
-            <h3>Open the live <code>@me</code> app or read <code>BUILD_WITH_AI.md</code> in the repo.</h3>
+            <h2>Ready to fork <code>@me/simple</code> and build your first feature?</h2>
+            <p class="sub" style="margin-top: 6px">
+              Run <code>npm run dev</code>, test Google Sign-In, pick one of the 6 AI
+              Labs above, and commit your first branch.
+            </p>
           </div>
           <div class="cta-row">
-            <a class="btn btn-primary" href="../index.html">Launch @me App →</a>
-            <a class="btn btn-ghost" href="../BUILD_WITH_AI.md">📘 Read AI Builder Guide</a>
-            <a class="btn btn-ghost" href="../ATME_PROTOCOL.md">⚡ ATME/1.0 Spec</a>
+            <a href="/?no_onboarding=1" class="btn btn-primary">🚀 Launch App</a>
+            <a href="#feature-labs" class="btn btn-ghost">🧪 Pick a Lab</a>
           </div>
         </div>
       </section>
@@ -615,13 +810,62 @@
 
     <footer class="site-footer container">
       <div class="footer-inner">
-        <div class="brand">
-          <img src="../public/favicon.svg" alt="@me" width="24" height="24" />
-          <span>@me</span>
-          <span class="brand-pill">ATME/1.0</span>
-        </div>
-        <p>Democratizing messaging apps for 3–15 friend micro-groups &bull; Recycled Email + OpenPGP</p>
+        <span>
+          <strong>@me/simple</strong> &bull; Educational AI &amp; Git Scaffold over
+          <code>ATME/1.0</code>
+        </span>
+        <nav aria-label="Footer">
+          <a href="#architecture">Architecture</a>
+          <a href="#git-workflow">Git Best Practices</a>
+          <a href="#feature-labs">Feature Labs</a>
+          <a href="#google-oauth">Google OAuth</a>
+          <a href="/?no_onboarding=1">Open App</a>
+        </nav>
       </div>
     </footer>
+
+    <script>
+      // Tab switching for the 6 Educational AI Feature Labs
+      const tabButtons = document.querySelectorAll('.lab-tab-btn');
+      const labPanels = document.querySelectorAll('.lab-panel');
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-lab');
+          tabButtons.forEach((b) => {
+            b.classList.remove('is-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          labPanels.forEach((panel) => {
+            panel.classList.toggle('is-active', panel.id === targetId);
+          });
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', 'true');
+        });
+      });
+
+      // One-click Copy for Git commands and AI prompts
+      document.querySelectorAll('.copy-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const targetId = btn.getAttribute('data-copy-target');
+          const sourceEl = targetId ? document.getElementById(targetId) : null;
+          if (!sourceEl) return;
+
+          const text = sourceEl.textContent || '';
+          const prevLabel = btn.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = 'Copied ✓';
+            btn.classList.add('is-copied');
+            setTimeout(() => {
+              btn.textContent = prevLabel;
+              btn.classList.remove('is-copied');
+            }, 1800);
+          } catch {
+            btn.textContent = 'Select & Ctrl+C';
+          }
+        });
+      });
+    </script>
   </body>
 </html>
