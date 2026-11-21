@@ -26,7 +26,6 @@ import {
   Paperclip,
   Plus,
   QrCode,
-  Radio,
   RefreshCw,
   Search,
   Send,
@@ -72,7 +71,6 @@ import {
 } from './store/seedEmails';
 import {
   clearIdbDatabase,
-  cryptographicScrubPeerAndEmailsInIdb,
   loadTransportEmailsFromIdb,
   loadUserIdentitiesFromIdb,
   saveTransportEmailsToIdb,
@@ -378,7 +376,7 @@ export function App() {
   const [users, setUsers] = useState<UserIdentity[]>(INITIAL_USERS);
   const [channels, setChannels] = useState<DcpChannelMeta[]>(() => {
     try {
-      const raw = localStorage.getItem('atme_simple_channels_v1');
+      const raw = localStorage.getItem('atme_simple_channels_v2');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -397,7 +395,7 @@ export function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('atme_simple_channels_v1', JSON.stringify(channels));
+      localStorage.setItem('atme_simple_channels_v2', JSON.stringify(channels));
     } catch {
       // ignore
     }
@@ -1002,18 +1000,16 @@ export function App() {
   const safetyDialogTitleId = useId();
   const cameraDialogTitleId = useId();
 
-  // New Group / Channel or DM Creation Form State
+  // New Group or DM Creation Form State
   const [newChatName, setNewChatName] = useState<string>('');
   const [newChatRecipientEmail, setNewChatRecipientEmail] =
     useState<string>('');
   const [selectedGroupMemberEmails, setSelectedGroupMemberEmails] = useState<
     string[]
   >([]);
-  const [newChatType, setNewChatType] = useState<
-    'workspace-channel' | 'dm' | 'broadcast-channel'
-  >('workspace-channel');
-  const [newChannelDescription, setNewChannelDescription] =
-    useState<string>('');
+  const [newChatType, setNewChatType] = useState<'workspace-channel' | 'dm'>(
+    'workspace-channel'
+  );
 
   const activeUser = useMemo(
     () => users.find((u) => u.email === activeUserEmail) || users[0],
@@ -1369,14 +1365,8 @@ export function App() {
     } else if (viewParam === 'single-info') {
       setActiveChannelId('dm_alex_elena');
       groupInfoDialogRef.current?.showModal();
-    } else if (viewParam === 'new-channel') {
-      setNewChatType('broadcast-channel');
-      setSelectedGroupMemberEmails([]);
-      newChannelModalRef.current?.showModal();
     } else if (viewParam === 'add-menu') {
       setIsAddMenuOpen(true);
-    } else if (viewParam === 'broadcast') {
-      setActiveChannelId('ch_broadcast_skate_clips');
     } else if (viewParam === 'group') {
       groupInfoDialogRef.current?.showModal();
     } else {
@@ -1481,7 +1471,7 @@ export function App() {
 
       const seedVersion =
         typeof localStorage !== 'undefined'
-          ? localStorage.getItem('atme_simple_seed_v1')
+          ? localStorage.getItem('atme_simple_seed_v2')
           : 'true';
       const shouldReseed = seedVersion !== 'true';
 
@@ -1506,7 +1496,7 @@ export function App() {
       }
 
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('atme_simple_seed_v1', 'true');
+        localStorage.setItem('atme_simple_seed_v2', 'true');
         localStorage.setItem(
           'atme_whitelisted_emails',
           JSON.stringify(INITIAL_USERS.map((u) => u.email.toLowerCase()))
@@ -1742,23 +1732,6 @@ export function App() {
     const messages: FreeflowChatMessage[] = [];
     if (!activeChannel) return messages;
 
-    // If broadcast-channel, find the latest channelReactionTotals snapshot pushed by the creator
-    let latestBroadcastReactionTotals:
-      | Record<string, Record<string, number>>
-      | undefined;
-    if (activeChannel.type === 'broadcast-channel') {
-      for (let i = chronologicallySorted.length - 1; i >= 0; i--) {
-        const p = chronologicallySorted[i].decryptedPacket!;
-        if (
-          p.channel.id === activeChannel.id &&
-          p.payload.channelReactionTotals
-        ) {
-          latestBroadcastReactionTotals = p.payload.channelReactionTotals;
-          break;
-        }
-      }
-    }
-
     for (const item of chronologicallySorted) {
       const pkt = item.decryptedPacket!;
       if (pkt.channel.id !== activeChannel.id) continue;
@@ -1774,56 +1747,8 @@ export function App() {
         : undefined;
 
       const msgReceipts = receiptsByTargetId.get(pkt.payload.messageId) || [];
-
-      // Merge anonymous broadcast-channel reaction totals with direct reactions
-      let effectiveReactions =
+      const effectiveReactions =
         reactionsByTargetId.get(pkt.payload.messageId) || [];
-      if (activeChannel.type === 'broadcast-channel') {
-        const snapshotForMsg =
-          latestBroadcastReactionTotals?.[pkt.payload.messageId] ||
-          pkt.payload.channelReactionTotals?.[pkt.payload.messageId];
-        if (snapshotForMsg) {
-          const synthList: Array<{
-            emoji: string;
-            senderName: string;
-            senderEmail: string;
-          }> = [];
-          for (const [emoji, count] of Object.entries(snapshotForMsg)) {
-            for (let c = 0; c < count; c++) {
-              synthList.push({
-                emoji,
-                senderName: `Anon #${c + 1}`,
-                senderEmail: `anon_${c + 1}@bcc.local`,
-              });
-            }
-          }
-          // Also include active user's own pending reaction if not yet in creator's snapshot
-          const myDirectReactions = effectiveReactions.filter(
-            (r) =>
-              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase() ||
-              activeChannel.creatorEmail?.toLowerCase() ===
-                activeUser.email.toLowerCase()
-          );
-          for (const r of myDirectReactions) {
-            if (
-              activeChannel.creatorEmail?.toLowerCase() ===
-                activeUser.email.toLowerCase() &&
-              r.senderEmail.toLowerCase() !== activeUser.email.toLowerCase()
-            ) {
-              synthList.push(r);
-            } else if (
-              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
-            ) {
-              synthList.push({
-                emoji: r.emoji,
-                senderName: 'You (Anonymous via Creator)',
-                senderEmail: r.senderEmail,
-              });
-            }
-          }
-          effectiveReactions = synthList;
-        }
-      }
 
       messages.push({
         emailId: item.emailId,
@@ -2199,9 +2124,7 @@ export function App() {
           channel: ch,
           lastText:
             lastPacket?.payload.text ||
-            (ch.type === 'broadcast-channel'
-              ? ch.description || 'Broadcast Feed'
-              : ch.type === 'vault'
+            (ch.type === 'vault'
               ? 'Notes'
               : ch.type === 'dm'
               ? 'Chat'
@@ -2331,12 +2254,6 @@ export function App() {
     receiptStatus?: 'delivered' | 'read';
     attachments?: DcpAttachment[];
     linkPreview?: DcpLinkPreview;
-    channelReactionTotals?: Record<string, Record<string, number>>;
-    storyCard?: {
-      imageDataUrl?: string;
-      caption?: string;
-      badgeText?: string;
-    };
     vaultCategory?: 'note' | 'credential' | 'file' | 'snippet';
     memberUpdate?: {
       action: 'add' | 'remove';
@@ -2398,8 +2315,6 @@ export function App() {
           formatting: 'markdown',
           attachments: params.attachments,
           linkPreview: params.linkPreview,
-          channelReactionTotals: params.channelReactionTotals,
-          storyCard: params.storyCard,
           vaultCategory: params.vaultCategory,
           memberUpdate: params.memberUpdate,
         },
@@ -3390,70 +3305,6 @@ export function App() {
       `Sent ${pendingAttachments.length} attachment(s)`;
     const linkPreview = extractClientSideLinkPreview(cleanText);
 
-    // If activeChannel is a broadcast-channel and activeUser is the creator,
-    // aggregate all incoming subscriber reactions and push updated channelReactionTotals out to all BCC subscribers!
-    let nextChannelReactionTotals:
-      | Record<string, Record<string, number>>
-      | undefined;
-    let nextStoryCard:
-      | { imageDataUrl?: string; caption?: string; badgeText?: string }
-      | undefined;
-
-    if (
-      activeChannel.type === 'broadcast-channel' &&
-      activeChannel.creatorEmail?.toLowerCase() ===
-        activeUser.email.toLowerCase()
-    ) {
-      const mergedTotals: Record<string, Record<string, number>> = {};
-      for (const item of acceptedPackets) {
-        const p = item.decryptedPacket;
-        if (!p || p.channel.id !== activeChannel.id) continue;
-        if (p.payload.channelReactionTotals) {
-          for (const [mId, counts] of Object.entries(
-            p.payload.channelReactionTotals
-          )) {
-            mergedTotals[mId] = { ...(mergedTotals[mId] || {}), ...counts };
-          }
-        }
-      }
-      // Count any new 1-to-1 reactions sent to creator since the last snapshot
-      const directReactionsByMsg: Record<string, Record<string, number>> = {};
-      for (const item of acceptedPackets) {
-        const p = item.decryptedPacket;
-        if (
-          p &&
-          p.channel.id === activeChannel.id &&
-          p.type === 'chat.reaction' &&
-          p.payload.targetMessageId &&
-          p.payload.reactionEmoji
-        ) {
-          const mId = p.payload.targetMessageId;
-          const em = p.payload.reactionEmoji;
-          if (!directReactionsByMsg[mId]) directReactionsByMsg[mId] = {};
-          directReactionsByMsg[mId][em] =
-            (directReactionsByMsg[mId][em] || 0) + 1;
-        }
-      }
-      for (const [mId, counts] of Object.entries(directReactionsByMsg)) {
-        if (!mergedTotals[mId]) mergedTotals[mId] = {};
-        for (const [em, c] of Object.entries(counts)) {
-          mergedTotals[mId][em] = (mergedTotals[mId][em] || 0) + c;
-        }
-      }
-      nextChannelReactionTotals = mergedTotals;
-
-      const firstImgAtt = pendingAttachments.find((a) =>
-        a.mimeType.startsWith('image/')
-      );
-      if (firstImgAtt) {
-        nextStoryCard = {
-          imageDataUrl: firstImgAtt.encryptedData,
-          caption: cleanText,
-          badgeText: 'LIVE STORY • BCC',
-        };
-      }
-    }
-
     await dispatchDcpEmailPacket({
       channel: activeChannel,
       type: 'chat.message',
@@ -3462,8 +3313,6 @@ export function App() {
       attachments:
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
       linkPreview,
-      channelReactionTotals: nextChannelReactionTotals,
-      storyCard: nextStoryCard,
       vaultCategory:
         activeChannel.type === 'vault' ? vaultCategoryInput : undefined,
     });
@@ -3476,70 +3325,6 @@ export function App() {
     if (composerTextareaRef.current) {
       composerTextareaRef.current.style.height = '38px';
     }
-  }
-
-  // Unsubscribe from a Broadcast Channel & clear local channel emails
-  async function handleSubscriberUnsubscribeChannel(
-    channelToUnsub: DcpChannelMeta
-  ) {
-    if (channelToUnsub.type !== 'broadcast-channel') return;
-    const creatorEmail =
-      channelToUnsub.creatorEmail || channelToUnsub.participants[0];
-
-    const updatedParticipants = channelToUnsub.participants.filter(
-      (p) => p.toLowerCase() !== activeUser.email.toLowerCase()
-    );
-
-    // 1. Send unsubscribe notice back to the creator
-    await dispatchDcpEmailPacket({
-      channel: channelToUnsub,
-      type: 'chat.member-update',
-      text: `Unsubscribe & remove ${activeUser.email} from #${channelToUnsub.name} BCC list`,
-      memberUpdate: {
-        action: 'remove',
-        targetEmail: activeUser.email,
-        targetDisplayName: activeUser.displayName,
-        updatedParticipants,
-      },
-    });
-
-    // 2. Remove local channel messages from IndexedDB
-    const channelHeaderTag = `[${channelToUnsub.id}]`;
-    const emailIdsToScrub = transportEmails
-      .filter(
-        (eml) =>
-          eml.headers['X-ATME-Channel-Id'] === channelToUnsub.id ||
-          eml.headers['X-@me-Channel-Id'] === channelToUnsub.id ||
-          eml.subject.includes(channelHeaderTag)
-      )
-      .map((eml) => eml.id);
-    if (emailIdsToScrub.length > 0) {
-      await cryptographicScrubPeerAndEmailsInIdb({ emailIdsToScrub });
-      const remaining = transportEmails.filter(
-        (e) => !emailIdsToScrub.includes(e.id)
-      );
-      setTransportEmails(remaining);
-      await saveTransportEmailsToIdb(remaining);
-    }
-
-    // 3. Remove activeUser from local channel subscription & switch to another conversation
-    setChannels((prev) =>
-      prev.map((c) =>
-        c.id === channelToUnsub.id
-          ? { ...c, participants: updatedParticipants }
-          : c
-      )
-    );
-    const fallbackCh = userScopedChannels.find(
-      (c) => c.id !== channelToUnsub.id
-    );
-    if (fallbackCh) {
-      setActiveChannelId(fallbackCh.id);
-    }
-    setSafetyBannerNotice(
-      `Unsubscribed from #${channelToUnsub.name} (sent removal notice to ${creatorEmail})`
-    );
-    setTimeout(() => setSafetyBannerNotice(''), 4500);
   }
 
   // Send Emoji Reaction Packet over Email
@@ -3560,43 +3345,6 @@ export function App() {
 
   async function handleCreateNewChannelOrDm(e: React.FormEvent) {
     e.preventDefault();
-
-    if (newChatType === 'broadcast-channel') {
-      const id = `ch_broadcast_${Date.now().toString(36)}`;
-      const cleanName =
-        newChatName
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, '-') || 'live-feed';
-      const selectedParticipants =
-        selectedGroupMemberEmails.length > 0
-          ? Array.from(
-              new Set([activeUser.email, ...selectedGroupMemberEmails])
-            ).slice(0, MAX_CHANNEL_AND_GROUP_USERS)
-          : users
-              .filter((u) => u.hasAppInstalled)
-              .map((u) => u.email)
-              .slice(0, MAX_CHANNEL_AND_GROUP_USERS);
-      const newBroadcastCh: DcpChannelMeta = {
-        id,
-        type: 'broadcast-channel',
-        name: cleanName,
-        creatorEmail: activeUser.email,
-        description:
-          newChannelDescription.trim() ||
-          'Anonymous BCC Story Channel • Subscribers react privately',
-        participants: selectedParticipants,
-        createdAt: new Date().toISOString(),
-      };
-      setChannels((prev) => [newBroadcastCh, ...prev]);
-      setNewChatName('');
-      setNewChannelDescription('');
-      setSelectedGroupMemberEmails([]);
-      newChannelModalRef.current?.close();
-      menuDirectoryDialogRef.current?.close();
-      openMobileChat(newBroadcastCh.id);
-      return;
-    }
 
     if (newChatType === 'workspace-channel') {
       const id = `ch_custom_${Date.now().toString(36)}`;
@@ -4031,7 +3779,9 @@ export function App() {
   async function handleResetDemoState() {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('atme_simple_seed_v1');
+      window.localStorage.removeItem('atme_simple_seed_v2');
       window.localStorage.removeItem('atme_simple_channels_v1');
+      window.localStorage.removeItem('atme_simple_channels_v2');
       window.localStorage.removeItem('dontcall_seed_v5');
       window.localStorage.removeItem('dontcall_seed_v6');
       window.localStorage.removeItem('dontcall_seed_v7');
@@ -4219,23 +3969,6 @@ export function App() {
                           aria-label="New Group"
                         >
                           <Users size={19} />
-                        </button>
-
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="dc-add-icon-only-btn dc-add-icon-channel-btn"
-                          onClick={() => {
-                            setIsAddMenuOpen(false);
-                            setNewChatType('broadcast-channel');
-                            setNewChatName('');
-                            setSelectedGroupMemberEmails([]);
-                            newChannelModalRef.current?.showModal();
-                          }}
-                          title="Setup Broadcast Channel (BCC Live Feed)"
-                          aria-label="Setup Broadcast Channel"
-                        >
-                          <Radio size={19} />
                         </button>
                       </div>
                     )}
@@ -4613,11 +4346,9 @@ export function App() {
                   ({ channel: ch, lastText, lastTime, peerUser, unreadCount }) => {
                     const isActive = ch.id === activeChannel?.id;
                     const isVault = ch.type === 'vault';
-                    const isBroadcast = ch.type === 'broadcast-channel';
-                    const isGroup =
-                      ch.type !== 'dm' && !isVault && !isBroadcast;
+                    const isGroup = ch.type !== 'dm' && !isVault;
                     const hasApp =
-                      isGroup || isVault || isBroadcast
+                      isGroup || isVault
                         ? true
                         : peerUser?.hasAppInstalled ?? false;
 
@@ -4627,14 +4358,12 @@ export function App() {
                         type="button"
                         className={`dc-thread-card ${isActive ? 'active' : ''} ${
                           isVault ? 'vault-thread-card' : ''
-                        } ${
-                          isBroadcast ? 'broadcast-thread-card' : ''
                         } ${unreadCount > 0 ? 'has-unread' : ''}`}
                         onClick={() => {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {!isGroup && !isVault && !isBroadcast ? (
+                        {!isGroup && !isVault ? (
                           renderUserAvatar(
                             peerUser,
                             ch.name,
@@ -4643,9 +4372,7 @@ export function App() {
                         ) : (
                           <div
                             className={`dc-thread-avatar ${
-                              isBroadcast
-                                ? 'broadcast-avatar'
-                                : isVault
+                              isVault
                                 ? 'vault-avatar'
                                 : isGroup
                                 ? 'group-avatar'
@@ -4654,9 +4381,7 @@ export function App() {
                                 : 'invite-avatar'
                             }`}
                           >
-                            {isBroadcast ? (
-                              <Radio size={17} />
-                            ) : isVault ? (
+                            {isVault ? (
                               <Bookmark size={17} />
                             ) : (
                               <Users size={18} />
@@ -4667,17 +4392,9 @@ export function App() {
                         <div className="dc-thread-card-body">
                           <div className="dc-thread-card-top">
                             <span className="dc-thread-title">
-                              {isBroadcast && (
-                                <span
-                                  className="dc-broadcast-badge-card"
-                                  title="Broadcast Channel (BCC)"
-                                >
-                                  <Radio size={13} />
-                                </span>
-                              )}
                               {isVault
                                 ? 'Saved Notes (@me)'
-                                : isGroup || isBroadcast
+                                : isGroup
                                 ? `#${ch.name}`
                                 : (
                                     peerUser?.displayName ||
@@ -4794,18 +4511,8 @@ export function App() {
                     </button>
 
                     {(() => {
-                      const isBroadcast =
-                        activeChannel.type === 'broadcast-channel';
-                      const isBroadcastCreator =
-                        isBroadcast &&
-                        (
-                          activeChannel.creatorEmail ||
-                          activeChannel.participants[0] ||
-                          ''
-                        ).toLowerCase() === activeUser.email.toLowerCase();
                       const canManageParticipants =
-                        activeChannel.type !== 'vault' &&
-                        (!isBroadcast || isBroadcastCreator);
+                        activeChannel.type !== 'vault';
 
                       return (
                         <div
@@ -4826,13 +4533,7 @@ export function App() {
                               : activeChannelDisplayTitle
                           }
                         >
-                          {isBroadcast ? (
-                            isBroadcastCreator ? (
-                              <div className="dc-header-avatar broadcast-avatar">
-                                <Radio size={17} />
-                              </div>
-                            ) : null
-                          ) : activeChannel.type === 'vault' ? (
+                          {activeChannel.type === 'vault' ? (
                             <div className="dc-header-avatar vault-avatar">
                               <Bookmark size={16} />
                             </div>
@@ -4848,17 +4549,7 @@ export function App() {
                             </div>
                           )}
                           <div>
-                            <h2>
-                              {isBroadcast && !isBroadcastCreator && (
-                                <span
-                                  className="dc-broadcast-title-badge"
-                                  title="Broadcast Channel (BCC)"
-                                >
-                                  <Radio size={14} />
-                                </span>
-                              )}
-                              {activeChannelDisplayTitle}
-                            </h2>
+                            <h2>{activeChannelDisplayTitle}</h2>
                           </div>
                         </div>
                       );
@@ -4892,14 +4583,7 @@ export function App() {
                           aria-label="Conversation actions and settings"
                         >
                           {((activeChannel.type !== 'vault' &&
-                            activeChannel.type !== 'dm' &&
-                            (activeChannel.type !== 'broadcast-channel' ||
-                              (
-                                activeChannel.creatorEmail ||
-                                activeChannel.participants[0] ||
-                                ''
-                              ).toLowerCase() ===
-                                activeUser.email.toLowerCase())) ||
+                            activeChannel.type !== 'dm') ||
                             (activeChannel.type !== 'vault' &&
                               activeChannel.participants.length <= 2 &&
                               Boolean(activeChannelPeerUser))) && (
@@ -4909,28 +4593,21 @@ export function App() {
                                 role="toolbar"
                                 aria-label="Conversation actions"
                               >
-                                {activeChannel.type !== 'dm' &&
-                                  (activeChannel.type !== 'broadcast-channel' ||
-                                    (
-                                      activeChannel.creatorEmail ||
-                                      activeChannel.participants[0] ||
-                                      ''
-                                    ).toLowerCase() ===
-                                      activeUser.email.toLowerCase()) && (
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      className="dc-header-action-btn action-people"
-                                      onClick={() => {
-                                        setIsHeaderMenuOpen(false);
-                                        groupInfoDialogRef.current?.showModal();
-                                      }}
-                                      title={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
-                                      aria-label={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
-                                    >
-                                      <UserPlus size={16} />
-                                    </button>
-                                  )}
+                                {activeChannel.type !== 'dm' && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="dc-header-action-btn action-people"
+                                    onClick={() => {
+                                      setIsHeaderMenuOpen(false);
+                                      groupInfoDialogRef.current?.showModal();
+                                    }}
+                                    title={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
+                                    aria-label={`People (${activeChannel.participants.length}/${MAX_CHANNEL_AND_GROUP_USERS})`}
+                                  >
+                                    <UserPlus size={16} />
+                                  </button>
+                                )}
 
                                 {activeChannel.participants.length <= 2 &&
                                   activeChannelPeerUser && (
@@ -5205,17 +4882,15 @@ export function App() {
             >
               {freeflowStream.length === 0 && (
                 <div className="dc-clean-empty-thread">
-                  <div className="dc-clean-empty-avatar">
-                    {activeChannel.type === 'vault' ? (
-                      <Bookmark size={22} />
-                    ) : activeChannel.type === 'broadcast-channel' ? (
-                      <Radio size={22} />
-                    ) : activeChannel.type === 'dm' ? (
-                      activeChannelDisplayTitle.charAt(0).toUpperCase()
-                    ) : (
-                      <Users size={22} />
-                    )}
-                  </div>
+                    <div className="dc-clean-empty-avatar">
+                      {activeChannel.type === 'vault' ? (
+                        <Bookmark size={22} />
+                      ) : activeChannel.type === 'dm' ? (
+                        activeChannelDisplayTitle.charAt(0).toUpperCase()
+                      ) : (
+                        <Users size={22} />
+                      )}
+                    </div>
                   {activeChannel.type === 'vault' && <strong>📌 Notes</strong>}
                 </div>
               )}
@@ -5341,47 +5016,7 @@ export function App() {
                                 aria-label="Unread"
                               />
                             )}
-                            {/* Broadcast Channel Story Card (Live Feed Image + Badge) */}
-                                {msg.packet.payload.storyCard && (
-                                  <div
-                                    className="dc-broadcast-story-card"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {msg.packet.payload.storyCard.badgeText && (
-                                      <div className="dc-story-card-badge">
-                                        <Radio size={11} />
-                                        <span>
-                                          {
-                                            msg.packet.payload.storyCard
-                                              .badgeText
-                                          }
-                                        </span>
-                                      </div>
-                                    )}
-                                    {msg.packet.payload.storyCard
-                                      .imageDataUrl && (
-                                      <img
-                                        src={
-                                          msg.packet.payload.storyCard
-                                            .imageDataUrl
-                                        }
-                                        alt={
-                                          msg.packet.payload.storyCard
-                                            .caption || 'Story post'
-                                        }
-                                        className="dc-story-card-image"
-                                        onClick={() =>
-                                          setFullscreenImageUrl(
-                                            msg.packet.payload.storyCard!
-                                              .imageDataUrl!
-                                          )
-                                        }
-                                      />
-                                    )}
-                                  </div>
-                                )}
-
-                                <p>{msg.packet.payload.text}</p>
+                            <p>{msg.packet.payload.text}</p>
 
                                 {/* Client-Side Link Preview Card */}
                                 {msg.packet.payload.linkPreview && (
@@ -5674,30 +5309,6 @@ export function App() {
                 </div>
               )}
 
-              {activeChannel.type === 'broadcast-channel' &&
-              activeChannel.creatorEmail?.toLowerCase() !==
-                activeUser.email.toLowerCase() ? (
-                <div className="dc-broadcast-subscriber-bar">
-                  <div className="dc-broadcast-sub-info">
-                    <Radio size={15} />
-                    <span>
-                      Read-Only BCC Feed &bull; Tap any post to react
-                      anonymously
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="dc-btn-danger-confirm dc-broadcast-unsub-btn"
-                    onClick={() =>
-                      void handleSubscriberUnsubscribeChannel(activeChannel)
-                    }
-                    title="Unsubscribe & remove local broadcast channel"
-                    aria-label="Unsubscribe from broadcast channel"
-                  >
-                    <UserMinus size={14} /> Unsubscribe
-                  </button>
-                </div>
-              ) : (
               <div className="dc-imessage-input-row">
                 {/* Collapsed Bottom-Left '+' Action Menu (Camera, Upload, Voice) */}
                 <div
@@ -5974,7 +5585,6 @@ export function App() {
                   <Send size={15} />
                 </button>
               </div>
-              )}
             </form>
               </>
             )}
@@ -7504,7 +7114,7 @@ export function App() {
             <div className="dc-menu-column">
               <div className="dc-menu-section-head">
                 <h3>
-                  <Users size={15} /> Groups &amp; Channels
+                  <Users size={15} /> Groups
                 </h3>
                 <div className="dc-menu-section-head-actions">
                   <button
@@ -7518,18 +7128,6 @@ export function App() {
                     aria-label="New Group"
                   >
                     <Plus size={14} /> <Users size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="dc-pill-action-btn"
-                    onClick={() => {
-                      setNewChatType('broadcast-channel');
-                      newChannelModalRef.current?.showModal();
-                    }}
-                    title="New Broadcast Channel"
-                    aria-label="New Broadcast Channel"
-                  >
-                    <Plus size={14} /> <Radio size={14} />
                   </button>
                 </div>
               </div>
@@ -7546,11 +7144,7 @@ export function App() {
                           openMobileChat(ch.id);
                         }}
                       >
-                        {ch.type === 'broadcast-channel' ? (
-                          <Radio size={16} />
-                        ) : (
-                          <Hash size={16} />
-                        )}
+                        <Hash size={16} />
                         <div>
                           <strong>#{ch.name}</strong>
                           <span>
@@ -7561,7 +7155,6 @@ export function App() {
                                   activeUser.email.toLowerCase()
                               ).length
                             }
-                            {ch.type === 'broadcast-channel' && ' • BCC'}
                           </span>
                         </div>
                       </div>
@@ -7848,7 +7441,7 @@ export function App() {
       </dialog>
 
       {/* =====================================================================
-          MODAL 6: Create New Group, DM, or Broadcast Channel (+ Add Friend from Contacts)
+          MODAL 6: Create New Group or DM (+ Add Friend from Contacts)
          ===================================================================== */}
       <dialog
         ref={newChannelModalRef}
@@ -7859,11 +7452,7 @@ export function App() {
         <div className="dc-modal-inner">
           <div className="dc-modal-header">
             <h2 id={newChannelDialogTitleId}>
-              {newChatType === 'broadcast-channel' ? (
-                <>
-                  <Radio size={17} /> Channel
-                </>
-              ) : newChatType === 'workspace-channel' ? (
+              {newChatType === 'workspace-channel' ? (
                 <>
                   <Users size={17} /> New Group
                 </>
@@ -7888,35 +7477,7 @@ export function App() {
             className="dc-modal-form"
             onSubmit={handleCreateNewChannelOrDm}
           >
-            {newChatType === 'broadcast-channel' ? (
-              <>
-                <div className="dc-form-group">
-                  <label htmlFor="new-broadcast-name">
-                    <Radio size={12} /> Channel Handle
-                  </label>
-                  <input
-                    id="new-broadcast-name"
-                    type="text"
-                    value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
-                    placeholder="skate-clips-daily"
-                    required
-                  />
-                </div>
-                <div className="dc-form-group">
-                  <label htmlFor="new-broadcast-desc">
-                    <Tag size={12} /> Bio / Topic
-                  </label>
-                  <input
-                    id="new-broadcast-desc"
-                    type="text"
-                    value={newChannelDescription}
-                    onChange={(e) => setNewChannelDescription(e.target.value)}
-                    placeholder="Daily photos & clips • BCC anonymous"
-                  />
-                </div>
-              </>
-            ) : newChatType === 'workspace-channel' ? (
+            {newChatType === 'workspace-channel' ? (
               <div className="dc-form-group">
                 <label htmlFor="new-channel-name">
                   <Users size={12} /> Group Name
@@ -7947,9 +7508,7 @@ export function App() {
             )}
 
             {/* Add Friend from Contacts Quick Strip */}
-            {(newChatType === 'dm' ||
-              newChatType === 'workspace-channel') && (
-              <div className="dc-new-chat-contacts-strip">
+            <div className="dc-new-chat-contacts-strip">
                 <div className="dc-contacts-strip-header">
                   <span>
                     <UserPlus size={12} /> Add Friend from Contacts
@@ -8015,19 +7574,10 @@ export function App() {
                     })}
                 </div>
               </div>
-            )}
 
             <div className="dc-modal-actions">
               <button type="submit" className="dc-btn-send">
-                {newChatType === 'broadcast-channel' ? (
-                  <>
-                    <Radio size={15} /> Launch Channel
-                  </>
-                ) : (
-                  <>
-                    <Send size={15} /> Start
-                  </>
-                )}
+                <Send size={15} /> Start
               </button>
             </div>
           </form>

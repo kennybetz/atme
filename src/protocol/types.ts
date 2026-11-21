@@ -21,7 +21,7 @@ export const ACCEPTED_ATME_MIME_TYPES = [
   'application/vnd.dontcall.packet+pgp',
 ] as const;
 
-/** Hard cap on group and broadcast-channel participants to prevent personal email provider spam/rate blocks */
+/** Hard cap on group participants to prevent personal email provider spam/rate blocks */
 export const MAX_CHANNEL_AND_GROUP_USERS = 99;
 
 /**
@@ -223,13 +223,9 @@ export interface DcpAttachment {
 
 export interface DcpChannelMeta {
   id: string;
-  type: 'dm' | 'group' | 'workspace-channel' | 'vault' | 'broadcast-channel';
+  type: 'dm' | 'group' | 'workspace-channel' | 'vault';
   name: string;
   participants: string[];
-  /** Email of the creator/broadcaster for a 'broadcast-channel' (subscribers receive via BCC) */
-  creatorEmail?: string;
-  /** Short channel description or bio for broadcast channels */
-  description?: string;
   /** Optional channel-wide Burn-After-Reading timer in seconds */
   ephemeralTimerSeconds?: EphemeralTimerSeconds;
   /** Optional shielded burner alias used by the active user in this thread */
@@ -253,7 +249,7 @@ export interface DcpPacketPayload {
   attachments?: DcpAttachment[];
   /** Burn-after-reading TTL in seconds once read receipt is emitted */
   ephemeralTtlSeconds?: EphemeralTimerSeconds;
-  /** Client-side generated encrypted link preview */
+  /** Client-side generated link preview */
   linkPreview?: DcpLinkPreview;
   /** Encrypted Poll creation payload */
   poll?: DcpPollPayload;
@@ -263,14 +259,6 @@ export interface DcpPacketPayload {
   pinUpdate?: DcpPinPayload;
   /** Peer-to-peer IOU ledger packet */
   iou?: DcpIouPayload;
-  /** Aggregated anonymous reaction counts pushed out by the creator in a broadcast-channel message */
-  channelReactionTotals?: Record<string, Record<string, number>>;
-  /** Story visual card metadata for broadcast-channel posts */
-  storyCard?: {
-    imageDataUrl?: string;
-    caption?: string;
-    badgeText?: string;
-  };
   /** Optional shielded alias metadata when messaging via burner alias */
   senderShieldedAlias?: {
     aliasEmail: string;

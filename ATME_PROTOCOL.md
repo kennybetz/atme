@@ -53,7 +53,7 @@ X-ATME-Branch: @me/simple
 X-ATME-Packet-Id: pkt_...
 X-ATME-Packet-Type: chat.message
 X-ATME-Channel-Id: ch_...
-X-ATME-Channel-Type: dm | group | workspace-channel | vault | broadcast-channel
+X-ATME-Channel-Type: dm | group | workspace-channel | vault
 X-ATME-Encryption: cleartext-json | openpgp-asymmetric | openpgp-invite-key
 ```
 
@@ -77,7 +77,7 @@ export interface AtmePacket {
   encryptionMode: 'cleartext-json' | 'openpgp-asymmetric' | 'openpgp-invite-key';
   channel: {
     id: string;
-    type: 'dm' | 'group' | 'workspace-channel' | 'vault' | 'broadcast-channel';
+    type: 'dm' | 'group' | 'workspace-channel' | 'vault';
     name: string;
     participants: string[]; // Hard capped at 99
   };

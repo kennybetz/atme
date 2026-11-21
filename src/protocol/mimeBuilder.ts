@@ -129,25 +129,13 @@ export function buildDcpMimeEmail(
   const boundaryMixed = `----=_ATME_Mixed_${packet.packetId}`;
   const boundaryAlt = `----=_ATME_Alt_${packet.packetId}`;
 
-  const isBroadcastChannel = packet.channel.type === 'broadcast-channel';
-  const creatorEmail = (
-    packet.channel.creatorEmail ||
-    packet.channel.participants[0] ||
-    packet.sender.email
-  ).toLowerCase();
-  const isSenderCreator =
-    packet.sender.email.toLowerCase() === creatorEmail;
-
   const cappedParticipants = packet.channel.participants.slice(
     0,
     MAX_CHANNEL_AND_GROUP_USERS
   );
-  const recipients =
-    isBroadcastChannel && !isSenderCreator
-      ? [creatorEmail]
-      : cappedParticipants.filter(
-          (email) => email.toLowerCase() !== packet.sender.email.toLowerCase()
-        );
+  const recipients = cappedParticipants.filter(
+    (email) => email.toLowerCase() !== packet.sender.email.toLowerCase()
+  );
 
   const webAppDeepLink = inviteKeyFragment
     ? `${webAppBaseUrl}/#packet=${encodeURIComponent(packet.packetId)}&inviteKey=${encodeURIComponent(inviteKeyFragment)}`
@@ -160,17 +148,7 @@ export function buildDcpMimeEmail(
   const headers: Record<string, string> = {
     'MIME-Version': '1.0',
     From: `"${packet.sender.displayName}" <${packet.sender.email}>`,
-    To:
-      isBroadcastChannel && isSenderCreator
-        ? `"Undisclosed Channel Subscribers" <${packet.sender.email}>`
-        : recipients.join(', '),
-    ...(isBroadcastChannel && isSenderCreator
-      ? {
-          Bcc: recipients.join(', '),
-          'X-ATME-Broadcast-Bcc': 'anonymous-subscriber-shield',
-          'X-DontCall-Broadcast-Bcc': 'anonymous-subscriber-shield',
-        }
-      : {}),
+    To: recipients.join(', '),
     Subject: subject,
     Date: new Date(packet.sentAt).toUTCString(),
     'Message-ID': `<${packet.payload.messageId}@atme.local>`,
@@ -314,7 +292,6 @@ export function buildDcpMimeEmail(
     threadId: packet.channel.id,
     from: packet.sender.email,
     to: recipients,
-    bcc: isBroadcastChannel && isSenderCreator ? recipients : undefined,
     subject,
     date: packet.sentAt,
     headers,

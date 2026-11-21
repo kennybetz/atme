@@ -1,7 +1,7 @@
 /**
  * Clean Starter Seed Data for `@me/simple` (`ATME/1.0`)
  *
- * Provides clean starter friends, DMs, group chats, broadcast channels (BCC),
+ * Provides clean starter friends, DMs, group chats,
  * and personal `Notes (@me)` threads using fast `cleartext-json` ATME/1.0 packets.
  */
 
@@ -14,65 +14,6 @@ import {
   RawTransportEmail,
   UserIdentity,
 } from '../protocol/types';
-
-function makeStoryIllustrationDataUrl(
-  theme: 'skate' | 'pixel' | 'meme'
-): string {
-  if (theme === 'skate') {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#0f172a"/>
-          <stop offset="55%" stop-color="#1e1b4b"/>
-          <stop offset="100%" stop-color="#0d9488"/>
-        </linearGradient>
-      </defs>
-      <rect width="560" height="320" rx="20" fill="url(#bg)"/>
-      <circle cx="450" cy="82" r="42" fill="#f59e0b" opacity="0.85"/>
-      <path d="M0 250 Q180 210 340 245 T560 220 L560 320 L0 320 Z" fill="#090d16"/>
-      <g transform="translate(185, 130) rotate(-14)">
-        <rect x="0" y="30" width="170" height="16" rx="8" fill="#ff6b4a" stroke="#ffffff" stroke-width="2.5"/>
-        <circle cx="34" cy="54" r="9" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
-        <circle cx="136" cy="54" r="9" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
-      </g>
-      <text x="28" y="46" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="18" font-weight="700">SKATE CLIPS DAILY • LIVE FEED</text>
-      <text x="28" y="292" fill="#99f6e4" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">Sunset 5-stair kickflip landed on 3rd try</text>
-    </svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  }
-  if (theme === 'pixel') {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
-      <defs>
-        <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#311042"/>
-          <stop offset="100%" stop-color="#4f46e5"/>
-        </linearGradient>
-      </defs>
-      <rect width="560" height="320" rx="20" fill="url(#bg2)"/>
-      <rect x="190" y="70" width="180" height="130" rx="16" fill="#0f172a" stroke="#a855f7" stroke-width="3"/>
-      <circle cx="245" cy="125" r="14" fill="#22d3ee"/>
-      <circle cx="315" cy="125" r="14" fill="#22d3ee"/>
-      <path d="M245 162 L315 162" stroke="#f472b6" stroke-width="6" stroke-linecap="round"/>
-      <text x="28" y="46" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="18" font-weight="700">PIXEL ART &amp; ARCADE DROPS</text>
-      <text x="28" y="292" fill="#e9d5ff" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">New boss sprite finished during study hall</text>
-    </svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
-    <defs>
-      <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#0f172a"/>
-        <stop offset="100%" stop-color="#1d4ed8"/>
-      </linearGradient>
-    </defs>
-    <rect width="560" height="320" rx="20" fill="url(#bg3)"/>
-    <rect x="130" y="68" width="300" height="150" rx="18" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
-    <text x="280" y="135" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="22" font-weight="800">CHROMEBOOK BATTERY: 2%</text>
-    <text x="280" y="170" text-anchor="middle" fill="#38bdf8" font-family="-apple-system, sans-serif" font-size="16" font-weight="600">Right when Kahoot starts in 6th period</text>
-    <text x="28" y="292" fill="#bae6fd" font-family="-apple-system, sans-serif" font-size="15" font-weight="600">Broadcast via BCC • Anonymous reactions</text>
-  </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
 
 export const INITIAL_USERS: UserIdentity[] = [
   {
@@ -126,34 +67,6 @@ export const INITIAL_CHANNELS: DcpChannelMeta[] = [
     id: 'ch_product_launch',
     type: 'workspace-channel',
     name: 'friday-hangout',
-    participants: [
-      'alex.rivera@gmail.com',
-      'sam.chen@outlook.com',
-      'elena.vogt@proton.me',
-      'maya.lin@icloud.com',
-    ],
-  },
-  {
-    id: 'ch_broadcast_skate_clips',
-    type: 'broadcast-channel',
-    name: 'skate-clips-daily',
-    creatorEmail: 'elena.vogt@proton.me',
-    description:
-      'Daily skatepark clips & pixel art drops by Elena • Anonymous BCC broadcast',
-    participants: [
-      'elena.vogt@proton.me',
-      'alex.rivera@gmail.com',
-      'sam.chen@outlook.com',
-      'maya.lin@icloud.com',
-    ],
-  },
-  {
-    id: 'ch_broadcast_meme_radar',
-    type: 'broadcast-channel',
-    name: 'school-meme-radar',
-    creatorEmail: 'alex.rivera@gmail.com',
-    description:
-      'Live hallway stories & Chromebook memes by Alex • Subscribers hidden via BCC',
     participants: [
       'alex.rivera@gmail.com',
       'sam.chen@outlook.com',
@@ -306,7 +219,7 @@ export function createSampleRegularEmails(): RawTransportEmail[] {
 }
 
 /**
- * Builds the clean starter ATME/1.0 demo packets (DMs, Groups, Broadcast Channels, Notes).
+ * Builds the clean starter ATME/1.0 demo packets (DMs, Groups, Notes).
  * Outbound packets on the `simple` branch default to fast `cleartext-json` mode.
  */
 export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
@@ -317,14 +230,12 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
   const now = Date.now();
 
   const chFridayHangout = INITIAL_CHANNELS[0];
-  const chBroadcastSkate = INITIAL_CHANNELS[1];
-  const chBroadcastMeme = INITIAL_CHANNELS[2];
-  const chMinecraft = INITIAL_CHANNELS[3];
-  const dmSam = INITIAL_CHANNELS[4];
-  const dmElena = INITIAL_CHANNELS[5];
-  const dmMaya = INITIAL_CHANNELS[6];
-  const dmJordanInvite = INITIAL_CHANNELS[7];
-  const vaultAlex = INITIAL_CHANNELS[8];
+  const chMinecraft = INITIAL_CHANNELS[1];
+  const dmSam = INITIAL_CHANNELS[2];
+  const dmElena = INITIAL_CHANNELS[3];
+  const dmMaya = INITIAL_CHANNELS[4];
+  const dmJordanInvite = INITIAL_CHANNELS[5];
+  const vaultAlex = INITIAL_CHANNELS[6];
 
   const makeSender = (
     u: UserIdentity,
@@ -503,78 +414,7 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
     sentAt: new Date(now - 1000 * 60 * 2).toISOString(),
   };
 
-  // 2. BROADCAST CHANNELS (BCC Story Feeds)
-  const pktBroadcastSkate1: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_bcast_skate_01',
-    type: 'chat.message',
-    encryptionMode: 'cleartext-json',
-    channel: chBroadcastSkate,
-    sender: makeSender(elena, true),
-    payload: {
-      messageId: 'msg_seed_bcast_skate_01',
-      text: 'Landed my first clean kickflip down the 5-stair behind the library!! Watch the clip frame 👇',
-      formatting: 'markdown',
-      storyCard: {
-        imageDataUrl: makeStoryIllustrationDataUrl('skate'),
-        caption: '5-Stair Kickflip • Behind Oakridge Library',
-        badgeText: 'BCC STORY DROP #14',
-      },
-      channelReactionTotals: {
-        msg_seed_bcast_skate_01: { '❤️': 29, '😂': 8, '⚡': 19 },
-      },
-    },
-    sentAt: new Date(now - 1000 * 60 * 32).toISOString(),
-  };
-
-  const pktBroadcastSkate2: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_bcast_skate_02',
-    type: 'chat.message',
-    encryptionMode: 'cleartext-json',
-    channel: chBroadcastSkate,
-    sender: makeSender(elena),
-    payload: {
-      messageId: 'msg_seed_bcast_skate_02',
-      text: 'Finished the final boss pixel sprite during 4th period study hall! React below to vote on the neon palette 🎨',
-      formatting: 'markdown',
-      storyCard: {
-        imageDataUrl: makeStoryIllustrationDataUrl('pixel'),
-        caption: 'Arcade Boss Sprite v2 • 64x64 Pixel Grid',
-        badgeText: 'BCC STORY DROP #15',
-      },
-      channelReactionTotals: {
-        msg_seed_bcast_skate_01: { '❤️': 34, '😂': 11, '⚡': 27 },
-        msg_seed_bcast_skate_02: { '❤️': 16, '⚡': 14 },
-      },
-    },
-    sentAt: new Date(now - 1000 * 60 * 6).toISOString(),
-  };
-
-  const pktBroadcastMeme1: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_bcast_meme_01',
-    type: 'chat.message',
-    encryptionMode: 'cleartext-json',
-    channel: chBroadcastMeme,
-    sender: makeSender(alex),
-    payload: {
-      messageId: 'msg_seed_bcast_meme_01',
-      text: 'Every single day in 6th period science when the teacher launches Kahoot and nobody brought a charger 😭🔌',
-      formatting: 'markdown',
-      storyCard: {
-        imageDataUrl: makeStoryIllustrationDataUrl('meme'),
-        caption: '6th Period Kahoot Survival Guide',
-        badgeText: 'CREATOR CHANNEL • BCC',
-      },
-      channelReactionTotals: {
-        msg_seed_bcast_meme_01: { '😂': 41, '😭': 23, '💀': 18 },
-      },
-    },
-    sentAt: new Date(now - 1000 * 60 * 19).toISOString(),
-  };
-
-  // 3. MULTI-USER GROUP CHAT: #minecraft-realm
+  // 2. MULTI-USER GROUP CHAT: #minecraft-realm
   const pktMc1: DcpPacket = {
     protocol: ATME_PROTOCOL_VERSION,
     packetId: 'pkt_seed_mc_01',
@@ -804,9 +644,6 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
     pktFhReceipt2,
     pktFhUnread1,
     pktFhUnread2,
-    pktBroadcastSkate1,
-    pktBroadcastSkate2,
-    pktBroadcastMeme1,
     pktMc1,
     pktMc2,
     pktMc3,

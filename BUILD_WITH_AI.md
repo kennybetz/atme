@@ -13,7 +13,7 @@
 | **Outbound MIME Packet** | OpenPGP encrypted (`atme-packet.pgp`) | **Cleartext JSON (`application/vnd.atme.packet+json`)** in `<1ms` |
 | **Inbound Interoperability** | Decrypts `ATME/1.0` OpenPGP packets | **Decrypts BOTH JSON and OpenPGP `ATME/1.0` packets** |
 | **Sign-In** | Google 1-Click OAuth / Demo Picker | **Hardened Google 1-Click OAuth** + Client ID pre-validator |
-| **Core Chat Features** | DMs, Groups (up to 99), Broadcast Channels, Voice, Photos, Reactions, Read Receipts + Burners, IOUs, Polls, Stickers, Workbench | **Clean Core Only:** DMs, Groups (up to 99), Broadcast Channels, Voice Notes, Camera Photos, Emoji Reactions, Read Receipts |
+| **Core Chat Features** | DMs, Groups (up to 99), Broadcast Channels, Voice, Photos, Reactions, Read Receipts + Burners, IOUs, Polls, Stickers, Workbench | **Clean Core Only:** DMs, Groups (up to 99), Notes, Voice Notes, Camera Photos, Emoji Reactions, Read Receipts |
 
 ---
 
