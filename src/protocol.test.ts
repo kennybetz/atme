@@ -4,7 +4,7 @@
  *   2. Fast-path Cleartext JSON (`application/vnd.atme.packet+json`, `atme-packet.json`) MIME building & parsing
  *   3. Bidirectional `ATME/1.0` Interoperability with Encrypted OpenPGP peers (`application/vnd.atme.packet+pgp`)
  *   4. First-Contact Ephemeral Invite Interoperability (`encryptDcpPayloadWithInviteKey`)
- *   5. Group Membership (`chat.member-update`), Profile Cards, Read Receipts & Client-Side Link Previews
+ *   5. Group Membership (`chat.member-update`), Profile Cards & Client-Side Link Previews
  *   6. Google OAuth Client ID Sanitization & Validation + PKCE + Custom Domain Discovery
  */
 
@@ -264,7 +264,7 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     );
   });
 
-  it('bundles the user Profile Card (avatar image, display name, @handle) in the first encrypted message and supports Read Receipts', async () => {
+  it('bundles the user Profile Card (avatar image, display name, @handle) in the first encrypted message', async () => {
     const alexKeys = await generateDeviceKeyPair('Alex Rivera', 'alex@gmail.com');
     const elenaKeys = await generateDeviceKeyPair('Elena Vogt', 'elena@proton.me');
 
@@ -325,52 +325,6 @@ describe('Dont Call Stage 1 Technical Protocol Engine (DCP/1.0)', () => {
     expect(
       decryptedOnElenaDevice.decryptedPacket?.sender.profileCard?.avatarDataUrl
     ).toContain('data:image/');
-
-    // Elena sends back an encrypted Read Receipt (`chat.receipt`)
-    const receiptPacket: DcpPacket = {
-      protocol: DCP_PROTOCOL_VERSION,
-      packetId: 'pkt_receipt_01',
-      type: 'chat.receipt',
-      encryptionMode: 'openpgp-asymmetric',
-      channel: firstContactPacket.channel,
-      sender: {
-        email: 'elena@proton.me',
-        displayName: 'Elena Vogt',
-        handle: '@elenavogt',
-        provider: 'proton',
-        pgpFingerprint: elenaKeys.fingerprint,
-        publicKeyArmored: elenaKeys.publicKeyArmored,
-      },
-      payload: {
-        messageId: 'msg_receipt_01',
-        targetMessageId: 'msg_first_01',
-        receiptStatus: 'read',
-      },
-      sentAt: new Date().toISOString(),
-    };
-
-    const encReceipt = await encryptDcpPayloadAsymmetric({
-      cleartextJson: JSON.stringify(receiptPacket),
-      recipientPublicKeysArmored: [alexKeys.publicKeyArmored],
-      senderPublicKeyArmored: elenaKeys.publicKeyArmored,
-      senderPrivateKeyArmored: elenaKeys.privateKeyArmored,
-    });
-
-    const mimeReceipt = buildDcpMimeEmail({
-      packet: receiptPacket,
-      encryptedPacketArmored: encReceipt,
-    });
-
-    const decryptedOnAlexDevice = await inspectAndDecryptEmail({
-      email: mimeReceipt,
-      recipientPrivateKeyArmored: alexKeys.privateKeyArmored,
-    });
-
-    expect(decryptedOnAlexDevice.accepted).toBe(true);
-    expect(decryptedOnAlexDevice.decryptedPacket?.type).toBe('chat.receipt');
-    expect(decryptedOnAlexDevice.decryptedPacket?.payload.receiptStatus).toBe(
-      'read'
-    );
   });
 
   it('generates OAuth2 PKCE S256 challenges and auto-discovers mail server settings for custom domains', async () => {

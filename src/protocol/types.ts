@@ -46,7 +46,6 @@ export type DcpPacketType =
   | 'chat.message'
   | 'chat.reaction'
   | 'chat.edit'
-  | 'chat.receipt'
   | 'chat.key-exchange'
   | 'chat.channel-invite'
   | 'chat.member-update'
@@ -241,11 +240,10 @@ export interface DcpChannelMeta {
 export interface DcpPacketPayload {
   messageId: string;
   replyToMessageId?: string;
-  targetMessageId?: string; // For reactions, edits, receipts, shred-ack, pins, poll-votes
+  targetMessageId?: string; // For reactions, edits, shred-ack, pins, poll-votes
   text?: string;
   formatting?: 'markdown' | 'plain';
   reactionEmoji?: string;
-  receiptStatus?: 'delivered' | 'read';
   attachments?: DcpAttachment[];
   /** Burn-after-reading TTL in seconds once read receipt is emitted */
   ephemeralTtlSeconds?: EphemeralTimerSeconds;

@@ -5,7 +5,6 @@ import {
   Bookmark,
   Camera,
   Check,
-  CheckCheck,
   CheckCircle2,
   ChevronRight,
   CornerDownLeft,
@@ -100,12 +99,6 @@ interface FreeflowChatMessage {
   packet: DcpPacket;
   decryptionTimeMs?: number;
   reactions: Array<{ emoji: string; senderName: string; senderEmail: string }>;
-  receipts: Array<{
-    status: 'delivered' | 'read';
-    senderName: string;
-    senderEmail: string;
-    readAtIso?: string;
-  }>;
   quotedMessage?: {
     messageId: string;
     senderName: string;
@@ -979,7 +972,6 @@ export function App() {
   const prevStreamLengthRef = useRef<number>(0);
   const userJustSentMessageRef = useRef<boolean>(false);
   const prevMobileShowChatPaneRef = useRef<boolean>(mobileShowChatPane);
-  const autoReadSentKeysRef = useRef<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
   const isScrolledToBottomRef = useRef<boolean>(true);
   const isProgrammaticScrollingRef = useRef<boolean>(false);
@@ -1474,7 +1466,7 @@ export function App() {
 
       const seedVersion =
         typeof localStorage !== 'undefined'
-          ? localStorage.getItem('atme_simple_seed_v2')
+          ? localStorage.getItem('atme_simple_seed_v3')
           : 'true';
       const shouldReseed = seedVersion !== 'true';
 
@@ -1535,7 +1527,7 @@ export function App() {
       }
 
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('atme_simple_seed_v2', 'true');
+        localStorage.setItem('atme_simple_seed_v3', 'true');
         localStorage.setItem(
           'atme_whitelisted_emails',
           JSON.stringify(INITIAL_USERS.map((u) => u.email.toLowerCase()))
@@ -1767,7 +1759,7 @@ export function App() {
     [inspections, isEmailAllowed]
   );
 
-  // Build free-flowing chronological message stream with reactions, inline quotes, and read receipts
+  // Build free-flowing chronological message stream with reactions and inline quotes
   const freeflowStream = useMemo(() => {
     const chronologicallySorted = acceptedPackets
       .slice()
@@ -1780,15 +1772,6 @@ export function App() {
     const reactionsByTargetId = new Map<
       string,
       Array<{ emoji: string; senderName: string; senderEmail: string }>
-    >();
-    const receiptsByTargetId = new Map<
-      string,
-      Array<{
-        status: 'delivered' | 'read';
-        senderName: string;
-        senderEmail: string;
-        readAtIso?: string;
-      }>
     >();
     const messageLookup = new Map<
       string,
@@ -1806,24 +1789,6 @@ export function App() {
           senderEmail: pkt.sender.email,
         });
         reactionsByTargetId.set(pkt.payload.targetMessageId, list);
-      } else if (pkt.type === 'chat.receipt' && pkt.payload.targetMessageId) {
-        const list =
-          receiptsByTargetId.get(pkt.payload.targetMessageId) || [];
-        // Deduplicate by senderEmail
-        if (
-          !list.some(
-            (r) =>
-              r.senderEmail.toLowerCase() === pkt.sender.email.toLowerCase()
-          )
-        ) {
-          list.push({
-            status: pkt.payload.receiptStatus || 'read',
-            senderName: pkt.sender.displayName,
-            senderEmail: pkt.sender.email,
-            readAtIso: pkt.sentAt,
-          });
-        }
-        receiptsByTargetId.set(pkt.payload.targetMessageId, list);
       } else if (
         pkt.type === 'chat.message' ||
         pkt.type === 'chat.member-update'
@@ -1852,7 +1817,6 @@ export function App() {
         ? messageLookup.get(pkt.payload.replyToMessageId)
         : undefined;
 
-      const msgReceipts = receiptsByTargetId.get(pkt.payload.messageId) || [];
       const effectiveReactions =
         reactionsByTargetId.get(pkt.payload.messageId) || [];
 
@@ -1861,7 +1825,6 @@ export function App() {
         packet: pkt,
         decryptionTimeMs: item.decryptionTimeMs,
         reactions: effectiveReactions,
-        receipts: msgReceipts,
         quotedMessage:
           quoted && pkt.payload.replyToMessageId
             ? {
@@ -1874,23 +1837,11 @@ export function App() {
     }
 
     return messages;
-  }, [acceptedPackets, activeChannel, activeUser.email]);
+  }, [acceptedPackets, activeChannel]);
 
-  // Compute unread message count map for all channels for the active user
+  // Compute local unread message count map across conversations for the active user
   const channelUnreadCountMap = useMemo(() => {
     const map: Record<string, number> = {};
-    const readReceiptTargetIds = new Set<string>();
-    for (const item of acceptedPackets) {
-      const pkt = item.decryptedPacket;
-      if (
-        pkt &&
-        pkt.type === 'chat.receipt' &&
-        pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase() &&
-        pkt.payload.targetMessageId
-      ) {
-        readReceiptTargetIds.add(pkt.payload.targetMessageId);
-      }
-    }
 
     for (const ch of userScopedChannels) {
       const unreadItems = acceptedPackets.filter((item) => {
@@ -1903,17 +1854,7 @@ export function App() {
           pkt.sender.email.toLowerCase() === activeUser.email.toLowerCase();
         if (isOwn) return false;
 
-        const msgId = pkt.payload.messageId;
-        if (readReceiptTargetIds.has(msgId)) return false;
-
-        const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
-        if (
-          autoReadSentKeysRef.current.has(dedupKey) ||
-          readMessageIds.has(msgId)
-        ) {
-          return false;
-        }
-        return true;
+        return !readMessageIds.has(pkt.payload.messageId);
       });
       map[ch.id] = unreadItems.length;
     }
@@ -1924,7 +1865,8 @@ export function App() {
     ? channelUnreadCountMap[activeChannel.id] || 0
     : 0;
 
-  const markActiveChannelAsRead = useCallback(async () => {
+  // Marks incoming messages in the active conversation as viewed locally (never sends status emails)
+  const markActiveChannelAsRead = useCallback(() => {
     if (isMobileDeviceView && !mobileShowChatPane) {
       return;
     }
@@ -1942,16 +1884,7 @@ export function App() {
         activeUser.email.toLowerCase();
       if (isOwn) return false;
 
-      const alreadyReceipted = msg.receipts.some(
-        (r) => r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
-      );
-      if (alreadyReceipted) return false;
-
-      const dedupKey = `${activeUser.email.toLowerCase()}:${msg.packet.payload.messageId}`;
-      return (
-        !autoReadSentKeysRef.current.has(dedupKey) &&
-        !readMessageIds.has(msg.packet.payload.messageId)
-      );
+      return !readMessageIds.has(msg.packet.payload.messageId);
     });
 
     if (unreadIncoming.length === 0) return;
@@ -1961,21 +1894,6 @@ export function App() {
       unreadIncoming.forEach((m) => next.add(m.packet.payload.messageId));
       return next;
     });
-
-    for (const msg of unreadIncoming) {
-      const msgId = msg.packet.payload.messageId;
-      const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
-      if (autoReadSentKeysRef.current.has(dedupKey)) continue;
-      autoReadSentKeysRef.current.add(dedupKey);
-
-      await dispatchDcpEmailPacket({
-        channel: activeChannel,
-        type: 'chat.receipt',
-        targetMessageId: msgId,
-        receiptStatus: 'read',
-        text: `Read receipt for ${msgId}`,
-      });
-    }
   }, [
     isInitializingKeys,
     activeChannel,
@@ -2073,16 +1991,7 @@ export function App() {
             m.packet.sender.email.toLowerCase() ===
             activeUser.email.toLowerCase();
           if (isOwn) return false;
-          const alreadyReceipted = m.receipts.some(
-            (r) =>
-              r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
-          );
-          if (alreadyReceipted) return false;
-          const dedupKey = `${activeUser.email.toLowerCase()}:${m.packet.payload.messageId}`;
-          return (
-            !autoReadSentKeysRef.current.has(dedupKey) &&
-            !readMessageIds.has(m.packet.payload.messageId)
-          );
+          return !readMessageIds.has(m.packet.payload.messageId);
         });
 
         const targetMsgId = firstUnreadMsg?.packet.payload.messageId || null;
@@ -2357,7 +2266,6 @@ export function App() {
     replyToMessageId?: string;
     targetMessageId?: string;
     reactionEmoji?: string;
-    receiptStatus?: 'delivered' | 'read';
     attachments?: DcpAttachment[];
     linkPreview?: DcpLinkPreview;
     vaultCategory?: 'note' | 'credential' | 'file' | 'snippet';
@@ -2416,7 +2324,6 @@ export function App() {
           replyToMessageId: params.replyToMessageId,
           targetMessageId: params.targetMessageId,
           reactionEmoji: params.reactionEmoji,
-          receiptStatus: params.receiptStatus,
           text: params.text,
           formatting: 'markdown',
           attachments: params.attachments,
@@ -3171,67 +3078,11 @@ export function App() {
     }
   }
 
-  // Automatic Read Receipts on View: marks unread incoming messages as read once scrolled into view
+  // Local-only unread tracking when scrolled to bottom (no outbound receipt emails)
   useEffect(() => {
-    if (isMobileDeviceView && !mobileShowChatPane) {
-      return;
-    }
-
-    if (!isAtBottom || isInitializingKeys || !activeChannel) {
-      return;
-    }
-
-    const unreadIncoming = freeflowStream.filter((msg) => {
-      if (msg.packet.type !== 'chat.message') {
-        return false;
-      }
-      const isOwn =
-        msg.packet.sender.email.toLowerCase() ===
-        activeUser.email.toLowerCase();
-      if (isOwn) return false;
-
-      const alreadyReceipted = msg.receipts.some(
-        (r) => r.senderEmail.toLowerCase() === activeUser.email.toLowerCase()
-      );
-      if (alreadyReceipted) return false;
-
-      const dedupKey = `${activeUser.email.toLowerCase()}:${msg.packet.payload.messageId}`;
-      return !autoReadSentKeysRef.current.has(dedupKey);
-    });
-
-    if (unreadIncoming.length === 0) return;
-
-    let cancelled = false;
-    (async () => {
-      for (const msg of unreadIncoming) {
-        if (cancelled) break;
-        const msgId = msg.packet.payload.messageId;
-        const dedupKey = `${activeUser.email.toLowerCase()}:${msgId}`;
-        if (autoReadSentKeysRef.current.has(dedupKey)) continue;
-        autoReadSentKeysRef.current.add(dedupKey);
-
-        await dispatchDcpEmailPacket({
-          channel: activeChannel,
-          type: 'chat.receipt',
-          targetMessageId: msgId,
-          receiptStatus: 'read',
-          text: `Read receipt for ${msgId}`,
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    isAtBottom,
-    isInitializingKeys,
-    activeChannel,
-    freeflowStream,
-    activeUser.email,
-    isMobileDeviceView,
-    mobileShowChatPane,
-  ]);
+    if (!isAtBottom) return;
+    markActiveChannelAsRead();
+  }, [isAtBottom, markActiveChannelAsRead]);
 
   // Add Member to Group or Broadcast Channel (Hard Capped at 99 Users to prevent personal email spam limits)
   async function handleAddMemberToChannel(e: React.FormEvent) {
@@ -3906,6 +3757,7 @@ export function App() {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('atme_simple_seed_v1');
       window.localStorage.removeItem('atme_simple_seed_v2');
+      window.localStorage.removeItem('atme_simple_seed_v3');
       window.localStorage.removeItem('atme_simple_channels_v1');
       window.localStorage.removeItem('atme_simple_channels_v2');
       window.localStorage.removeItem('dontcall_seed_v5');
@@ -5025,14 +4877,8 @@ export function App() {
                 const isOwn =
                   msg.packet.sender.email.toLowerCase() ===
                   activeUser.email.toLowerCase();
-                const alreadyReadByMe = msg.receipts.some(
-                  (r) =>
-                    r.senderEmail.toLowerCase() ===
-                    activeUser.email.toLowerCase()
-                );
                 const isMsgUnread =
                   !isOwn &&
-                  !alreadyReadByMe &&
                   !readMessageIds.has(msg.packet.payload.messageId);
                 const senderIdentity = users.find(
                   (u) =>
@@ -5043,7 +4889,6 @@ export function App() {
                   senderIdentity?.displayName || msg.packet.sender.displayName;
                 const displayHandle =
                   senderIdentity?.handle || msg.packet.sender.handle;
-                const hasBeenReadByPeer = msg.receipts.length > 0;
 
                 // System Pill for Adding / Removing Group Members
                 if (msg.packet.type === 'chat.member-update') {
@@ -5288,30 +5133,6 @@ export function App() {
                             )}
                           </div>
                         </div>
-
-                        {/* Subtle Status Footnote (Whisper-quiet Checkmarks) */}
-                        {isOwn && (
-                          <div className="dc-subtle-status-row">
-                            <span
-                              className={`dc-subtle-receipt-check ${
-                                hasBeenReadByPeer ? 'is-read' : 'is-delivered'
-                              }`}
-                              title={
-                                hasBeenReadByPeer
-                                  ? `Read by ${msg.receipts
-                                      .map((r) => r.senderName)
-                                      .join(', ')}`
-                                  : 'Delivered (ATME/1.0)'
-                              }
-                            >
-                              {hasBeenReadByPeer ? (
-                                <CheckCheck size={13} />
-                              ) : (
-                                <Check size={12} />
-                              )}
-                            </span>
-                          </div>
-                        )}
 
                         {activeReactionPickerMsgId ===
                           msg.packet.payload.messageId && (

@@ -1859,28 +1859,6 @@ pre,
   cursor: pointer;
 }
 
-/* Subtle Outgoing Read Receipt Indicator */
-.dc-subtle-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 4px;
-  margin-top: 1px;
-}
-
-.dc-subtle-receipt-check {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  color: var(--text-muted);
-  line-height: 1;
-  user-select: none;
-}
-
-.dc-subtle-receipt-check.is-read {
-  color: var(--imessage-blue);
-}
-
 .dc-tapback-bar {
   display: flex;
   flex-wrap: wrap;
@@ -3385,27 +3363,6 @@ dialog.dc-modal-dialog::backdrop {
   padding: 1px 6px;
 }
 
-/* Read Receipt Indicators */
-.dc-receipt-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.69rem;
-  font-weight: 600;
-}
-
-.dc-receipt-status.delivered {
-  color: var(--text-muted);
-}
-
-.dc-receipt-status.read {
-  color: var(--emerald);
-}
-
-.dc-read-sent {
-  color: var(--emerald) !important;
-}
-
 /* Real Inline Image & Voice Note Attachments */
 .dc-attachment-card {
   display: flex;
@@ -4170,84 +4127,6 @@ dialog.dc-modal-dialog::backdrop {
   font-size: 0.72rem;
   opacity: 0.86;
   line-height: 1.35;
-}
-
-/* Read Receipt Auto vs Manual Mode Toggle + Privacy Helpers */
-.dc-read-mode-pill {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.67rem;
-  font-weight: 700;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-}
-
-.dc-read-mode-pill.auto-mode {
-  background: rgba(48, 209, 88, 0.14);
-  border: 1px solid rgba(48, 209, 88, 0.45);
-  color: #30d158;
-}
-
-.dc-read-mode-pill.manual-mode {
-  background: rgba(255, 159, 10, 0.16);
-  border: 1px solid rgba(255, 159, 10, 0.5);
-  color: #ffb340;
-}
-
-.dc-imessage-bubble.burn-shrouded-bubble {
-  background: linear-gradient(
-    135deg,
-    rgba(30, 27, 46, 0.95),
-    rgba(45, 28, 18, 0.92)
-  );
-  border: 1px dashed rgba(255, 159, 10, 0.55);
-}
-
-.dc-burn-shroud-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 340px;
-}
-
-.dc-burn-shroud-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #ffb340;
-  font-size: 0.78rem;
-}
-
-.dc-burn-shroud-card p {
-  margin: 0;
-  font-size: 0.74rem;
-  color: rgba(255, 255, 255, 0.78);
-  line-height: 1.4;
-}
-
-.dc-btn-reveal-burn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 7px 11px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 159, 10, 0.55);
-  background: rgba(255, 159, 10, 0.2);
-  color: #ffd60a;
-  font-size: 0.74rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.dc-btn-reveal-burn:hover {
-  background: rgba(255, 159, 10, 0.32);
 }
 
 /* =====================================================================

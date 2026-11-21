@@ -70,7 +70,6 @@ export interface AtmePacket {
   type:
     | 'chat.message'
     | 'chat.reaction'
-    | 'chat.receipt'
     | 'chat.edit'
     | 'chat.member-update'
     | 'chat.branch-mod';

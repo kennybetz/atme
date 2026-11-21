@@ -291,22 +291,6 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
     sentAt: new Date(now - 1000 * 60 * 38).toISOString(),
   };
 
-  const pktFhReceipt1: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_fh_rcpt_01',
-    type: 'chat.receipt',
-    encryptionMode: 'cleartext-json',
-    channel: chFridayHangout,
-    sender: makeSender(elena),
-    payload: {
-      messageId: 'msg_seed_fh_rcpt_01',
-      targetMessageId: 'msg_seed_01',
-      receiptStatus: 'read',
-      text: 'Read msg_seed_01',
-    },
-    sentAt: new Date(now - 1000 * 60 * 37).toISOString(),
-  };
-
   const pktFhReact1: DcpPacket = {
     protocol: ATME_PROTOCOL_VERSION,
     packetId: 'pkt_seed_fh_react_01',
@@ -366,22 +350,6 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
       formatting: 'markdown',
     },
     sentAt: new Date(now - 1000 * 60 * 22).toISOString(),
-  };
-
-  const pktFhReceipt2: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_fh_rcpt_05',
-    type: 'chat.receipt',
-    encryptionMode: 'cleartext-json',
-    channel: chFridayHangout,
-    sender: makeSender(sam),
-    payload: {
-      messageId: 'msg_seed_fh_rcpt_05',
-      targetMessageId: 'msg_seed_fh_05',
-      receiptStatus: 'read',
-      text: 'Read msg_seed_fh_05',
-    },
-    sentAt: new Date(now - 1000 * 60 * 21).toISOString(),
   };
 
   const pktFhUnread1: DcpPacket = {
@@ -538,22 +506,6 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
     sentAt: new Date(now - 1000 * 60 * 11).toISOString(),
   };
 
-  const pktDmElenaRead: DcpPacket = {
-    protocol: ATME_PROTOCOL_VERSION,
-    packetId: 'pkt_seed_dm_elena_rcpt_04',
-    type: 'chat.receipt',
-    encryptionMode: 'cleartext-json',
-    channel: dmElena,
-    sender: makeSender(elena),
-    payload: {
-      messageId: 'msg_seed_dm_elena_rcpt_04',
-      targetMessageId: 'msg_seed_dm_alex_02',
-      receiptStatus: 'read',
-      text: 'Read msg_seed_dm_alex_02',
-    },
-    sentAt: new Date(now - 1000 * 60 * 10).toISOString(),
-  };
-
   const pktDmElenaUnread1: DcpPacket = {
     protocol: ATME_PROTOCOL_VERSION,
     packetId: 'pkt_seed_dm_elena_unread_01',
@@ -636,12 +588,10 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
   return [
     pktFh1,
     pktFh2,
-    pktFhReceipt1,
     pktFhReact1,
     pktFh3,
     pktFh4,
     pktFh5,
-    pktFhReceipt2,
     pktFhUnread1,
     pktFhUnread2,
     pktMc1,
@@ -652,7 +602,6 @@ export function buildDemoSeedPackets(usersList: UserIdentity[]): DcpPacket[] {
     pktDmElena1,
     pktDmAlex2,
     pktDmElenaReact,
-    pktDmElenaRead,
     pktDmElenaUnread1,
     pktDmElenaUnread2,
     pktDmMayaUnread,

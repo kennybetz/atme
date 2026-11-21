@@ -68,8 +68,6 @@ export function buildNonAppInviteHtmlCard(options: {
       ? `reacted (${escapeHtml(packet.payload.reactionEmoji || '👍')}) to a message`
       : packet.type === 'chat.edit'
       ? 'edited a message'
-      : packet.type === 'chat.receipt'
-      ? `marked message as ${escapeHtml(packet.payload.receiptStatus || 'read')}`
       : packet.type === 'chat.member-update'
       ? `updated group members (${escapeHtml(
           packet.payload.memberUpdate?.action || 'update'
